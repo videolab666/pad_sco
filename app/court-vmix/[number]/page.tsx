@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { getMatchByCourtNumber } from "@/lib/court-utils"
+import { getImportantPoint, isGamePoint, isSetPoint, isMatchPoint } from "@/lib/scoring-logic"
 import { getTennisPointName } from "@/lib/tennis-utils"
 import { logEvent } from "@/lib/error-logger"
 import { subscribeToMatchUpdates } from "@/lib/match-storage"
@@ -62,80 +63,8 @@ const parseColorParam = (param, defaultColor) => {
   return param.startsWith("#") ? param : `#${param}`
 }
 
-// Функция для преобразования числового значения очков в теннисе в индекс
-const getPointIndex = (point) => {
-  // Обработка строкового значения "Ad" (преимущество)
-  if (point === "Ad") return 4
-
-  // Преобразуем числовые значения очков (0, 15, 30, 40) в индексы (0, 1, 2, 3)
-  if (point === 0) return 0
-  if (point === 15) return 1
-  if (point === 30) return 2
-  if (point === 40) return 3
-
-  // Если значение больше 40, считаем это преимуществом (Ad)
-  if (typeof point === "number" && point > 40) return 4
-
-  // Если это числовое значение, но не стандартное, возвращаем его как есть
-  // (это может быть счет в тай-брейке)
-  return point
-}
-
-// Улучшенная функция для определения game point с подробным логированием
-const isGamePoint = (match) => {
-  if (!match || !match.score || !match.score.currentSet) {
-    return false
-  }
-
-  const currentSet = match.score.currentSet
-  const currentGame = currentSet.currentGame
-
-  if (!currentGame) {
-    return false
-  }
-
-  // Получаем индексы очков для правильного сравнения
-  const teamAIndex = getPointIndex(currentGame.teamA)
-  const teamBIndex = getPointIndex(currentGame.teamB)
-
-  // Для тай-брейка
-  if (currentSet.isTiebreak) {
-    // В тай-брейке обычно нужно набрать 7 очков с разницей в 2 очка
-    // Если команда A имеет 6 очков и ведет, это game point
-    if (currentGame.teamA >= 6 && currentGame.teamA >= currentGame.teamB + 1) {
-      return "teamA"
-    }
-    // Если команда B имеет 6 очков и ведет, это game point
-    if (currentGame.teamB >= 6 && currentGame.teamB >= currentGame.teamA + 1) {
-      return "teamB"
-    }
-    return false
-  }
-
-  // Для обычного гейма - исправленная логика с использованием индексов
-
-  // Если у команды A преимущество (Ad)
-  if (teamAIndex === 4 && teamBIndex <= 3) {
-    return "teamA"
-  }
-
-  // Если команда A имеет 40 (индекс 3) и команда B имеет меньше или равно 30 (индекс <= 2)
-  if (teamAIndex === 3 && teamBIndex <= 2) {
-    return "teamA"
-  }
-
-  // Если у команды B преимущество (Ad)
-  if (teamBIndex === 4 && teamAIndex <= 3) {
-    return "teamB"
-  }
-
-  // Если команда B имеет 40 (индекс 3) и команда A имеет меньше или равно 30 (индекс <= 2)
-  if (teamBIndex === 3 && teamAIndex <= 2) {
-    return "teamB"
-  }
-
-  return false
-}
+// getPointIndex, isGamePoint, isSetPoint, isMatchPoint, getImportantPoint
+// → removed, now imported from @/lib/scoring-logic
 
 // Функция для определения break point
 const isBreakPoint = (match) => {
@@ -177,133 +106,6 @@ const getBreakPointCount = (match) => {
   // и общее количество как 1
   // В реальном приложении здесь должна быть логика отслеживания всех брейк-поинтов в гейме
   return { current: 1, total: 1 }
-}
-
-// Улучшенная функция для определения set point
-const isSetPoint = (match) => {
-  if (!match || !match.score || !match.score.currentSet) {
-    return false
-  }
-
-  const currentSet = match.score.currentSet
-  const teamAGames = currentSet.teamA
-  const teamBGames = currentSet.teamB
-
-  // Если идет тай-брейк, проверяем особым образом
-  if (currentSet.isTiebreak) {
-    // Получаем, кто имеет гейм-поинт в тай-брейке
-    const gamePoint = isGamePoint(match)
-
-    // Если есть гейм-поинт в тай-брейке, то это также и сет-поинт
-    if (gamePoint) {
-      return gamePoint
-    }
-
-    return false
-  }
-
-  // Для обычного гейма
-  // Получаем, кто имеет гейм-поинт
-  const gamePoint = isGamePoint(match)
-
-  if (!gamePoint) {
-    return false
-  }
-
-  // Для команды A
-  if (gamePoint === "teamA") {
-    // Если команда A ведет 5-x и выиграет этот гейм, то счет станет 6-x
-    if (teamAGames === 5 && teamBGames <= 4) {
-      return "teamA"
-    }
-    // Если команда A ведет 6-5 и выиграет этот гейм, то счет станет 7-5
-    if (teamAGames === 6 && teamBGames === 5) {
-      return "teamA"
-    }
-  }
-
-  // Для команды B
-  if (gamePoint === "teamB") {
-    // Если команда B ведет 5-x и выиграет этот гейм, то счет станет 6-x
-    if (teamBGames === 5 && teamAGames <= 4) {
-      return "teamB"
-    }
-    // Если команда B ведет 6-5 и выиграет этот гейм, то счет станет 7-5
-    if (teamBGames === 6 && teamAGames === 5) {
-      return "teamB"
-    }
-  }
-
-  return false
-}
-
-// Улучшенная функция для определения match point
-const isMatchPoint = (match) => {
-  if (!match || !match.score || !match.score.currentSet) {
-    return false
-  }
-
-  // Определяем, сколько сетов нужно для победы (обычно 2 из 3)
-  const setsToWin = match.setsToWin || 2
-
-  // Получаем текущий счет по сетам
-  const teamASets = match.score.sets ? match.score.sets.filter((set) => set.teamA > set.teamB).length : 0
-  const teamBSets = match.score.sets ? match.score.sets.filter((set) => set.teamB > set.teamA).length : 0
-
-  // Проверяем, является ли текущий гейм сет-поинтом
-  const setPoint = isSetPoint(match)
-
-  // Если нет сет-поинта, то не может быть и матч-поинта
-  if (!setPoint) {
-    return false
-  }
-
-  // Для команды A
-  if (setPoint === "teamA" && teamASets === setsToWin - 1) {
-    return "teamA"
-  }
-
-  // Для команды B
-  if (setPoint === "teamB" && teamBSets === setsToWin - 1) {
-    return "teamB"
-  }
-
-  return false
-}
-
-// Улучшенная функция для определения важного момента
-const getImportantPoint = (match) => {
-  if (!match || !match.score || !match.score.currentSet) {
-    return { type: "GAME", team: null }
-  }
-
-  // Проверяем, идет ли тай-брейк
-  const isTiebreak = match?.score?.currentSet?.isTiebreak || false
-
-  // Сначала проверяем match point (самый приоритетный)
-  const matchPoint = isMatchPoint(match)
-  if (matchPoint) {
-    return { type: "MATCH POINT", team: matchPoint }
-  }
-
-  // Затем проверяем set point
-  const setPoint = isSetPoint(match)
-  if (setPoint) {
-    return { type: "SET POINT", team: setPoint }
-  }
-
-  // Затем проверяем game point
-  const gamePoint = isGamePoint(match)
-  if (gamePoint) {
-    // Если идет тай-брейк, показываем "TIEBREAK POINT" вместо "GAME POINT"
-    if (isTiebreak) {
-      return { type: "TIEBREAK POINT", team: gamePoint }
-    }
-    return { type: "GAME POINT", team: gamePoint }
-  }
-
-  // Если нет важного момента, возвращаем тип индикатора в зависимости от того, идет ли тай-брейк
-  return { type: isTiebreak ? "TIEBREAK" : "GAME", team: null }
 }
 
 // Получаем страну игрока - эта функция не должна использовать переменную match

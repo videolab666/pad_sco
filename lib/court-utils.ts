@@ -143,6 +143,7 @@ export const getMatchByCourtNumber = async (courtNumber) => {
           isCompleted: completedData.is_completed,
           winner: completedData.winner,
           courtNumber: completedData.court_number,
+          revision: typeof completedData.revision === "number" ? completedData.revision : 0,
           history: [],
         }
 
@@ -179,6 +180,7 @@ export const getMatchByCourtNumber = async (courtNumber) => {
         isCompleted: data.is_completed,
         winner: data.winner,
         courtNumber: data.court_number,
+        revision: typeof data.revision === "number" ? data.revision : 0,
         history: [],
       }
 
@@ -460,7 +462,7 @@ export const freeUpCourt = async (courtNumber) => {
 
       const { error } = await supabase
         .from("matches")
-        .update({ court_number: null })
+        .update({ court_number: null, is_completed: true })
         .eq("id", match.id)
         .abortSignal(controller.signal)
 

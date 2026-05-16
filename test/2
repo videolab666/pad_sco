@@ -1,0 +1,181 @@
+{
+  "log": {
+    "version": "1.2",
+    "creator": {
+      "name": "Firefox",
+      "version": "139.0.1"
+    },
+    "browser": {
+      "name": "Firefox",
+      "version": "139.0.1"
+    },
+    "pages": [
+      {
+        "id": "page_5",
+        "pageTimings": {
+          "onContentLoad": 220,
+          "onLoad": 710
+        },
+        "startedDateTime": "2025-06-02T21:42:07.194+03:00",
+        "title": "http://localhost:3000/match/22966957-8502-43e5-9caf-5939dcc17271"
+      }
+    ],
+    "entries": [
+      {
+        "startedDateTime": "2025-06-02T21:42:07.194+03:00",
+        "request": {
+          "bodySize": 1801,
+          "method": "POST",
+          "url": "http://localhost:3000/__nextjs_original-stack-frames",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {
+              "name": "Host",
+              "value": "localhost:3000"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:139.0) Gecko/20100101 Firefox/139.0"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.5"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "Referer",
+              "value": "http://localhost:3000/match/22966957-8502-43e5-9caf-5939dcc17271"
+            },
+            {
+              "name": "Content-Type",
+              "value": "text/plain;charset=UTF-8"
+            },
+            {
+              "name": "Content-Length",
+              "value": "1801"
+            },
+            {
+              "name": "Origin",
+              "value": "http://localhost:3000"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Cookie",
+              "value": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImMzNDE2MDZiLWVkNTUtNDZiZC05NWVmLWYxN2QyOWFmZjA3YiJ9.X9diMfE7xHaC2M4AwXWUPNxFffjQQgLDcAP5pkuaPZI; __next_hmr_refresh_hash__=427cf59b4897872e3caabc6b9f9c5305633457081244afec"
+            },
+            {
+              "name": "Sec-Fetch-Dest",
+              "value": "empty"
+            },
+            {
+              "name": "Sec-Fetch-Mode",
+              "value": "cors"
+            },
+            {
+              "name": "Sec-Fetch-Site",
+              "value": "same-origin"
+            },
+            {
+              "name": "Priority",
+              "value": "u=0"
+            }
+          ],
+          "cookies": [
+            {
+              "name": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImMzNDE2MDZiLWVkNTUtNDZiZC05NWVmLWYxN2QyOWFmZjA3YiJ9.X9diMfE7xHaC2M4AwXWUPNxFffjQQgLDcAP5pkuaPZI"
+            },
+            {
+              "name": "__next_hmr_refresh_hash__",
+              "value": "427cf59b4897872e3caabc6b9f9c5305633457081244afec"
+            }
+          ],
+          "queryString": [],
+          "headersSize": 767,
+          "postData": {
+            "mimeType": "text/plain;charset=UTF-8",
+            "params": [],
+            "text": "{\"frames\":[{\"file\":\"webpack-internal:///(app-pages-browser)/./node_modules/.pnpm/next@15.2.4_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/client/components/errors/console-error.js\",\"methodName\":\"createUnhandledError\",\"arguments\":[],\"lineNumber\":27,\"column\":71},{\"file\":\"webpack-internal:///(app-pages-browser)/./node_modules/.pnpm/next@15.2.4_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/client/components/errors/use-error-handler.js\",\"methodName\":\"handleClientError\",\"arguments\":[],\"lineNumber\":45,\"column\":56},{\"file\":\"webpack-internal:///(app-pages-browser)/./node_modules/.pnpm/next@15.2.4_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/client/components/globals/intercept-console-error.js\",\"methodName\":\"error\",\"arguments\":[],\"lineNumber\":47,\"column\":56},{\"file\":\"webpack-internal:///(app-pages-browser)/./node_modules/.pnpm/next@15.2.4_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/client/request/params.browser.dev.js\",\"methodName\":\"warnForSyncAccess\",\"arguments\":[],\"lineNumber\":60,\"column\":13},{\"file\":\"webpack-internal:///(app-pages-browser)/./node_modules/.pnpm/next@15.2.4_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/client/request/params.browser.dev.js\",\"methodName\":\"get\",\"arguments\":[],\"lineNumber\":40,\"column\":38},{\"file\":\"webpack-internal:///(app-pages-browser)/./app/match/[id]/page.tsx\",\"methodName\":\"MatchPage\",\"arguments\":[],\"lineNumber\":146,\"column\":9},{\"file\":\"webpack-internal:///(app-pages-browser)/./node_modules/.pnpm/next@15.2.4_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/client/components/client-page.js\",\"methodName\":\"ClientPageRoot\",\"arguments\":[],\"lineNumber\":20,\"column\":50}],\"isServer\":false,\"isEdgeServer\":false,\"isAppDirectory\":true}"
+          }
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "httpVersion": "HTTP/1.1",
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "value": "http://localhost:3000"
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "value": "OPTIONS, GET"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Vary",
+              "value": "Accept-Encoding"
+            },
+            {
+              "name": "Content-Encoding",
+              "value": "gzip"
+            },
+            {
+              "name": "Date",
+              "value": "Mon, 02 Jun 2025 18:42:07 GMT"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Keep-Alive",
+              "value": "timeout=5"
+            },
+            {
+              "name": "Transfer-Encoding",
+              "value": "chunked"
+            }
+          ],
+          "cookies": [],
+          "content": {
+            "mimeType": "application/json",
+            "size": 7851,
+            "text": "[{\"status\":\"fulfilled\",\"value\":{\"originalStackFrame\":{\"file\":\"..\\\\src\\\\client\\\\components\\\\errors\\\\console-error.ts\",\"lineNumber\":18,\"column\":35,\"methodName\":\"createUnhandledError\",\"arguments\":[],\"ignored\":true},\"originalCodeFrame\":\"\\u001b[0m \\u001b[90m 16 |\\u001b[39m )\\u001b[33m:\\u001b[39m \\u001b[33mUnhandledError\\u001b[39m {\\u001b[0m\\n\\u001b[0m \\u001b[90m 17 |\\u001b[39m   \\u001b[36mconst\\u001b[39m error \\u001b[33m=\\u001b[39m (\\u001b[0m\\n\\u001b[0m\\u001b[31m\\u001b[1m>\\u001b[22m\\u001b[39m\\u001b[90m 18 |\\u001b[39m     \\u001b[36mtypeof\\u001b[39m message \\u001b[33m===\\u001b[39m \\u001b[32m'string'\\u001b[39m \\u001b[33m?\\u001b[39m \\u001b[36mnew\\u001b[39m \\u001b[33mError\\u001b[39m(message) \\u001b[33m:\\u001b[39m message\\u001b[0m\\n\\u001b[0m \\u001b[90m    |\\u001b[39m                                   \\u001b[31m\\u001b[1m^\\u001b[22m\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 19 |\\u001b[39m   ) \\u001b[36mas\\u001b[39m \\u001b[33mUnhandledError\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 20 |\\u001b[39m   error[digestSym] \\u001b[33m=\\u001b[39m \\u001b[32m'NEXT_UNHANDLED_ERROR'\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 21 |\\u001b[39m   error[consoleTypeSym] \\u001b[33m=\\u001b[39m \\u001b[36mtypeof\\u001b[39m message \\u001b[33m===\\u001b[39m \\u001b[32m'string'\\u001b[39m \\u001b[33m?\\u001b[39m \\u001b[32m'string'\\u001b[39m \\u001b[33m:\\u001b[39m \\u001b[32m'error'\\u001b[39m\\u001b[0m\"}},{\"status\":\"fulfilled\",\"value\":{\"originalStackFrame\":{\"file\":\"..\\\\src\\\\client\\\\components\\\\errors\\\\use-error-handler.ts\",\"lineNumber\":31,\"column\":13,\"methodName\":\"handleClientError\",\"arguments\":[],\"ignored\":true},\"originalCodeFrame\":\"\\u001b[0m \\u001b[90m 29 |\\u001b[39m     \\u001b[36mconst\\u001b[39m formattedErrorMessage \\u001b[33m=\\u001b[39m formatConsoleArgs(consoleErrorArgs)\\u001b[0m\\n\\u001b[0m \\u001b[90m 30 |\\u001b[39m     \\u001b[36mconst\\u001b[39m { environmentName } \\u001b[33m=\\u001b[39m parseConsoleArgs(consoleErrorArgs)\\u001b[0m\\n\\u001b[0m\\u001b[31m\\u001b[1m>\\u001b[22m\\u001b[39m\\u001b[90m 31 |\\u001b[39m     error \\u001b[33m=\\u001b[39m createUnhandledError(formattedErrorMessage\\u001b[33m,\\u001b[39m environmentName)\\u001b[0m\\n\\u001b[0m \\u001b[90m    |\\u001b[39m             \\u001b[31m\\u001b[1m^\\u001b[22m\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 32 |\\u001b[39m   } \\u001b[36melse\\u001b[39m {\\u001b[0m\\n\\u001b[0m \\u001b[90m 33 |\\u001b[39m     error \\u001b[33m=\\u001b[39m capturedFromConsole\\u001b[0m\\n\\u001b[0m \\u001b[90m 34 |\\u001b[39m       \\u001b[33m?\\u001b[39m createUnhandledError(originError)\\u001b[0m\"}},{\"status\":\"fulfilled\",\"value\":{\"originalStackFrame\":{\"file\":\"..\\\\src\\\\client\\\\components\\\\globals\\\\intercept-console-error.ts\",\"lineNumber\":32,\"column\":9,\"methodName\":\"error\",\"arguments\":[],\"ignored\":true},\"originalCodeFrame\":\"\\u001b[0m \\u001b[90m 30 |\\u001b[39m     \\u001b[36mif\\u001b[39m (\\u001b[33m!\\u001b[39misNextRouterError(maybeError)) {\\u001b[0m\\n\\u001b[0m \\u001b[90m 31 |\\u001b[39m       \\u001b[36mif\\u001b[39m (process\\u001b[33m.\\u001b[39menv\\u001b[33m.\\u001b[39m\\u001b[33mNODE_ENV\\u001b[39m \\u001b[33m!==\\u001b[39m \\u001b[32m'production'\\u001b[39m) {\\u001b[0m\\n\\u001b[0m\\u001b[31m\\u001b[1m>\\u001b[22m\\u001b[39m\\u001b[90m 32 |\\u001b[39m         handleClientError(\\u001b[0m\\n\\u001b[0m \\u001b[90m    |\\u001b[39m         \\u001b[31m\\u001b[1m^\\u001b[22m\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 33 |\\u001b[39m           \\u001b[90m// replayed errors have their own complex format string that should be used,\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 34 |\\u001b[39m           \\u001b[90m// but if we pass the error directly, `handleClientError` will ignore it\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 35 |\\u001b[39m           maybeError\\u001b[33m,\\u001b[39m\\u001b[0m\"}},{\"status\":\"fulfilled\",\"value\":{\"originalStackFrame\":{\"file\":\"..\\\\src\\\\client\\\\request\\\\params.browser.dev.ts\",\"lineNumber\":69,\"column\":11,\"methodName\":\"warnForSyncAccess\",\"arguments\":[],\"ignored\":true},\"originalCodeFrame\":\"\\u001b[0m \\u001b[90m 67 |\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 68 |\\u001b[39m \\u001b[36mfunction\\u001b[39m warnForSyncAccess(expression\\u001b[33m:\\u001b[39m string) {\\u001b[0m\\n\\u001b[0m\\u001b[31m\\u001b[1m>\\u001b[22m\\u001b[39m\\u001b[90m 69 |\\u001b[39m   console\\u001b[33m.\\u001b[39merror(\\u001b[0m\\n\\u001b[0m \\u001b[90m    |\\u001b[39m           \\u001b[31m\\u001b[1m^\\u001b[22m\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 70 |\\u001b[39m     \\u001b[32m`A param property was accessed directly with ${expression}. \\\\`params\\\\` is now a Promise and should be unwrapped with \\\\`React.use()\\\\` before accessing properties of the underlying params object. In this version of Next.js direct access to param properties is still supported to facilitate migration but in a future version you will be required to unwrap \\\\`params\\\\` with \\\\`React.use()\\\\`.`\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 71 |\\u001b[39m   )\\u001b[0m\\n\\u001b[0m \\u001b[90m 72 |\\u001b[39m }\\u001b[0m\"}},{\"status\":\"fulfilled\",\"value\":{\"originalStackFrame\":{\"file\":\"..\\\\src\\\\client\\\\request\\\\params.browser.dev.ts\",\"lineNumber\":47,\"column\":11,\"methodName\":\"get\",\"arguments\":[],\"ignored\":true},\"originalCodeFrame\":\"\\u001b[0m \\u001b[90m 45 |\\u001b[39m         ) {\\u001b[0m\\n\\u001b[0m \\u001b[90m 46 |\\u001b[39m           \\u001b[36mconst\\u001b[39m expression \\u001b[33m=\\u001b[39m describeStringPropertyAccess(\\u001b[32m'params'\\u001b[39m\\u001b[33m,\\u001b[39m prop)\\u001b[0m\\n\\u001b[0m\\u001b[31m\\u001b[1m>\\u001b[22m\\u001b[39m\\u001b[90m 47 |\\u001b[39m           warnForSyncAccess(expression)\\u001b[0m\\n\\u001b[0m \\u001b[90m    |\\u001b[39m           \\u001b[31m\\u001b[1m^\\u001b[22m\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 48 |\\u001b[39m         }\\u001b[0m\\n\\u001b[0m \\u001b[90m 49 |\\u001b[39m       }\\u001b[0m\\n\\u001b[0m \\u001b[90m 50 |\\u001b[39m       \\u001b[36mreturn\\u001b[39m \\u001b[33mReflectAdapter\\u001b[39m\\u001b[33m.\\u001b[39m\\u001b[36mget\\u001b[39m(target\\u001b[33m,\\u001b[39m prop\\u001b[33m,\\u001b[39m receiver)\\u001b[0m\"}},{\"status\":\"fulfilled\",\"value\":{\"originalStackFrame\":{\"file\":\"app\\\\match\\\\[id]\\\\page.tsx\",\"lineNumber\":125,\"column\":7,\"methodName\":\"MatchPage\",\"arguments\":[],\"ignored\":false},\"originalCodeFrame\":\"\\u001b[0m \\u001b[90m 123 |\\u001b[39m       window\\u001b[33m.\\u001b[39mremoveEventListener(\\u001b[32m\\\"courtSidesSwapped\\\"\\u001b[39m\\u001b[33m,\\u001b[39m handleCourtSidesSwapped)\\u001b[0m\\n\\u001b[0m \\u001b[90m 124 |\\u001b[39m     }\\u001b[0m\\n\\u001b[0m\\u001b[31m\\u001b[1m>\\u001b[22m\\u001b[39m\\u001b[90m 125 |\\u001b[39m   }\\u001b[33m,\\u001b[39m [params\\u001b[33m.\\u001b[39mid\\u001b[33m,\\u001b[39m language])\\u001b[0m\\n\\u001b[0m \\u001b[90m     |\\u001b[39m       \\u001b[31m\\u001b[1m^\\u001b[22m\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 126 |\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 127 |\\u001b[39m   \\u001b[36mconst\\u001b[39m handleUpdateMatch \\u001b[33m=\\u001b[39m \\u001b[36masync\\u001b[39m (updatedMatch) \\u001b[33m=>\\u001b[39m {\\u001b[0m\\n\\u001b[0m \\u001b[90m 128 |\\u001b[39m     \\u001b[36mtry\\u001b[39m {\\u001b[0m\"}},{\"status\":\"fulfilled\",\"value\":{\"originalStackFrame\":{\"file\":\"..\\\\src\\\\client\\\\components\\\\client-page.tsx\",\"lineNumber\":60,\"column\":12,\"methodName\":\"ClientPageRoot\",\"arguments\":[],\"ignored\":true},\"originalCodeFrame\":\"\\u001b[0m \\u001b[90m 58 |\\u001b[39m     \\u001b[36mconst\\u001b[39m clientParams \\u001b[33m=\\u001b[39m createRenderParamsFromClient(params)\\u001b[0m\\n\\u001b[0m \\u001b[90m 59 |\\u001b[39m\\u001b[0m\\n\\u001b[0m\\u001b[31m\\u001b[1m>\\u001b[22m\\u001b[39m\\u001b[90m 60 |\\u001b[39m     \\u001b[36mreturn\\u001b[39m \\u001b[33m<\\u001b[39m\\u001b[33mComponent\\u001b[39m params\\u001b[33m=\\u001b[39m{clientParams} searchParams\\u001b[33m=\\u001b[39m{clientSearchParams} \\u001b[33m/\\u001b[39m\\u001b[33m>\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m    |\\u001b[39m            \\u001b[31m\\u001b[1m^\\u001b[22m\\u001b[39m\\u001b[0m\\n\\u001b[0m \\u001b[90m 61 |\\u001b[39m   }\\u001b[0m\\n\\u001b[0m \\u001b[90m 62 |\\u001b[39m }\\u001b[0m\\n\\u001b[0m \\u001b[90m 63 |\\u001b[39m\\u001b[0m\"}}]"
+          },
+          "redirectURL": "",
+          "headersSize": 306,
+          "bodySize": 1919
+        },
+        "cache": {},
+        "timings": {
+          "blocked": -1,
+          "dns": 0,
+          "connect": 0,
+          "ssl": 0,
+          "send": 0,
+          "wait": 44,
+          "receive": 4
+        },
+        "time": 48,
+        "_securityState": "insecure",
+        "serverIPAddress": "127.0.0.1",
+        "connection": "3000",
+        "pageref": "page_5"
+      }
+    ]
+  }
+}

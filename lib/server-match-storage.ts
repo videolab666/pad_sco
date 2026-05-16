@@ -20,6 +20,7 @@ const transformMatchFromSupabase = (match) => {
     winner: match.winner,
     courtNumber: match.court_number,
     history: [],
+    created_via_court_link: match.created_via_court_link,
   }
 }
 

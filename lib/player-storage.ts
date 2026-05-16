@@ -9,9 +9,12 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
 // Create a singleton instance of the Supabase client
-let supabaseInstance = null
+import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Player, AddPlayerOptions, UpdatePlayerOptions } from "./types"
 
-const getSupabase = () => {
+let supabaseInstance: SupabaseClient | null = null
+
+const getSupabase = (): SupabaseClient | null => {
   if (!supabaseInstance && supabaseUrl && supabaseAnonKey) {
     supabaseInstance = createClient(supabaseUrl, supabaseAnonKey)
   }
@@ -25,7 +28,7 @@ const PLAYERS_STORAGE_KEY = "padel-tennis-players"
 const PLAYERS_UPDATED_EVENT = "players-updated"
 
 // Get players from local storage
-export const getPlayers = async () => {
+export const getPlayers = async (): Promise<Player[]> => {
   try {
     // Try to get from local storage first
     const playersJson = localStorage.getItem(PLAYERS_STORAGE_KEY)
@@ -40,8 +43,8 @@ export const getPlayers = async () => {
         logEvent("error", "Error fetching players from Supabase", "player-storage", error)
       } else if (data && data.length > 0) {
         // Merge players from Supabase with local players
-        const supabasePlayers = data
-        const localPlayerIds = new Set(players.map((p) => p.id))
+        const supabasePlayers: Player[] = data
+        const localPlayerIds: Set<string> = new Set(players.map((p: Player) => p.id))
 
         // Add Supabase players that don't exist locally
         for (const player of supabasePlayers) {
@@ -64,11 +67,11 @@ export const getPlayers = async () => {
 }
 
 // Add a new player
-export const addPlayer = async (player) => {
+export const addPlayer = async (player: Player, options: AddPlayerOptions = {}): Promise<{ success: boolean; message: string }> => {
   try {
     // Check if player with same name already exists
-    const players = await getPlayers()
-    const existingPlayer = players.find((p) => p.name.toLowerCase() === player.name.toLowerCase())
+    const players: Player[] = await getPlayers()
+    const existingPlayer: Player | undefined = players.find((p: Player) => p.name.toLowerCase() === player.name.toLowerCase())
 
     if (existingPlayer) {
       return {
@@ -77,17 +80,26 @@ export const addPlayer = async (player) => {
       }
     }
 
+    // If localOnly, add a local_expire_at field and do NOT save to Supabase
+    let playerToSave: Player & { local_expire_at?: number } = { ...player }
+    if (options.localOnly) {
+      const expireMs: number = options.expireMs || 6 * 60 * 60 * 1000 // default 6 hours
+      playerToSave.local_expire_at = Date.now() + expireMs
+    }
+
     // Add to local storage
-    players.push(player)
+    players.push(playerToSave)
     localStorage.setItem(PLAYERS_STORAGE_KEY, JSON.stringify(players))
 
-    // Add to Supabase if available
-    const supabase = getSupabase()
-    if (supabase) {
-      const { error } = await supabase.from("players").insert(player)
-      if (error) {
-        console.error("Error adding player to Supabase:", error)
-        logEvent("error", "Error adding player to Supabase", "player-storage", error)
+    // Only add to Supabase if not localOnly
+    if (!options.localOnly) {
+      const supabase: SupabaseClient | null = getSupabase()
+      if (supabase) {
+        const { error } = await supabase.from("players").insert(player)
+        if (error) {
+          console.error("Error adding player to Supabase:", error)
+          logEvent("error", "Error adding player to Supabase", "player-storage", error)
+        }
       }
     }
 
@@ -110,10 +122,10 @@ export const addPlayer = async (player) => {
 }
 
 // Update an existing player
-export const updatePlayer = async (playerId, updatedPlayer) => {
+export const updatePlayer = async (playerId: string, updatedPlayer: UpdatePlayerOptions): Promise<{ success: boolean; message: string }> => {
   try {
-    const players = await getPlayers()
-    const playerIndex = players.findIndex((p) => p.id === playerId)
+    const players: Player[] = await getPlayers()
+    const playerIndex: number = players.findIndex((p: Player) => p.id === playerId)
 
     if (playerIndex === -1) {
       return {
@@ -124,8 +136,8 @@ export const updatePlayer = async (playerId, updatedPlayer) => {
 
     // Check if updated name conflicts with existing player
     if (updatedPlayer.name) {
-      const nameExists = players.some(
-        (p) => p.id !== playerId && p.name.toLowerCase() === updatedPlayer.name.toLowerCase(),
+      const nameExists: boolean = players.some(
+        (p: Player) => p.id !== playerId && p.name.toLowerCase() === updatedPlayer.name?.toLowerCase(),
       )
 
       if (nameExists) {
@@ -143,7 +155,7 @@ export const updatePlayer = async (playerId, updatedPlayer) => {
     localStorage.setItem(PLAYERS_STORAGE_KEY, JSON.stringify(players))
 
     // Update in Supabase if available
-    const supabase = getSupabase()
+    const supabase: SupabaseClient | null = getSupabase()
     if (supabase) {
       const { error } = await supabase.from("players").update(updatedPlayer).eq("id", playerId)
 
@@ -172,16 +184,16 @@ export const updatePlayer = async (playerId, updatedPlayer) => {
 }
 
 // Delete a player
-export const deletePlayer = async (playerId) => {
+export const deletePlayer = async (playerId: string): Promise<{ success: boolean; message: string }> => {
   try {
-    const players = await getPlayers()
-    const filteredPlayers = players.filter((p) => p.id !== playerId)
+    const players: Player[] = await getPlayers()
+    const filteredPlayers: Player[] = players.filter((p: Player) => p.id !== playerId)
 
     // Update local storage
     localStorage.setItem(PLAYERS_STORAGE_KEY, JSON.stringify(filteredPlayers))
 
     // Delete from Supabase if available
-    const supabase = getSupabase()
+    const supabase: SupabaseClient | null = getSupabase()
     if (supabase) {
       const { error } = await supabase.from("players").delete().eq("id", playerId)
 
@@ -212,14 +224,14 @@ export const deletePlayer = async (playerId) => {
 // Delete multiple players
 export const deletePlayers = async (playerIds: string[]): Promise<boolean> => {
   try {
-    const players = await getPlayers()
-    const filteredPlayers = players.filter((p) => !playerIds.includes(p.id))
+    const players: Player[] = await getPlayers()
+    const filteredPlayers: Player[] = players.filter((p: Player) => !playerIds.includes(p.id))
 
     // Update local storage
     localStorage.setItem(PLAYERS_STORAGE_KEY, JSON.stringify(filteredPlayers))
 
     // Delete from Supabase if available
-    const supabase = getSupabase()
+    const supabase: SupabaseClient | null = getSupabase()
     if (supabase) {
       const { error } = await supabase.from("players").delete().in("id", playerIds)
 
@@ -242,7 +254,7 @@ export const deletePlayers = async (playerIds: string[]): Promise<boolean> => {
 }
 
 // Helper function to dispatch custom event for player updates
-const dispatchPlayersUpdatedEvent = (players) => {
+const dispatchPlayersUpdatedEvent = (players: Player[]): void => {
   if (typeof window !== "undefined") {
     const event = new CustomEvent(PLAYERS_UPDATED_EVENT, { detail: players })
     window.dispatchEvent(event)
@@ -250,16 +262,16 @@ const dispatchPlayersUpdatedEvent = (players) => {
 }
 
 // Subscribe to player updates
-export const subscribeToPlayersUpdates = (callback) => {
+export const subscribeToPlayersUpdates = (callback: (players: Player[]) => void): (() => void) | null => {
   if (typeof window === "undefined") return null
 
-  const handlePlayersUpdated = (event) => {
+  const handlePlayersUpdated = (event: CustomEvent) => {
     callback(event.detail)
   }
 
-  window.addEventListener(PLAYERS_UPDATED_EVENT, handlePlayersUpdated)
+  window.addEventListener(PLAYERS_UPDATED_EVENT, handlePlayersUpdated as EventListener)
 
   return () => {
-    window.removeEventListener(PLAYERS_UPDATED_EVENT, handlePlayersUpdated)
+    window.removeEventListener(PLAYERS_UPDATED_EVENT, handlePlayersUpdated as EventListener)
   }
 }

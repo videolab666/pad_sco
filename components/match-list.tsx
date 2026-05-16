@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import type { Match } from "../lib/types"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import { ru, enUS } from "date-fns/locale"
@@ -10,9 +11,9 @@ import { getMatches, subscribeToMatchesListUpdates } from "@/lib/match-storage"
 import { useLanguage } from "@/contexts/language-context"
 
 export function MatchList({ limit }: { limit?: number }) {
-  const [matches, setMatches] = useState([])
+  const [matches, setMatches] = useState<Match[]>([]) // Explicitly type matches as Match[]
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   const { language, t } = useLanguage()
 
   useEffect(() => {
@@ -36,7 +37,11 @@ export function MatchList({ limit }: { limit?: number }) {
         console.log("Загруженные матчи:", sortedMatches)
       } catch (error) {
         console.error("Ошибка при загрузке матчей:", error)
-        setError(error.message || "Ошибка при загрузке матчей")
+        if (error instanceof Error) {
+          setError(error.message)
+        } else {
+          setError("Ошибка при загрузке матчей")
+        }
       } finally {
         setLoading(false)
       }
@@ -45,7 +50,7 @@ export function MatchList({ limit }: { limit?: number }) {
     loadMatches()
 
     // Подписываемся на обновления списка матчей в реальном времени
-    const unsubscribe = subscribeToMatchesListUpdates((updatedMatches) => {
+    const unsubscribe = subscribeToMatchesListUpdates((updatedMatches: Match[]) => {
       if (updatedMatches && Array.isArray(updatedMatches)) {
         // Сортируем обновленные матчи: сначала незавершенные, потом завершенные
         const sortedMatches = [...updatedMatches].sort((a, b) => {

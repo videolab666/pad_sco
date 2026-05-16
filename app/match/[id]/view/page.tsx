@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, ExternalLink, Share2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -13,12 +13,14 @@ import { SoundToggle } from "@/components/sound-toggle"
 import { useLanguage } from "@/contexts/language-context"
 
 type MatchParams = {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default function MatchViewPage({ params }: MatchParams) {
+  const resolvedParams = React.use(params)
+  const matchId = typeof resolvedParams.id === "string" ? resolvedParams.id : ""
   const router = useRouter()
   const { t } = useLanguage()
   const [match, setMatch] = useState(null)
@@ -74,13 +76,13 @@ export default function MatchViewPage({ params }: MatchParams) {
   useEffect(() => {
     const loadMatch = async () => {
       try {
-        if (!params.id) {
+        if (!matchId) {
           setError("Некорректный ID матча")
           setLoading(false)
           return
         }
 
-        const matchData = await getMatch(params.id)
+        const matchData = await getMatch(matchId)
         if (matchData) {
           setMatch(matchData)
           setError("")
@@ -98,7 +100,7 @@ export default function MatchViewPage({ params }: MatchParams) {
     loadMatch()
 
     // Подписываемся на обновления матча в реальном времени
-    const unsubscribe = subscribeToMatchUpdates(params.id, (updatedMatch) => {
+    const unsubscribe = subscribeToMatchUpdates(matchId, (updatedMatch) => {
       if (updatedMatch) {
         setMatch(updatedMatch)
         setError("")
@@ -112,7 +114,7 @@ export default function MatchViewPage({ params }: MatchParams) {
         unsubscribe()
       }
     }
-  }, [params.id])
+  }, [matchId])
 
   const handleShare = () => {
     const url = window.location.href
@@ -189,7 +191,7 @@ export default function MatchViewPage({ params }: MatchParams) {
           <Button
             variant="outline"
             className="text-white border-gray-700 hover:bg-gray-800 bg-gray-800"
-            onClick={() => router.push(`/match/${params.id}`)}
+            onClick={() => router.push(`/match/${matchId}`)}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             {t("matchPage.backToMatchControl")}

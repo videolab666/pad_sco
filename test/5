@@ -1,0 +1,238 @@
+{
+  "log": {
+    "version": "1.2",
+    "creator": {
+      "name": "Firefox",
+      "version": "139.0.1"
+    },
+    "browser": {
+      "name": "Firefox",
+      "version": "139.0.1"
+    },
+    "pages": [
+      {
+        "id": "page_8",
+        "pageTimings": {
+          "onContentLoad": 220,
+          "onLoad": 710
+        },
+        "startedDateTime": "2025-06-02T21:42:07.568+03:00",
+        "title": "http://localhost:3000/match/22966957-8502-43e5-9caf-5939dcc17271"
+      }
+    ],
+    "entries": [
+      {
+        "startedDateTime": "2025-06-02T21:42:07.568+03:00",
+        "request": {
+          "bodySize": 362,
+          "method": "PATCH",
+          "url": "https://jjrsqppfksqtjhwccxry.supabase.co/rest/v1/matches?id=eq.22966957-8502-43e5-9caf-5939dcc17271",
+          "httpVersion": "HTTP/3",
+          "headers": [
+            {
+              "name": "Host",
+              "value": "jjrsqppfksqtjhwccxry.supabase.co"
+            },
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:139.0) Gecko/20100101 Firefox/139.0"
+            },
+            {
+              "name": "Accept",
+              "value": "*/*"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.5"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate, br, zstd"
+            },
+            {
+              "name": "Referer",
+              "value": "http://localhost:3000/"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqcnNxcHBma3NxdGpod2NjeHJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUzMTYyMTksImV4cCI6MjA2MDg5MjIxOX0.E-PTXevPTodH-CtUc6knEilRVXGwE7WYeXeMAlHz-Cg"
+            },
+            {
+              "name": "authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqcnNxcHBma3NxdGpod2NjeHJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUzMTYyMTksImV4cCI6MjA2MDg5MjIxOX0.E-PTXevPTodH-CtUc6knEilRVXGwE7WYeXeMAlHz-Cg"
+            },
+            {
+              "name": "content-profile",
+              "value": "public"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "prefer",
+              "value": ""
+            },
+            {
+              "name": "x-client-info",
+              "value": "supabase-js-web/2.49.8"
+            },
+            {
+              "name": "Content-Length",
+              "value": "362"
+            },
+            {
+              "name": "Origin",
+              "value": "http://localhost:3000"
+            },
+            {
+              "name": "Connection",
+              "value": "keep-alive"
+            },
+            {
+              "name": "Sec-Fetch-Dest",
+              "value": "empty"
+            },
+            {
+              "name": "Sec-Fetch-Mode",
+              "value": "cors"
+            },
+            {
+              "name": "Sec-Fetch-Site",
+              "value": "cross-site"
+            },
+            {
+              "name": "Priority",
+              "value": "u=4"
+            },
+            {
+              "name": "TE",
+              "value": "trailers"
+            }
+          ],
+          "cookies": [],
+          "queryString": [
+            {
+              "name": "id",
+              "value": "eq.22966957-8502-43e5-9caf-5939dcc17271"
+            }
+          ],
+          "headersSize": 1053,
+          "postData": {
+            "mimeType": "application/json",
+            "params": [],
+            "text": "{\"score\":{\"sets\":[{\"winner\":\"teamB\",\"games\":[]}],\"teamA\":0,\"teamB\":1,\"currentSet\":{\"games\":[{\"winner\":\"teamB\"},{\"winner\":\"teamA\"},{\"winner\":\"teamB\"},{\"winner\":\"teamB\"},{\"winner\":\"teamB\"},{\"winner\":\"teamB\"},{\"winner\":\"teamA\"},{\"winner\":\"teamA\"},{\"winner\":\"teamA\"}],\"teamA\":2,\"teamB\":5,\"isTiebreak\":false,\"currentGame\":{\"teamA\":40,\"teamB\":40}},\"isTiebreak\":false}}"
+          }
+        },
+        "response": {
+          "status": 204,
+          "statusText": "",
+          "httpVersion": "HTTP/3",
+          "headers": [
+            {
+              "name": "date",
+              "value": "Mon, 02 Jun 2025 18:42:13 GMT"
+            },
+            {
+              "name": "content-range",
+              "value": "0-0/*"
+            },
+            {
+              "name": "cf-ray",
+              "value": "949916e049f92d37-KBP"
+            },
+            {
+              "name": "cf-cache-status",
+              "value": "DYNAMIC"
+            },
+            {
+              "name": "access-control-allow-origin",
+              "value": "http://localhost:3000"
+            },
+            {
+              "name": "strict-transport-security",
+              "value": "max-age=31536000; includeSubDomains; preload"
+            },
+            {
+              "name": "vary",
+              "value": "Accept-Encoding"
+            },
+            {
+              "name": "access-control-expose-headers",
+              "value": "Content-Encoding, Content-Location, Content-Range, Content-Type, Date, Location, Server, Transfer-Encoding, Range-Unit"
+            },
+            {
+              "name": "sb-gateway-version",
+              "value": "1"
+            },
+            {
+              "name": "sb-project-ref",
+              "value": "jjrsqppfksqtjhwccxry"
+            },
+            {
+              "name": "x-content-type-options",
+              "value": "nosniff"
+            },
+            {
+              "name": "x-envoy-attempt-count",
+              "value": "1"
+            },
+            {
+              "name": "x-envoy-upstream-service-time",
+              "value": "2"
+            },
+            {
+              "name": "priority",
+              "value": "u=4,i=?0"
+            },
+            {
+              "name": "set-cookie",
+              "value": "__cf_bm=DpVTARrBYbMNktd9ZStt4uQiOs4_sFMlGjOA4iqSkFE-1748889733-1.0.1.1-nN1ZWXZPk422Id4kp_cYMR3L32jvFnEM4RWfJOhsHNIMyXRTWiLzGCAZo_mv_JSBbmk0IlUwNMcNXlskbufLK5zZp7NAVVL10wgGDV6mB6I; path=/; expires=Mon, 02-Jun-25 19:12:13 GMT; domain=.supabase.co; HttpOnly; Secure; SameSite=None"
+            },
+            {
+              "name": "server",
+              "value": "cloudflare"
+            },
+            {
+              "name": "alt-svc",
+              "value": "h3=\":443\"; ma=86400"
+            },
+            {
+              "name": "server-timing",
+              "value": "cfExtPri"
+            }
+          ],
+          "cookies": [
+            {
+              "name": "__cf_bm",
+              "value": "DpVTARrBYbMNktd9ZStt4uQiOs4_sFMlGjOA4iqSkFE-1748889733-1.0.1.1-nN1ZWXZPk422Id4kp_cYMR3L32jvFnEM4RWfJOhsHNIMyXRTWiLzGCAZo_mv_JSBbmk0IlUwNMcNXlskbufLK5zZp7NAVVL10wgGDV6mB6I"
+            }
+          ],
+          "content": {
+            "mimeType": "text/plain",
+            "size": 0,
+            "text": ""
+          },
+          "redirectURL": "",
+          "headersSize": 969,
+          "bodySize": 2384
+        },
+        "cache": {},
+        "timings": {
+          "blocked": 0,
+          "dns": 0,
+          "connect": 0,
+          "ssl": 0,
+          "send": 0,
+          "wait": 164,
+          "receive": 0
+        },
+        "time": 164,
+        "_securityState": "secure",
+        "serverIPAddress": "172.64.149.246",
+        "connection": "443",
+        "pageref": "page_8"
+      }
+    ]
+  }
+}

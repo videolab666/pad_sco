@@ -1,205 +1,13 @@
 import { NextResponse } from "next/server"
 import { getMatch } from "@/lib/match-storage"
+import { getImportantPoint, isGamePoint, isSetPoint, isMatchPoint } from "@/lib/scoring-logic"
+import { getSetsToWin as getConfiguredSetsToWin } from "@/lib/match-format-rules"
 import { logEvent } from "@/lib/error-logger"
 import { getTennisPointName } from "@/lib/tennis-utils"
+import { createServerSupabaseClient } from "@/lib/supabase"
 
-// Функция для преобразования числового значения очков в теннисе в индекс
-const getPointIndex = (point) => {
-  // Обработка строкового значения "Ad" (преимущество)
-  if (point === "Ad") return 4
-
-  // Преобразуем числовые значения очков (0, 15, 30, 40) в индексы (0, 1, 2, 3)
-  if (point === 0) return 0
-  if (point === 15) return 1
-  if (point === 30) return 2
-  if (point === 40) return 3
-
-  // Если значение больше 40, считаем это преимуществом (Ad)
-  if (typeof point === "number" && point > 40) return 4
-
-  // Если это числовое значение, но не стандартное, возвращаем его как есть
-  // (это может быть счет в тай-брейке)
-  return point
-}
-
-// Функция для определения game point
-const isGamePoint = (match) => {
-  if (!match || !match.score || !match.score.currentSet) {
-    return false
-  }
-
-  const currentSet = match.score.currentSet
-  const currentGame = currentSet.currentGame
-
-  if (!currentGame) {
-    return false
-  }
-
-  // Получаем индексы очков для правильного сравнения
-  const teamAIndex = getPointIndex(currentGame.teamA)
-  const teamBIndex = getPointIndex(currentGame.teamB)
-
-  // Для тай-брейка
-  if (currentSet.isTiebreak) {
-    // В тай-брейке обычно нужно набрать 7 очков с разницей в 2 очка
-    // Если команда A имеет 6 очков и ведет, это game point
-    if (currentGame.teamA >= 6 && currentGame.teamA >= currentGame.teamB + 1) {
-      return "teamA"
-    }
-    // Если команда B имеет 6 очков и ведет, это game point
-    if (currentGame.teamB >= 6 && currentGame.teamB >= currentGame.teamA + 1) {
-      return "teamB"
-    }
-    return false
-  }
-
-  // Для обычного гейма - исправленная логика с использованием индексов
-
-  // Если у команды A преимущество (Ad)
-  if (teamAIndex === 4 && teamBIndex <= 3) {
-    return "teamA"
-  }
-
-  // Если команда A имеет 40 (индекс 3) и команда B имеет меньше или равно 30 (индекс <= 2)
-  if (teamAIndex === 3 && teamBIndex <= 2) {
-    return "teamA"
-  }
-
-  // Если у команды B преимущество (Ad)
-  if (teamBIndex === 4 && teamAIndex <= 3) {
-    return "teamB"
-  }
-
-  // Если команда B имеет 40 (индекс 3) и команда A имеет меньше или равно 30 (индекс <= 2)
-  if (teamBIndex === 3 && teamAIndex <= 2) {
-    return "teamB"
-  }
-
-  return false
-}
-
-// Функция для определения set point
-const isSetPoint = (match) => {
-  if (!match || !match.score || !match.score.currentSet) {
-    return false
-  }
-
-  const currentSet = match.score.currentSet
-  const teamAGames = currentSet.teamA
-  const teamBGames = currentSet.teamB
-
-  // Если идет тай-брейк, проверяем особым образом
-  if (currentSet.isTiebreak) {
-    // Получаем, кто имеет гейм-поинт в тай-брейке
-    const gamePoint = isGamePoint(match)
-
-    // Если есть гейм-поинт в тай-брейке, то это также и сет-поинт
-    if (gamePoint) {
-      return gamePoint
-    }
-
-    return false
-  }
-
-  // Для обычного гейма
-  // Получаем, кто имеет гейм-поинт
-  const gamePoint = isGamePoint(match)
-
-  if (!gamePoint) {
-    return false
-  }
-
-  // Для команды A
-  if (gamePoint === "teamA") {
-    // Если команда A ведет 5-x и выиграет этот гейм, то счет станет 6-x
-    if (teamAGames === 5 && teamBGames <= 4) {
-      return "teamA"
-    }
-    // Если команда A ведет 6-5 и выиграет этот гейм, то счет станет 7-5
-    if (teamAGames === 6 && teamBGames === 5) {
-      return "teamA"
-    }
-  }
-
-  // Для команды B
-  if (gamePoint === "teamB") {
-    // Если команда B ведет 5-x и выиграет этот гейм, то счет станет 6-x
-    if (teamBGames === 5 && teamAGames <= 4) {
-      return "teamB"
-    }
-    // Если команда B ведет 6-5 и выиграет этот гейм, то счет станет 7-5
-    if (teamBGames === 6 && teamAGames === 5) {
-      return "teamB"
-    }
-  }
-
-  return false
-}
-
-// Функция для определения match point
-const isMatchPoint = (match) => {
-  if (!match || !match.score || !match.score.currentSet) {
-    return false
-  }
-
-  // Определяем, сколько сетов нужно для победы
-  const setsToWin = getSetsToWin(match)
-
-  // Получаем текущий счет по сетам
-  const teamASets = match.score.sets ? match.score.sets.filter((set) => set.teamA > set.teamB).length : 0
-  const teamBSets = match.score.sets ? match.score.sets.filter((set) => set.teamB > set.teamA).length : 0
-
-  // Проверяем, является ли текущий гейм сет-поинтом
-  const setPoint = isSetPoint(match)
-
-  // Если нет сет-поинта, то не может быть и матч-поинта
-  if (!setPoint) {
-    return false
-  }
-
-  // Для команды A
-  if (setPoint === "teamA" && teamASets === setsToWin - 1) {
-    return "teamA"
-  }
-
-  // Для команды B
-  if (setPoint === "teamB" && teamBSets === setsToWin - 1) {
-    return "teamB"
-  }
-
-  return false
-}
-
-// Функция для определения важного момента
-const getImportantPoint = (match) => {
-  // Проверяем, идет ли тай-брейк
-  const isTiebreak = match?.score?.currentSet?.isTiebreak || false
-
-  // Сначала проверяем match point (самый приоритетный)
-  const matchPoint = isMatchPoint(match)
-  if (matchPoint) {
-    return { type: "MATCH POINT", team: matchPoint }
-  }
-
-  // Затем проверяем set point
-  const setPoint = isSetPoint(match)
-  if (setPoint) {
-    return { type: "SET POINT", team: setPoint }
-  }
-
-  // Затем проверяем game point
-  const gamePoint = isGamePoint(match)
-  if (gamePoint) {
-    // Если идет тай-брейк, показываем "TIEBREAK POINT" вместо "GAME POINT"
-    if (isTiebreak) {
-      return { type: "TIEBREAK POINT", team: gamePoint }
-    }
-    return { type: "GAME POINT", team: gamePoint }
-  }
-
-  // Если нет важного момента, возвращаем тип индикатора в зависимости от того, идет ли тай-брейк
-  return { type: isTiebreak ? "TIEBREAK" : "GAME", team: null }
-}
+// getPointIndex, isGamePoint, isSetPoint, isMatchPoint, getImportantPoint
+// → removed, now imported from @/lib/scoring-logic
 
 // Функция для определения общего количества сетов
 const getTotalSets = (match) => {
@@ -256,8 +64,7 @@ const getSetsToWin = (match) => {
   }
 
   // Вычисляем на основе общего количества сетов
-  const totalSets = getTotalSets(match)
-  return Math.ceil(totalSets / 2)
+  return getConfiguredSetsToWin({ ...match.settings, sets: getTotalSets(match) })
 }
 
 // Функция для определения номера текущего сета
@@ -440,6 +247,138 @@ export async function GET(request: Request, { params }: { params: { id: string }
     })
   } catch (error) {
     logEvent("error", "Ошибка при обработке API запроса", "match-api", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+// ─── Idempotent, revisioned match write (Task 2, Step 3) ───────────────────────
+
+// Snapshot (camelCase) → Supabase row (snake_case).
+const toMatchRow = (match: any): Record<string, any> => ({
+  id: match.id,
+  type: match.type,
+  format: match.format,
+  created_at: match.createdAt,
+  settings: match.settings,
+  team_a: match.teamA,
+  team_b: match.teamB,
+  score: match.score,
+  current_server: match.currentServer,
+  court_sides: match.courtSides,
+  should_change_sides: match.shouldChangeSides,
+  is_completed: match.isCompleted,
+  winner: match.winner || null,
+  court_number: match.courtNumber,
+  created_via_court_link: match.created_via_court_link,
+})
+
+/**
+ * Applies a single match operation idempotently with optimistic concurrency.
+ *
+ * Body: { operation: { operationId, baseRevision, kind, clientId }, match: <snapshot> }
+ *
+ *  - A repeated `operationId` returns the stored result (never applied twice).
+ *  - A stale `baseRevision` fails fast with 409 and the authoritative snapshot
+ *    instead of overwriting newer server data.
+ */
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const matchId = params.id
+    if (!matchId) {
+      return NextResponse.json({ error: "Match ID is required" }, { status: 400 })
+    }
+
+    const body = await request.json().catch(() => null)
+    const operation = body?.operation
+    const match = body?.match
+    if (!operation?.operationId || typeof operation.baseRevision !== "number" || !match?.id) {
+      return NextResponse.json({ error: "Invalid operation payload" }, { status: 400 })
+    }
+    if (match.id !== matchId) {
+      return NextResponse.json({ error: "Match id mismatch" }, { status: 400 })
+    }
+
+    const supabase = createServerSupabaseClient()
+
+    // Idempotency: a previously applied operation returns its stored result.
+    const existing = await supabase
+      .from("match_operations")
+      .select("result_revision")
+      .eq("operation_id", operation.operationId)
+      .maybeSingle()
+
+    if (!existing.error && existing.data) {
+      const current = await supabase.from("matches").select("*").eq("id", matchId).maybeSingle()
+      return NextResponse.json(
+        { status: "ok", idempotent: true, revision: existing.data.result_revision, match: current.data ?? null },
+        { status: 200 },
+      )
+    }
+
+    const resultRevision = operation.baseRevision + 1
+    const row = toMatchRow(match)
+
+    // Optimistic-concurrency write: only succeeds when the server is still at
+    // the revision the client based this operation on.
+    const updated = await supabase
+      .from("matches")
+      .update({ ...row, revision: resultRevision })
+      .eq("id", matchId)
+      .eq("revision", operation.baseRevision)
+      .select()
+
+    if (updated.error) {
+      logEvent("error", `Ошибка revisioned update: ${updated.error.message}`, "match-api")
+      return NextResponse.json({ status: "error", error: updated.error.message }, { status: 500 })
+    }
+
+    if (updated.data && updated.data.length > 0) {
+      await supabase.from("match_operations").insert({
+        operation_id: operation.operationId,
+        match_id: matchId,
+        base_revision: operation.baseRevision,
+        result_revision: resultRevision,
+        kind: operation.kind || "snapshot",
+        client_id: operation.clientId || null,
+      })
+      return NextResponse.json({ status: "ok", revision: resultRevision, match: updated.data[0] }, { status: 200 })
+    }
+
+    // 0 rows updated — inspect the current row to classify the outcome.
+    const current = await supabase.from("matches").select("*").eq("id", matchId).maybeSingle()
+    if (current.error || !current.data) {
+      return NextResponse.json({ status: "conflict", reason: "match_deleted", match: null }, { status: 409 })
+    }
+
+    const serverRevision = current.data.revision
+    if (serverRevision === null || serverRevision === undefined) {
+      // Legacy row without a revision — adopt it.
+      const adopt = await supabase
+        .from("matches")
+        .update({ ...row, revision: resultRevision })
+        .eq("id", matchId)
+        .select()
+      await supabase.from("match_operations").insert({
+        operation_id: operation.operationId,
+        match_id: matchId,
+        base_revision: operation.baseRevision,
+        result_revision: resultRevision,
+        kind: operation.kind || "snapshot",
+        client_id: operation.clientId || null,
+      })
+      return NextResponse.json(
+        { status: "ok", revision: resultRevision, match: adopt.data?.[0] ?? current.data },
+        { status: 200 },
+      )
+    }
+
+    // Genuine conflict — return the authoritative snapshot, never overwrite it.
+    return NextResponse.json(
+      { status: "conflict", reason: `server_ahead (server=${serverRevision})`, revision: serverRevision, match: current.data },
+      { status: 409 },
+    )
+  } catch (error) {
+    logEvent("error", "Ошибка при идемпотентной записи матча", "match-api", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

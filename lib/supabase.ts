@@ -354,18 +354,43 @@ CREATE TABLE IF NOT EXISTS matches (
   is_completed BOOLEAN DEFAULT FALSE,
   winner TEXT,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  court_number INTEGER
+  court_number INTEGER,
+  revision INTEGER NOT NULL DEFAULT 0
 );
+
+-- На случай уже существующей таблицы — добавляем колонку revision
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 0;
+
+-- Журнал операций: серверная идемпотентность + аудит для рефери
+CREATE TABLE IF NOT EXISTS match_operations (
+  operation_id UUID PRIMARY KEY,
+  match_id UUID NOT NULL,
+  base_revision INTEGER NOT NULL,
+  result_revision INTEGER NOT NULL,
+  kind TEXT NOT NULL,
+  client_id TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS match_operations_match_idx ON match_operations (match_id, result_revision);
 
 -- Создаем таблицу для хранения игроков
 CREATE TABLE IF NOT EXISTS players (
   id UUID PRIMARY KEY,
   name TEXT NOT NULL,
+  "dyId" TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- На случай уже существующей таблицы — добавляем колонку dyId
+ALTER TABLE players ADD COLUMN IF NOT EXISTS "dyId" TEXT;
+
 -- Создаем индекс для быстрого поиска по имени игрока
 CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);
+
+-- Индекс для дедупликации импортированных из фида игроков
+CREATE INDEX IF NOT EXISTS players_dyid_idx ON players ("dyId");
 
 -- Оптимизация: добавляем индексы для часто используемых полей
 CREATE INDEX IF NOT EXISTS matches_created_at_idx ON matches (created_at DESC);

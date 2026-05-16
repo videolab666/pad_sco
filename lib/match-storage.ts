@@ -3,6 +3,9 @@ import { compressToUTF16, decompressFromUTF16 } from "lz-string"
 import { createClientSupabaseClient, checkAndEnableRealtime } from "./supabase"
 import { logEvent } from "./error-logger"
 import { v4 as uuidv4 } from "uuid"
+import { syncMatchToServer, initSyncRecovery, reconcileServerSnapshot } from "./match-sync"
+import { clearSyncRecord } from "./match-operation-log"
+import { backfillRuleMetadata } from "./match-rule-change"
 
 // Максимальное количество хранимых матчей в локальном хранилище
 const MAX_MATCHES = 10
@@ -101,7 +104,24 @@ const transformMatchForSupabase = (match) => {
     is_completed: match.isCompleted,
     winner: match.winner || null,
     court_number: match.courtNumber,
+    created_via_court_link: match.created_via_court_link,
   }
+}
+
+// Сброс кэша доступности Supabase — вызывается при возврате связи/фокусе,
+// чтобы не использовать устаревший offline-результат до 60 секунд (failure mode #2).
+export const resetSupabaseAvailabilityCache = () => {
+  supabaseAvailabilityCache = { available: null, timestamp: 0 }
+}
+
+// Инвалидация кэша конкретного матча — вызывается при локальной мутации,
+// переподключении и успешной realtime/replay-доставке (failure mode #1, #10).
+export const invalidateMatchCache = (idOrCode?: string) => {
+  if (!idOrCode) {
+    matchCache.clear()
+    return
+  }
+  matchCache.delete(idOrCode)
 }
 
 // Обновим функцию transformMatchFromSupabase, добавив поле code
@@ -122,6 +142,7 @@ const transformMatchFromSupabase = (match) => {
     isCompleted: match.is_completed,
     winner: match.winner,
     courtNumber: match.court_number,
+    revision: typeof match.revision === "number" ? match.revision : 0,
     history: [],
   }
 }
@@ -169,6 +190,7 @@ export const getMatches = async () => {
             const scoreTeamB = match.score?.teamB || 0
 
             return {
+              created_via_court_link: match.created_via_court_link,
               id: match.id,
               code: match.code,
               type: match.type,
@@ -364,6 +386,13 @@ export const getMatch = async (idOrCode) => {
             // Преобразуем данные из Supabase
             const match = transformMatchFromSupabase(data)
 
+            // Бэкфилл недостающих правил для старых матчей (Task 7).
+            backfillRuleMetadata(match)
+
+            // Засеваем журнал операций ревизией с сервера, чтобы первая локальная
+            // запись не вызвала ложный конфликт (boot snapshot reconciliation).
+            reconcileServerSnapshot(match)
+
             // Добавляем код для локального использования, если его нет
             if (!match.code) {
               match.code = generateNumericCode()
@@ -422,6 +451,12 @@ export const getMatch = async (idOrCode) => {
                     matchIdOrCode: idOrCode,
                     error: playersError,
                   })
+                  // Возвращаем матч без информации о странах, чтобы не терять актуальное состояние
+                  matchCache.set(match.id, { data: match, timestamp: Date.now() })
+                  if (match.code) {
+                    matchCache.set(match.code, { data: match, timestamp: Date.now() })
+                  }
+                  return match;
                 }
               }
             } catch (countryError) {
@@ -429,6 +464,12 @@ export const getMatch = async (idOrCode) => {
                 error: countryError,
                 matchIdOrCode: idOrCode,
               })
+              // Возвращаем матч без информации о странах, чтобы не терять актуальное состояние
+              matchCache.set(match.id, { data: match, timestamp: Date.now() })
+              if (match.code) {
+                matchCache.set(match.code, { data: match, timestamp: Date.now() })
+              }
+              return match;
             }
 
             // Сохраняем в кэш по ID и по коду
@@ -466,6 +507,9 @@ export const getMatch = async (idOrCode) => {
         })
       }
 
+      // Бэкфилл недостающих правил для старых матчей (Task 7).
+      backfillRuleMetadata(match)
+
       // Сохраняем в кэш
       matchCache.set(idOrCode, { data: match, timestamp: Date.now() })
       if (match.id !== idOrCode && match.id) {
@@ -494,6 +538,9 @@ export const getMatch = async (idOrCode) => {
           matchIdOrCode: idOrCode,
         })
       }
+
+      // Бэкфилл недостающих правил для старых матчей (Task 7).
+      backfillRuleMetadata(foundMatch)
 
       // Сохраняем в кэш
       matchCache.set(idOrCode, { data: foundMatch, timestamp: Date.now() })
@@ -602,6 +649,7 @@ export const createMatch = async (match) => {
       isCompleted: match.isCompleted,
       winner: match.winner || null,
       courtNumber: match.courtNumber,
+      created_via_court_link: match.created_via_court_link,
     }
 
     // Проверяем доступность Supabase
@@ -628,6 +676,8 @@ export const createMatch = async (match) => {
             matchId: newMatch.id,
             matchCode: newMatch.code,
           })
+          // Явный вывод ошибки в консоль для быстрой отладки
+          console.error("Ошибка Supabase:", error, { status, statusText, transformedMatch });
         } else {
           logEvent("info", "Матч успешно сохранен в Supabase", "createMatch", {
             matchId: newMatch.id,
@@ -675,6 +725,7 @@ export const createMatch = async (match) => {
       },
       isCompleted: newMatch.isCompleted,
       courtNumber: newMatch.courtNumber,
+      created_via_court_link: newMatch.created_via_court_link,
     }
 
     const matches = safeGetItem("tennis_padel_matches", [])
@@ -710,15 +761,17 @@ export const updateMatch = async (updatedMatch) => {
   if (typeof window === "undefined") return false
 
   try {
-    logEvent("info", `Обновление матча: ${updatedMatch.id}`, "updateMatch")
+    // Отключаем избыточное логирование в продакшене
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`Updating match: ${updatedMatch.id}`)
+    }
 
-    // Полностью отключаем историю для экономии места
+    // Убираем историю для экономии места
     updatedMatch.history = []
 
     // Убедимся, что структура матча полная
     if (!updatedMatch.score.sets) {
       updatedMatch.score.sets = []
-      logEvent("debug", "Инициализирован пустой массив sets при обновлении матча", "updateMatch")
     }
 
     // Обновляем кэш немедленно для быстрого доступа
@@ -806,42 +859,85 @@ export const updateMatch = async (updatedMatch) => {
 
       safeSetItem("tennis_padel_matches", matches)
     }
-    // Асинхронно обновляем данные в Supabase без ожидания результата
-    // Это позволит UI обновиться быстрее
-    ;(async () => {
-      try {
-        // Проверяем доступность Supabase (используя кэшированный результат)
-        const supabaseAvailable = await isSupabaseAvailable()
-
-        if (supabaseAvailable) {
-          // Проверяем существование таблиц (используя кэшированный результат)
-          const tablesStatus = await checkTablesExist()
-
-          if (tablesStatus.exists) {
-            const supabase = createClientSupabaseClient()
-            const transformedMatch = transformMatchForSupabase(updatedMatch)
-            await supabase.from("matches").update(transformedMatch).eq("id", updatedMatch.id)
-          }
-        }
-      } catch (error) {
-        logEvent("error", `Ошибка при асинхронном обновлении матча в Supabase: ${error.message}`, "updateMatch", {
-          error,
-          matchId: updatedMatch?.id,
-        })
-      }
-    })()
+    
+    // Durable sync: persist the change as an idempotent, revisioned operation
+    // and let the sync engine replay it (offline-safe, retry, conflict-aware).
+    // Local storage above is already authoritative; this never blocks the UI.
+    syncMatchToServer(updatedMatch)
 
     return true
   } catch (error) {
-    logEvent("error", `Критическая ошибка при обновлении матча: ${error.message}`, "updateMatch", {
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      },
-      matchId: updatedMatch?.id,
-    })
+    // Отключаем избыточное логирование в продакшене
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`Critical error updating match: ${error.message}`)
+    }
     throw error
+  }
+}
+
+// Новая функция для частичного обновления матча - отправляет только измененные поля
+export const updateMatchPartial = async (matchId, partialData) => {
+  if (typeof window === "undefined") return false
+
+  try {
+    // Получаем текущий матч из кэша, если он там есть
+    const cachedMatch = matchCache.get(matchId)
+    let currentMatch = cachedMatch?.data
+
+    // Если матч не найден в кэше, получаем его
+    if (!currentMatch) {
+      currentMatch = await getMatch(matchId)
+      if (!currentMatch) {
+        return false
+      }
+    }
+
+    // Создаем обновленный матч, объединяя текущий матч с частичными данными
+    const updatedMatch = {
+      ...currentMatch,
+      ...partialData,
+    }
+
+    // Обновляем кэш немедленно для быстрого доступа
+    matchCache.set(updatedMatch.id, { data: updatedMatch, timestamp: Date.now() })
+    if (updatedMatch.code) {
+      matchCache.set(updatedMatch.code, { data: updatedMatch, timestamp: Date.now() })
+    }
+
+    // Durable sync: route the merged snapshot through the revisioned sync
+    // engine instead of a blind snake_case shallow merge. This avoids the
+    // partial-overwrite bug where nested camelCase keys (score, currentServer)
+    // were never converted and could silently corrupt remote state.
+    syncMatchToServer(updatedMatch)
+
+    // Сохраняем в локальное хранилище сразу для быстрого доступа
+    const singleMatchKeyId = `match_${updatedMatch.id}`
+    const singleMatchKeyCode = updatedMatch.code ? `match_${updatedMatch.code}` : null
+
+    try {
+      safeSetItem(singleMatchKeyId, updatedMatch)
+      if (singleMatchKeyCode) {
+        safeSetItem(singleMatchKeyCode, updatedMatch)
+      }
+    } catch (storageError) {
+      // В случае ошибки при сохранении, сохраняем только основные данные
+      const essentialMatchData = {
+        ...updatedMatch,
+        history: [], // Убираем историю для экономии места
+      }
+      
+      safeSetItem(singleMatchKeyId, essentialMatchData)
+      if (singleMatchKeyCode) {
+        safeSetItem(singleMatchKeyCode, essentialMatchData)
+      }
+    }
+
+    return true
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`Error updating match partially: ${error.message}`)
+    }
+    return false
   }
 }
 
@@ -901,6 +997,10 @@ export const deleteMatch = async (idOrCode) => {
     if (match.code) {
       localStorage.removeItem(`match_${match.code}`)
     }
+
+    // Удаляем журнал операций синхронизации, чтобы не реплеить удалённый матч.
+    clearSyncRecord(match.id)
+    if (match.code) clearSyncRecord(match.code)
 
     // Удаляем из общего списка
     const matches = safeGetItem("tennis_padel_matches", [])
@@ -981,6 +1081,9 @@ export const subscribeToMatchUpdates = (idOrCode, callback) => {
                 // Для INSERT или UPDATE получаем обновленные данные
                 // Преобразуем данные из Supabase
                 const updatedMatch = transformMatchFromSupabase(payload.new)
+
+                // Держим журнал операций в актуальном состоянии по ревизии сервера.
+                reconcileServerSnapshot(updatedMatch)
 
                 // Обновляем кэш
                 matchCache.set(matchId, { data: updatedMatch, timestamp: Date.now() })
@@ -1432,4 +1535,19 @@ export const checkTablesExist = async () => {
     logEvent("error", "Ошибка при проверке существования таблиц", "checkTablesExist", error)
     return { exists: false, error: error.message }
   }
+}
+
+// ─── Sync recovery wiring ──────────────────────────────────────────────────────
+// On reconnect / focus the long-lived availability cache (60s) and the per-match
+// cache (30s) must not keep serving stale offline results — bypass them, then let
+// the sync engine resume draining queued operations.
+if (typeof window !== "undefined") {
+  const onReconnect = () => {
+    resetSupabaseAvailabilityCache()
+    invalidateMatchCache()
+  }
+  window.addEventListener("online", onReconnect)
+  window.addEventListener("focus", onReconnect)
+  // Start automatic queue replay (startup / online / focus / visibility).
+  initSyncRecovery()
 }

@@ -2,11 +2,15 @@
 
 import { useLanguage } from "@/contexts/language-context"
 
-export function CourtVisualization({ match, fixedSides }) {
-  const { t } = useLanguage()
+import type { Match } from "../lib/types"
 
-  // Ensure t.match exists to prevent errors
-  const tMatch = t?.match || {}
+interface CourtVisualizationProps {
+  match: Match;
+  fixedSides?: boolean;
+}
+
+export function CourtVisualization({ match, fixedSides }: CourtVisualizationProps) {
+  const { t } = useLanguage()
 
   if (!match) return null
 
@@ -18,36 +22,36 @@ export function CourtVisualization({ match, fixedSides }) {
   const currentGameNumber = match.score.currentSet.games.length + 1
 
   // Get player names based on the current server and positions
-  const getPlayerName = (team, index) => {
+  const getPlayerName = (team: "teamA" | "teamB", index: number): string => {
     try {
-      return match[team].players[index]?.name || `${tMatch.player || "Player"} ${index + 1}`
+      return match[team].players[index]?.name || `${t("match.player") || "Player"} ${index + 1}`
     } catch (e) {
-      return `${tMatch.player || "Player"} ${index + 1}`
+      return `${t("match.player") || "Player"} ${index + 1}`
     }
   }
 
   // Determine which player is serving
-  const isServing = (team, playerIndex) => {
+  const isServing = (team: "teamA" | "teamB", playerIndex: number): boolean => {
     return match.currentServer.team === team && match.currentServer.playerIndex === playerIndex
   }
 
   // Get team names for display
-  const getTeamName = (team) => {
-    return team === "teamA" ? tMatch.teamA || "Team A" : tMatch.teamB || "Team B"
+  const getTeamName = (team: "teamA" | "teamB"): string => {
+    return team === "teamA" ? t("match.teamA") || "Team A" : t("match.teamB") || "Team B"
   }
 
   // Get serving information text
-  const getServingText = () => {
+  const getServingText = (): string => {
     const serverTeamName = getTeamName(serverTeam)
     const serverPlayerName = getPlayerName(serverTeam, serverPlayerIndex)
     const receiverTeam = serverTeam === "teamA" ? "teamB" : "teamA"
     const receiverPlayerIndex = serverPlayerIndex === 0 ? 0 : 1
     const receiverPlayerName = getPlayerName(receiverTeam, receiverPlayerIndex)
 
-    return `${serverTeamName} ${tMatch.toServe || "to serve"}, ${serverPlayerName} ${tMatch.to || "to"} ${receiverPlayerName}, ${
+    return `${serverTeamName} ${t("match.toServe") || "to serve"}, ${serverPlayerName} ${t("match.to") || "to"} ${receiverPlayerName}, ${
       match.score.currentSet.currentGame.teamA === 0 && match.score.currentSet.currentGame.teamB === 0
-        ? tMatch.loveAll || "love all"
-        : tMatch.play || "play"
+        ? t("match.loveAll") || "love all"
+        : t("match.play") || "play"
     }`
   }
 

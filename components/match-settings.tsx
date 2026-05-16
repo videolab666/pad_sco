@@ -5,13 +5,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { LockOpenIcon } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useLanguage } from "@/contexts/language-context"
+import {
+  getDefaultFinalSetFinishForSelection,
+  getDefaultFinalSetTiebreakForSelection,
+  getDefaultGoldenPointForScoringSystem,
+  getSetsToWin,
+  shouldStartMatchTiebreakAfterSet,
+} from "@/lib/match-format-rules"
+import { normalizeMatchState, restartCurrentSet } from "@/lib/scoring-logic"
+import { classifyRuleChange } from "@/lib/match-rule-change"
 
-// Обновим тип пропсов, чтобы сделать некоторые параметры опциональными
 type MatchSettingsProps = {
   match?: any
   updateMatch?: any
@@ -21,7 +39,6 @@ type MatchSettingsProps = {
     games: number
     tiebreak: boolean
     finalSetTiebreak: boolean
-    goldPoint: boolean
     servingSide: "left" | "right"
     servingTeam: 1 | 2
     servingPlayer: 1 | 2 | 3 | 4
@@ -29,88 +46,179 @@ type MatchSettingsProps = {
   onChange?: (settings: any) => void
 }
 
-// Обновим начало функции компонента, чтобы обрабатывать оба случая использования
 export function MatchSettings({ match, updateMatch, type, settings, onChange }: MatchSettingsProps) {
   const { t } = useLanguage()
   const [tiebreakEnabled, setTiebreakEnabled] = useState(match?.settings?.tiebreakEnabled)
-  const [tiebreakType, setTiebreakType] = useState(match?.settings?.tiebreakType || "regular")
+  const [tiebreakFormat, setTiebreakFormat] = useState(match?.settings?.tiebreakFormat || "two-clear")
+  const [tiebreakLength, setTiebreakLength] = useState(match?.settings?.tiebreakLength?.toString() || "7")
   const [tiebreakAt, setTiebreakAt] = useState(match?.settings?.tiebreakAt)
   const [finalSetTiebreak, setFinalSetTiebreak] = useState(match?.settings?.finalSetTiebreak)
+  const [finalSetFinish, setFinalSetFinish] = useState(match?.settings?.finalSetFinish || "standard-7")
+  const [finalSetTiebreakLength, setFinalSetTiebreakLength] = useState(match?.settings?.finalSetTiebreakLength || "10")
   const [scoringSystem, setScoringSystem] = useState(match?.settings?.scoringSystem || "classic")
+  const [goldenPointFormat, setGoldenPointFormat] = useState(match?.settings?.goldenPointFormat || "none")
+  const [gamesPerSet, setGamesPerSet] = useState(match?.settings?.gamesPerSet?.toString() || "6")
+  const [gamesPerSetOverrides, setGamesPerSetOverrides] = useState<Record<number, string>>(
+    match?.settings?.gamesPerSetOverrides ? Object.fromEntries(
+      Object.entries(match.settings.gamesPerSetOverrides).map(([k, v]) => [k, String(v)])
+    ) : {}
+  )
+  const [showPerSetGames, setShowPerSetGames] = useState(false)
   const [goldenGame, setGoldenGame] = useState(match?.settings?.goldenGame || false)
-  const [goldenPoint, setGoldenPoint] = useState(match?.settings?.goldenPoint || false)
   const [windbreak, setWindbreak] = useState(match?.settings?.windbreak || false)
 
-  // Состояние для редактирования счета сетов
   const [editSetIndex, setEditSetIndex] = useState(null)
   const [editSetScoreA, setEditSetScoreA] = useState(0)
   const [editSetScoreB, setEditSetScoreB] = useState(0)
 
-  // Добавим проверку на наличие settings и onChange
+  // Task 5: a rule edit awaiting a scope decision ({ updatedMatch, classification }).
+  const [pendingRuleChange, setPendingRuleChange] = useState<any>(null)
+  // True while the pending dialog is being closed by an explicit action button,
+  // so the close handler does not also treat it as a cancel.
+  const ruleChangeHandledRef = useRef(false)
+
+  // Pushes match.settings into the local form state.
+  const syncLocalSettings = (s: any) => {
+    if (!s) return
+    setTiebreakEnabled(s.tiebreakEnabled)
+    setTiebreakFormat(s.tiebreakFormat || "two-clear")
+    setTiebreakLength(s.tiebreakLength?.toString() || "7")
+    setTiebreakAt(s.tiebreakAt)
+    setFinalSetTiebreak(s.finalSetTiebreak)
+    setFinalSetFinish(s.finalSetFinish || "standard-7")
+    setFinalSetTiebreakLength(s.finalSetTiebreakLength || "10")
+    setScoringSystem(s.scoringSystem || "classic")
+    setGoldenPointFormat(s.goldenPointFormat || "none")
+    setGamesPerSet(s.gamesPerSet?.toString() || "6")
+    setGamesPerSetOverrides(
+      s.gamesPerSetOverrides
+        ? Object.fromEntries(Object.entries(s.gamesPerSetOverrides).map(([k, v]) => [k, String(v)]))
+        : {},
+    )
+    setGoldenGame(s.goldenGame || false)
+    setWindbreak(s.windbreak || false)
+  }
+
+  // Bug #9 fix: sync local state when match.settings changes externally
+  useEffect(() => {
+    syncLocalSettings(match?.settings)
+  }, [
+    match?.settings?.tiebreakEnabled,
+    match?.settings?.tiebreakFormat,
+    match?.settings?.tiebreakLength,
+    match?.settings?.tiebreakAt,
+    match?.settings?.finalSetTiebreak,
+    match?.settings?.finalSetFinish,
+    match?.settings?.finalSetTiebreakLength,
+    match?.settings?.scoringSystem,
+    match?.settings?.goldenPointFormat,
+    match?.settings?.gamesPerSet,
+    match?.settings?.gamesPerSetOverrides,
+    match?.settings?.goldenGame,
+    match?.settings?.windbreak,
+  ])
+
   const handleChange = (key: string, value: any) => {
     if (onChange && settings) {
       onChange({ ...settings, [key]: value })
     }
   }
 
-  const applySettings = () => {
-    if (!match || !updateMatch) return
-
-    const updatedMatch = { ...match }
-
-    // Отключаем историю
+  // Task 4: every rule change repairs already-started game/set state for the
+  // new rules and stamps a rule revision so the scoreboard can drop its stale
+  // click/history buffers. Returns a new match — the input is not used after.
+  const commitRuleChange = (updatedMatch: any) => {
     updatedMatch.history = []
+    const normalized = normalizeMatchState(updatedMatch)
+    normalized.ruleRevision = (typeof updatedMatch.ruleRevision === "number" ? updatedMatch.ruleRevision : 0) + 1
+    normalized.lastRuleChangeAt = new Date().toISOString()
+    return normalized
+  }
 
-    // Обновляем настройки
-    updatedMatch.settings = {
-      ...updatedMatch.settings,
-      tiebreakEnabled,
-      tiebreakType,
-      tiebreakAt,
-      finalSetTiebreak,
-      scoringSystem,
-      goldenGame,
-      goldenPoint,
-      windbreak,
-    }
-
+  // Persists a rule change, with the legacy storage-quota fallback.
+  const doCommit = (updatedMatch: any) => {
     try {
-      updateMatch(updatedMatch)
+      updateMatch(commitRuleChange(updatedMatch))
     } catch (error) {
       console.error("Ошибка при обновлении настроек:", error)
-
-      // Если произошла ошибка, пробуем упростить объект матча
-      const minimalMatch = {
-        ...updatedMatch,
-        history: [],
-      }
-
-      // Удаляем историю геймов для экономии места
-      if (minimalMatch.score && minimalMatch.score.currentSet) {
-        minimalMatch.score.currentSet.games = []
-      }
-
-      if (minimalMatch.score && minimalMatch.score.sets) {
-        minimalMatch.score.sets = minimalMatch.score.sets.map((set) => ({
+      const minimalMatch = { ...updatedMatch, history: [] }
+      if (minimalMatch.score?.currentSet) minimalMatch.score.currentSet.games = []
+      if (minimalMatch.score?.sets) {
+        minimalMatch.score.sets = minimalMatch.score.sets.map((set: any) => ({
           teamA: set.teamA,
           teamB: set.teamB,
           winner: set.winner,
         }))
       }
-
-      updateMatch(minimalMatch)
+      updateMatch(commitRuleChange(minimalMatch))
     }
+  }
+
+  // Task 5: classifies a rule edit. Safe / future-only changes apply at once;
+  // anything that touches the current point or set opens a scope dialog instead
+  // of silently corrupting the live score.
+  const requestRuleChange = (updatedMatch: any) => {
+    const classification = classifyRuleChange(match.settings || {}, updatedMatch.settings || {}, match.score)
+    if (classification.scope === "safe" || classification.scope === "future-only") {
+      doCommit(updatedMatch)
+    } else {
+      ruleChangeHandledRef.current = false
+      setPendingRuleChange({ updatedMatch, classification })
+    }
+  }
+
+  // Dialog actions for a pending rule change.
+  const applyPendingNow = () => {
+    ruleChangeHandledRef.current = true
+    if (pendingRuleChange) doCommit(pendingRuleChange.updatedMatch)
+    setPendingRuleChange(null)
+  }
+  const applyPendingRestart = () => {
+    ruleChangeHandledRef.current = true
+    if (pendingRuleChange) doCommit(restartCurrentSet(pendingRuleChange.updatedMatch))
+    setPendingRuleChange(null)
+  }
+  const cancelPendingRuleChange = () => {
+    setPendingRuleChange(null)
+    // Revert the form controls to the still-saved settings.
+    syncLocalSettings(match?.settings)
+  }
+
+  // Bug #10 fix: auto-apply settings on every change
+  const applySettingsAuto = (overrides: Record<string, any> = {}) => {
+    if (!match || !updateMatch) return
+
+    const updatedMatch = { ...match }
+    updatedMatch.history = []
+
+    updatedMatch.settings = {
+      ...updatedMatch.settings,
+      tiebreakEnabled: overrides.tiebreakEnabled !== undefined ? overrides.tiebreakEnabled : tiebreakEnabled,
+      tiebreakFormat: overrides.tiebreakFormat !== undefined ? overrides.tiebreakFormat : tiebreakFormat,
+      tiebreakLength: overrides.tiebreakLength !== undefined ? overrides.tiebreakLength : Number.parseInt(tiebreakLength),
+      tiebreakAt: overrides.tiebreakAt !== undefined ? overrides.tiebreakAt : tiebreakAt,
+      finalSetTiebreak: overrides.finalSetTiebreak !== undefined ? overrides.finalSetTiebreak : finalSetTiebreak,
+      finalSetFinish: overrides.finalSetFinish !== undefined ? overrides.finalSetFinish : finalSetFinish,
+      finalSetTiebreakLength: overrides.finalSetTiebreakLength !== undefined ? overrides.finalSetTiebreakLength : Number.parseInt(finalSetTiebreakLength),
+      scoringSystem: overrides.scoringSystem !== undefined ? overrides.scoringSystem : scoringSystem,
+      goldenPointFormat: overrides.goldenPointFormat !== undefined ? overrides.goldenPointFormat : goldenPointFormat,
+      gamesPerSet: overrides.gamesPerSet !== undefined ? overrides.gamesPerSet : Number.parseInt(gamesPerSet),
+      gamesPerSetOverrides: overrides.gamesPerSetOverrides !== undefined ? overrides.gamesPerSetOverrides : Object.fromEntries(
+        Object.entries(gamesPerSetOverrides).map(([k, v]) => [k, Number.parseInt(v as string)])
+      ),
+      goldenGame: overrides.goldenGame !== undefined ? overrides.goldenGame : goldenGame,
+      windbreak: overrides.windbreak !== undefined ? overrides.windbreak : windbreak,
+    }
+
+    requestRuleChange(updatedMatch)
   }
 
   const startTiebreak = () => {
     if (!match || !updateMatch) return
 
     const updatedMatch = { ...match }
-
-    // Отключаем историю
     updatedMatch.history = []
 
-    // Начинаем тай-брейк
     updatedMatch.score.currentSet.isTiebreak = true
     updatedMatch.score.currentSet.currentGame = {
       teamA: 0,
@@ -121,74 +229,59 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       updateMatch(updatedMatch)
     } catch (error) {
       console.error("Ошибка при запуске тай-брейка:", error)
-
-      // Если произошла ошибка, пробуем упростить объект матча
-      const minimalMatch = {
-        ...updatedMatch,
-        history: [],
-      }
-
-      // Удаляем историю геймов для экономии места
-      if (minimalMatch.score && minimalMatch.score.currentSet) {
-        minimalMatch.score.currentSet.games = []
-      }
-
-      if (minimalMatch.score && minimalMatch.score.sets) {
+      const minimalMatch = { ...updatedMatch, history: [] }
+      if (minimalMatch.score?.currentSet) minimalMatch.score.currentSet.games = []
+      if (minimalMatch.score?.sets) {
         minimalMatch.score.sets = minimalMatch.score.sets.map((set) => ({
           teamA: set.teamA,
           teamB: set.teamB,
           winner: set.winner,
         }))
       }
-
       updateMatch(minimalMatch)
     }
   }
 
+  // Bug #7 fix: save tiebreak score when ending tiebreak manually
   const endTiebreak = (winner) => {
     if (!match || !updateMatch) return
 
     const updatedMatch = { ...match }
-
-    // Отключаем историю
     updatedMatch.history = []
 
-    // Сохраняем счет тай-брейка перед завершением
     const tiebreakScore = {
       teamA: updatedMatch.score.currentSet.currentGame.teamA,
       teamB: updatedMatch.score.currentSet.currentGame.teamB,
     }
 
-    // Завершаем тай-брейк и увеличиваем счет победителя
     updatedMatch.score.currentSet[winner]++
-
-    // Сохраняем информацию о тай-брейке в текущем сете
     updatedMatch.score.currentSet.tiebreak = tiebreakScore
-
-    // Отмечаем, что тай-брейк завершен
     updatedMatch.score.currentSet.isTiebreak = false
 
-    // Завершаем сет
-    winSet(winner, updatedMatch)
+    winSetInSettings(winner, updatedMatch)
   }
 
-  const winSet = (team, updatedMatch) => {
+  // Bug #5 fix: single winSet implementation with tiebreak score saving
+  const winSetInSettings = (team, updatedMatch) => {
     if (!match || !updateMatch) return
 
-    // Увеличиваем счет матча
     updatedMatch.score[team]++
 
-    // Сохраняем текущий сет в историю сетов
-    updatedMatch.score.sets.push({
+    const setToSave: any = {
       teamA: updatedMatch.score.currentSet.teamA,
       teamB: updatedMatch.score.currentSet.teamB,
       winner: team,
-    })
+    }
 
-    // Проверка на победу в матче
-    const setsToWin = Math.ceil(match.settings.sets / 2)
+    // Bug #7 fix: save tiebreak score
+    if (updatedMatch.score.currentSet.tiebreak) {
+      setToSave.tiebreak = { ...updatedMatch.score.currentSet.tiebreak }
+    }
+
+    updatedMatch.score.sets.push(setToSave)
+
+    const setsToWin = getSetsToWin(updatedMatch.settings)
     if (updatedMatch.score[team] >= setsToWin) {
-      // Запрашиваем подтверждение перед завершением матча
       if (confirm(`Команда ${team === "teamA" ? "A" : "B"} выиграла матч! Завершить матч?`)) {
         updatedMatch.isCompleted = true
         updatedMatch.winner = team
@@ -197,8 +290,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       }
     }
 
-    // Начинаем новый сет
-    updatedMatch.score.currentSet = {
+    const nextCurrentSet: any = {
       teamA: 0,
       teamB: 0,
       games: [],
@@ -208,39 +300,45 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       },
       isTiebreak: false,
     }
+    if (shouldStartMatchTiebreakAfterSet(updatedMatch.settings, updatedMatch.score)) {
+      nextCurrentSet.isTiebreak = true
+      nextCurrentSet.isSuperTiebreak = true
+    }
+    updatedMatch.score.currentSet = nextCurrentSet
 
     updateMatch(updatedMatch)
   }
 
+  // Bug #6 fix: handle draw properly in endMatch
   const endMatch = () => {
     if (!match || !updateMatch) return
 
     console.log("endMatch function called")
 
-    // Create a copy of the match
     const updatedMatch = { ...match }
-
-    // Mark as completed
     updatedMatch.isCompleted = true
     updatedMatch.history = []
 
-    // Determine winner based on sets
     if (updatedMatch.score.teamA > updatedMatch.score.teamB) {
       updatedMatch.winner = "teamA"
     } else if (updatedMatch.score.teamB > updatedMatch.score.teamA) {
       updatedMatch.winner = "teamB"
     } else {
-      // If sets are equal, determine by games in current set
       if (updatedMatch.score.currentSet.teamA > updatedMatch.score.currentSet.teamB) {
         updatedMatch.winner = "teamA"
       } else if (updatedMatch.score.currentSet.teamB > updatedMatch.score.currentSet.teamA) {
         updatedMatch.winner = "teamB"
       } else {
-        // If games are also equal, use current game points
-        if (updatedMatch.score.currentSet.currentGame.teamA > updatedMatch.score.currentSet.currentGame.teamB) {
+        const ga = typeof updatedMatch.score.currentSet.currentGame.teamA === "number"
+          ? updatedMatch.score.currentSet.currentGame.teamA : 0
+        const gb = typeof updatedMatch.score.currentSet.currentGame.teamB === "number"
+          ? updatedMatch.score.currentSet.currentGame.teamB : 0
+        if (ga > gb) {
           updatedMatch.winner = "teamA"
-        } else {
+        } else if (gb > ga) {
           updatedMatch.winner = "teamB"
+        } else {
+          updatedMatch.winner = null
         }
       }
     }
@@ -258,6 +356,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     updateMatch(updatedMatch)
   }
 
+  // Bug #8 fix: recalculate isCompleted and winner after set score edit
   const updateSetScore = (index, team, delta) => {
     if (!match || !updateMatch) return
 
@@ -265,7 +364,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     updatedMatch.history = []
 
     if (index === match.score.sets.length) {
-      // Обновляем текущий сет
       if (delta > 0 || updatedMatch.score.currentSet[team] > 0) {
         updatedMatch.score.currentSet[team] += delta
         if (updatedMatch.score.currentSet[team] < 0) {
@@ -273,7 +371,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
         }
       }
     } else if (index < match.score.sets.length) {
-      // Обновляем завершенный сет
       if (delta > 0 || updatedMatch.score.sets[index][team] > 0) {
         updatedMatch.score.sets[index][team] += delta
         if (updatedMatch.score.sets[index][team] < 0) {
@@ -281,7 +378,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
         }
       }
 
-      // Определяем победителя сета
       const set = updatedMatch.score.sets[index]
       if (set.teamA > set.teamB) {
         set.winner = "teamA"
@@ -291,9 +387,21 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
         set.winner = null
       }
 
-      // Пересчитываем общий счет матча
-      updatedMatch.score.teamA = updatedMatch.score.sets.filter((set) => set.winner === "teamA").length
-      updatedMatch.score.teamB = updatedMatch.score.sets.filter((set) => set.winner === "teamB").length
+      updatedMatch.score.teamA = updatedMatch.score.sets.filter((s) => s.winner === "teamA").length
+      updatedMatch.score.teamB = updatedMatch.score.sets.filter((s) => s.winner === "teamB").length
+
+      // Bug #8 fix: recalculate isCompleted and winner
+      const setsToWin = getSetsToWin(updatedMatch.settings)
+      if (updatedMatch.score.teamA >= setsToWin) {
+        updatedMatch.isCompleted = true
+        updatedMatch.winner = "teamA"
+      } else if (updatedMatch.score.teamB >= setsToWin) {
+        updatedMatch.isCompleted = true
+        updatedMatch.winner = "teamB"
+      } else {
+        updatedMatch.isCompleted = false
+        updatedMatch.winner = null
+      }
     }
 
     updateMatch(updatedMatch)
@@ -308,7 +416,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       setEditSetScoreB(set.teamB)
       setEditSetIndex(index)
     } else if (index === match.score.sets.length) {
-      // Текущий сет
       setEditSetScoreA(match.score.currentSet.teamA)
       setEditSetScoreB(match.score.currentSet.teamB)
       setEditSetIndex(index)
@@ -322,22 +429,31 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     updatedMatch.history = []
 
     if (editSetIndex < match.score.sets.length) {
-      // Обновляем завершенный сет
       updatedMatch.score.sets[editSetIndex].teamA = editSetScoreA
       updatedMatch.score.sets[editSetIndex].teamB = editSetScoreB
 
-      // Определяем победителя сета
       if (editSetScoreA > editSetScoreB) {
         updatedMatch.score.sets[editSetIndex].winner = "teamA"
       } else if (editSetScoreB > editSetScoreA) {
         updatedMatch.score.sets[editSetIndex].winner = "teamB"
       }
 
-      // Пересчитываем общий счет матча
       updatedMatch.score.teamA = updatedMatch.score.sets.filter((set) => set.winner === "teamA").length
       updatedMatch.score.teamB = updatedMatch.score.sets.filter((set) => set.winner === "teamB").length
+
+      // Recalculate isCompleted/winner
+      const setsToWin = getSetsToWin(updatedMatch.settings)
+      if (updatedMatch.score.teamA >= setsToWin) {
+        updatedMatch.isCompleted = true
+        updatedMatch.winner = "teamA"
+      } else if (updatedMatch.score.teamB >= setsToWin) {
+        updatedMatch.isCompleted = true
+        updatedMatch.winner = "teamB"
+      } else {
+        updatedMatch.isCompleted = false
+        updatedMatch.winner = null
+      }
     } else if (editSetIndex === match.score.sets.length) {
-      // Обновляем текущий сет
       updatedMatch.score.currentSet.teamA = editSetScoreA
       updatedMatch.score.currentSet.teamB = editSetScoreB
     }
@@ -346,11 +462,9 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     setEditSetIndex(null)
   }
 
-  // Создаем массив для отображения всех запланированных сетов
-  const totalSets = match?.settings?.sets || 3 // По умолчанию 3 сета
+  const totalSets = match?.settings?.sets || 3
   const allSetsArray = []
 
-  // Добавляем завершенные сеты, если есть match
   if (match && match.score && match.score.sets) {
     for (let i = 0; i < match.score.sets.length; i++) {
       allSetsArray.push({
@@ -362,7 +476,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       })
     }
 
-    // Добавляем текущий сет
     allSetsArray.push({
       index: match.score.sets.length,
       isCompleted: false,
@@ -371,7 +484,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       teamB: match.score.currentSet.teamB,
     })
 
-    // Добавляем будущие сеты
     for (let i = match.score.sets.length + 1; i < totalSets; i++) {
       allSetsArray.push({
         index: i,
@@ -383,7 +495,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     }
   }
 
-  // Если нет match, но есть settings и onChange, отрендерим только настройки для нового матча
   if (!match && settings && onChange) {
     return (
       <div className="space-y-6">
@@ -442,15 +553,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               onCheckedChange={(checked) => handleChange("finalSetTiebreak", checked)}
             />
             <Label htmlFor="finalSetTiebreak">{t("newMatch.finalSetTiebreak")}</Label>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="goldPoint"
-              checked={settings.goldPoint}
-              onCheckedChange={(checked) => handleChange("goldPoint", checked)}
-            />
-            <Label htmlFor="goldPoint">{t("newMatch.goldPoint")}</Label>
           </div>
         </div>
 
@@ -525,11 +627,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
   if (!match) return null
 
-  // Получаем имена игроков для отображения
   const getTeamPlayerNames = (teamKey) => {
-    // Проверяем разные форматы данных игроков
-
-    // Формат 1: match.teamA.players или match.teamB.players
     if (match[teamKey]?.players && Array.isArray(match[teamKey].players)) {
       return match[teamKey].players
         .map((p) => p.name || p.firstName || p.lastName || "")
@@ -537,14 +635,12 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
         .join(", ")
     }
 
-    // Формат 2: match.players с полем team
     if (match.players && Array.isArray(match.players)) {
-      // Преобразуем teamKey в формат, который может быть в поле team
       const teamIdentifiers = [
-        teamKey, // "teamA"
-        teamKey.replace("team", ""), // "A"
-        teamKey === "teamA" ? "1" : "2", // "1" или "2"
-        teamKey === "teamA" ? 1 : 2, // 1 или 2
+        teamKey,
+        teamKey.replace("team", ""),
+        teamKey === "teamA" ? "1" : "2",
+        teamKey === "teamA" ? 1 : 2,
       ]
 
       const teamPlayers = match.players.filter(
@@ -559,7 +655,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       }
     }
 
-    // Формат 3: match.teamAPlayers или match.teamBPlayers
     const playersKey = `${teamKey}Players`
     if (match[playersKey] && Array.isArray(match[playersKey])) {
       return match[playersKey]
@@ -568,7 +663,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
         .join(", ")
     }
 
-    // Формат 4: match.teamAPlayer1, match.teamAPlayer2 и т.д.
     const player1Key = `${teamKey}Player1`
     const player2Key = `${teamKey}Player2`
 
@@ -584,7 +678,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       return playerNames.join(", ")
     }
 
-    // Жестко закодированные имена для демонстрации
     if (teamKey === "teamA") {
       return "Игрок 1, Игрок 2"
     } else {
@@ -592,12 +685,46 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     }
   }
 
-  // Получаем имена игроков для обеих команд
   const teamAPlayerNames = getTeamPlayerNames("teamA")
   const teamBPlayerNames = getTeamPlayerNames("teamB")
 
   return (
     <>
+      {/* Task 5: scope decision for a rule edit that touches live play */}
+      <AlertDialog
+        open={!!pendingRuleChange}
+        onOpenChange={(open) => {
+          if (open) return
+          if (ruleChangeHandledRef.current) setPendingRuleChange(null)
+          else cancelPendingRuleChange()
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingRuleChange?.classification?.scope === "restart-required"
+                ? "Изменение нельзя применить без потерь"
+                : "Изменение влияет на текущий сет"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingRuleChange?.classification?.reason
+                ? `${pendingRuleChange.classification.reason}. `
+                : ""}
+              Выберите, как применить это изменение правил.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+            <AlertDialogAction onClick={applyPendingNow}>Применить сейчас</AlertDialogAction>
+            {pendingRuleChange?.classification?.scope === "restart-required" && (
+              <AlertDialogAction onClick={applyPendingRestart}>
+                Перезапустить текущий сет с 0:0
+              </AlertDialogAction>
+            )}
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Score Editing Card */}
       <Card className="w-full mb-4 bg-gradient-to-b from-[#019fe3] to-[#00336d]">
         <CardHeader>
@@ -690,15 +817,33 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           </div>
 
           <div className="space-y-4">
-            {/* Sets selection - similar to new match page */}
+            {/* Sets selection */}
             <div className="border rounded-md py-3 px-[3px] bg-[#f8fdf9] shadow-md">
               <Label>{t("newMatch.sets")}</Label>
               <Select
-                value={match.settings?.sets?.toString() || "3"}
+                value={match.settings?.isSuperSet ? "super" : (match.settings?.sets?.toString() || "3")}
                 onValueChange={(value) => {
                   const updatedMatch = { ...match }
-                  updatedMatch.settings.sets = Number.parseInt(value)
-                  updateMatch(updatedMatch)
+                  if (value === "super") {
+                    updatedMatch.settings.isSuperSet = true
+                    updatedMatch.settings.superSetTarget = 8
+                    updatedMatch.settings.superSetTiebreakAt = 8
+                    updatedMatch.settings.sets = 1
+                    updatedMatch.settings.tiebreakEnabled = true
+                    updatedMatch.settings.tiebreakAt = "8-8"
+                    updatedMatch.settings.finalSetTiebreak = false
+                    updatedMatch.settings.finalSetFinish = "standard-7"
+                    setFinalSetTiebreak(false)
+                    setFinalSetFinish("standard-7")
+                  } else {
+                    updatedMatch.settings.isSuperSet = false
+                    updatedMatch.settings.sets = Number.parseInt(value)
+                    updatedMatch.settings.finalSetTiebreak = getDefaultFinalSetTiebreakForSelection(value)
+                    updatedMatch.settings.finalSetFinish = getDefaultFinalSetFinishForSelection(value)
+                    setFinalSetTiebreak(updatedMatch.settings.finalSetTiebreak)
+                    setFinalSetFinish(updatedMatch.settings.finalSetFinish)
+                  }
+                  requestRuleChange(updatedMatch)
                 }}
                 disabled={match.isCompleted}
               >
@@ -706,31 +851,129 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   <SelectValue placeholder={t("newMatch.sets")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">{t("newMatch.oneSets")}</SelectItem>
-                  <SelectItem value="3">{t("newMatch.threeSets")}</SelectItem>
-                  <SelectItem value="5">{t("newMatch.fiveSets")}</SelectItem>
+                  <SelectItem value="1">1 — normal</SelectItem>
+                  <SelectItem value="2">2 + tiebreak</SelectItem>
+                  <SelectItem value="3">3 — normal</SelectItem>
+                  <SelectItem value="4">4 + tiebreak</SelectItem>
+                  <SelectItem value="5">5 — normal</SelectItem>
+                  <SelectItem value="6">6 + tiebreak</SelectItem>
+                  <SelectItem value="7">7 — normal</SelectItem>
+                  <SelectItem value="super">
+                    <div>
+                      <span className="font-medium">{t("newMatch.superSet")}</span>
+                      <p className="text-xs text-muted-foreground">{t("newMatch.superSetDescription")}</p>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Final Set Tiebreak - similar to new match page */}
+            {/* Final Set Tiebreak — auto-apply on change */}
             <div className="border border-green-200 rounded-md py-3 px-[3px] bg-green-50 shadow-md mt-4">
               <div className="flex items-center justify-between mb-3">
                 <Label>{t("newMatch.finalSetTiebreak")}</Label>
                 <Switch
                   id="final-set-tiebreak"
                   checked={finalSetTiebreak}
-                  onCheckedChange={setFinalSetTiebreak}
+                  onCheckedChange={(checked) => {
+                    setFinalSetTiebreak(checked)
+                    if (!match.settings?.isSuperSet) {
+                      const num = match.settings?.sets || 3
+                      if (checked && num % 2 !== 0) {
+                        const updatedMatch = { ...match }
+                        const nextFinish = getDefaultFinalSetFinishForSelection((num - 1).toString())
+                        updatedMatch.settings = { ...updatedMatch.settings, sets: num - 1, finalSetTiebreak: checked, finalSetFinish: nextFinish }
+                        setFinalSetFinish(nextFinish)
+                        requestRuleChange(updatedMatch)
+                        return
+                      } else if (!checked && num % 2 === 0) {
+                        const updatedMatch = { ...match }
+                        const nextFinish = getDefaultFinalSetFinishForSelection((num + 1).toString())
+                        updatedMatch.settings = { ...updatedMatch.settings, sets: num + 1, finalSetTiebreak: checked, finalSetFinish: nextFinish }
+                        setFinalSetFinish(nextFinish)
+                        requestRuleChange(updatedMatch)
+                        return
+                      }
+                    }
+                    applySettingsAuto({ finalSetTiebreak: checked })
+                  }}
                   disabled={match.isCompleted}
                   className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                 />
               </div>
+
+              {finalSetTiebreak && (
+                <div className="space-y-2">
+                  <Label>Final set finish</Label>
+                  <Select
+                    value={finalSetFinish}
+                    onValueChange={(value) => {
+                      setFinalSetFinish(value)
+                      const nextLength = value.endsWith("-7") ? 7 : value.endsWith("-10") ? 10 : Number.parseInt(finalSetTiebreakLength)
+                      if (value.endsWith("-7")) setFinalSetTiebreakLength("7")
+                      if (value.endsWith("-10")) setFinalSetTiebreakLength("10")
+                      applySettingsAuto({ finalSetFinish: value, finalSetTiebreakLength: nextLength })
+                    }}
+                    disabled={match.isCompleted}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard-7">Games as normal - tiebreak to 7</SelectItem>
+                      <SelectItem value="standard-10">Games as normal - tiebreak to 10</SelectItem>
+                      <SelectItem value="match-tiebreak-7">No games - match tiebreak to 7</SelectItem>
+                      <SelectItem value="match-tiebreak-10">No games - match tiebreak to 10</SelectItem>
+                      <SelectItem value="games-to-12-7">Games to 12 - tiebreak to 7</SelectItem>
+                      <SelectItem value="games-to-12-10">Games to 12 - tiebreak to 10</SelectItem>
+                      <SelectItem value="no-tiebreak">No tiebreak</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Label>{t("newMatch.finalSetTiebreakLength")}</Label>
+                  <Select
+                    value={finalSetTiebreakLength}
+                    onValueChange={(value) => {
+                      setFinalSetTiebreakLength(value)
+                      applySettingsAuto({ finalSetTiebreakLength: Number.parseInt(value) })
+                    }}
+                    disabled={match.isCompleted}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("newMatch.selectTiebreakLength")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 30 }, (_, i) => i + 1).map((n) => (
+                        <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="text-xs text-green-700 mt-1">
+                    <p>{t("newMatch.finalSetTiebreakLengthDescription")}</p>
+                    <p className="mt-1 font-medium">{t("newMatch.finalSetTiebreakNote")}</p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Scoring System - similar to new match page */}
+            {/* Scoring System — auto-apply on change */}
             <div className="border rounded-md py-3 px-[3px] bg-[#f8fdf9] shadow-md">
               <Label>{t("match.scoringSystem")}</Label>
-              <Select value={scoringSystem} onValueChange={setScoringSystem} disabled={match.isCompleted}>
+              <Select
+                value={scoringSystem}
+                onValueChange={(value) => {
+                  setScoringSystem(value)
+                  const nextGoldenPoint = getDefaultGoldenPointForScoringSystem(value)
+                  setGoldenPointFormat(nextGoldenPoint)
+                  if (value === "fast4") {
+                    setGamesPerSet("4")
+                    applySettingsAuto({ scoringSystem: value, gamesPerSet: 4, goldenPointFormat: nextGoldenPoint })
+                  } else {
+                    applySettingsAuto({ scoringSystem: value, goldenPointFormat: nextGoldenPoint })
+                  }
+                }}
+                disabled={match.isCompleted}
+              >
                 <SelectTrigger className="mt-2">
                   <SelectValue placeholder={t("match.scoringSystem")} />
                 </SelectTrigger>
@@ -740,16 +983,125 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   <SelectItem value="fast4">{t("match.fast4Scoring")}</SelectItem>
                 </SelectContent>
               </Select>
+
+              <div className="mt-4 space-y-2">
+                <Label>Golden Point</Label>
+                <Select
+                  value={goldenPointFormat}
+                  onValueChange={(value) => {
+                    setGoldenPointFormat(value)
+                    applySettingsAuto({ goldenPointFormat: value })
+                  }}
+                  disabled={match.isCompleted}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Off</SelectItem>
+                    <SelectItem value="first-deuce">Pro - first deuce</SelectItem>
+                    <SelectItem value="second-deuce">Amateur - second deuce</SelectItem>
+                    <SelectItem value="third-deuce">Star - third deuce</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            {/* Tiebreak settings - similar to new match page */}
+            {/* Games per set — auto-apply on change */}
+            <div className="border rounded-md py-3 px-[3px] bg-[#f0f4ff] shadow-md">
+              <Label className="text-base font-medium">Кількість геймів у сеті</Label>
+              <Select
+                value={gamesPerSet}
+                onValueChange={(value) => {
+                  setGamesPerSet(value)
+                  if (value === "4") {
+                    setScoringSystem("fast4")
+                  }
+                  applySettingsAuto({ gamesPerSet: Number.parseInt(value) })
+                }}
+                disabled={match.isCompleted}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+                    <SelectItem key={n} value={n.toString()}>
+                      {n} гейм{n === 1 ? "" : n < 5 ? "и" : "ів"}{n === 6 ? " (стандарт)" : ""}{n === 4 ? " (Fast4)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {!match.settings?.isSuperSet && (() => {
+                const totalSets = match.settings?.sets || 3
+                if (!totalSets || totalSets < 2) return null
+                return (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      className="text-sm text-blue-600 hover:text-blue-800 underline"
+                      onClick={() => setShowPerSetGames(!showPerSetGames)}
+                    >
+                      {showPerSetGames ? "Сховати налаштування для кожного сету" : "Налаштувати для кожного сету окремо"}
+                    </button>
+
+                    {showPerSetGames && (
+                      <div className="mt-2 space-y-2">
+                        {Array.from({ length: totalSets }, (_, i) => i).map((setIdx) => (
+                          <div key={setIdx} className="flex items-center gap-2">
+                            <span className="text-sm font-medium w-20 shrink-0">Сет {setIdx + 1}:</span>
+                            <Select
+                              value={gamesPerSetOverrides[setIdx] || gamesPerSet}
+                              onValueChange={(v) => {
+                                setGamesPerSetOverrides((prev) => {
+                                  const next = { ...prev }
+                                  if (v === gamesPerSet) {
+                                    delete next[setIdx]
+                                  } else {
+                                    next[setIdx] = v
+                                  }
+                                  return next
+                                })
+                                const updatedOverrides = { ...gamesPerSetOverrides }
+                                if (v === gamesPerSet) {
+                                  delete updatedOverrides[setIdx]
+                                } else {
+                                  updatedOverrides[setIdx] = Number.parseInt(v)
+                                }
+                                applySettingsAuto({ gamesPerSetOverrides: updatedOverrides })
+                              }}
+                              disabled={match.isCompleted}
+                            >
+                              <SelectTrigger className="flex-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+                                  <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* Tiebreak settings — auto-apply on change */}
             <div className="border rounded-md py-4 px-[3px] bg-[#f3f5f7] shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <Label>{t("newMatch.tiebreak")}</Label>
                 <Switch
                   id="tiebreak-enabled"
                   checked={tiebreakEnabled}
-                  onCheckedChange={setTiebreakEnabled}
+                  onCheckedChange={(checked) => {
+                    setTiebreakEnabled(checked)
+                    applySettingsAuto({ tiebreakEnabled: checked })
+                  }}
                   disabled={match.isCompleted}
                   className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                 />
@@ -758,44 +1110,75 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               {tiebreakEnabled && (
                 <>
                   <div>
-                    <Label>{t("match.tiebreakType")}</Label>
-                    <RadioGroup
-                      value={tiebreakType}
-                      onValueChange={setTiebreakType}
-                      className="grid grid-cols-1 gap-2 mt-2"
+                    <Label>{t("match.tiebreakType") || "Кількість очків тай-брейку"}</Label>
+                    <Select
+                      value={tiebreakFormat}
+                      onValueChange={(value) => {
+                        setTiebreakFormat(value)
+                        applySettingsAuto({ tiebreakFormat: value })
+                      }}
                       disabled={match.isCompleted}
                     >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="regular" id="tiebreak-regular" disabled={match.isCompleted} />
-                        <div>
-                          <Label htmlFor="tiebreak-regular" className="font-medium">
-                            {t("newMatch.regularTiebreak")}
-                          </Label>
-                          <p className="text-xs text-muted-foreground">До 7 очков (с разницей в 2 очка)</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="championship" id="tiebreak-championship" disabled={match.isCompleted} />
-                        <div>
-                          <Label htmlFor="tiebreak-championship" className="font-medium">
-                            {t("newMatch.championshipTiebreak")}
-                          </Label>
-                          <p className="text-xs text-muted-foreground">До 10 очков (с разницей в 2 очка)</p>
-                        </div>
-                      </div>
-                    </RadioGroup>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="two-clear">Two clear points</SelectItem>
+                        <SelectItem value="receiver-select-1-or-2">Receiver selects 1 or 2</SelectItem>
+                        <SelectItem value="receiver-select-1-2-or-3">Receiver selects 1, 2 or 3</SelectItem>
+                        <SelectItem value="receiver-select-1-or-3">Receiver selects 1 or 3</SelectItem>
+                        <SelectItem value="sudden-death">Sudden death</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Label className="mt-4 block">Tiebreak points</Label>
+                    <Select
+                      value={tiebreakLength}
+                      onValueChange={(value) => {
+                        setTiebreakLength(value)
+                        applySettingsAuto({ tiebreakLength: Number.parseInt(value) })
+                      }}
+                      disabled={match.isCompleted}
+                    >
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
+                          <SelectItem key={n} value={n.toString()}>
+                            До {n} очків{n === 7 ? " (стандарт)" : ""}{n === 10 ? " (чемпіонський)" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {Number.parseInt(tiebreakLength) > 1 ? "З різницею в 2 очки" : ""}
+                    </p>
                   </div>
 
                   <div className="mt-4">
                     <Label>{t("match.tiebreakAt")}</Label>
-                    <Select value={tiebreakAt} onValueChange={setTiebreakAt} disabled={match.isCompleted}>
+                    <Select
+                      value={tiebreakAt}
+                      onValueChange={(value) => {
+                        setTiebreakAt(value)
+                        applySettingsAuto({ tiebreakAt: value })
+                      }}
+                      disabled={match.isCompleted}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder={t("match.selectTiebreakScore")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="6-6">6:6</SelectItem>
-                        <SelectItem value="5-5">5:5</SelectItem>
                         <SelectItem value="4-4">4:4</SelectItem>
+                        <SelectItem value="5-5">5:5</SelectItem>
+                        <SelectItem value="6-6">6:6</SelectItem>
+                        <SelectItem value="7-7">7:7</SelectItem>
+                        <SelectItem value="8-8">8:8</SelectItem>
+                        <SelectItem value="9-9">9:9</SelectItem>
+                        <SelectItem value="10-10">10:10</SelectItem>
+                        <SelectItem value="11-11">11:11</SelectItem>
+                        <SelectItem value="12-12">12:12</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -803,7 +1186,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               )}
             </div>
 
-            {/* Additional settings - similar to new match page */}
+            {/* Additional settings — auto-apply on change */}
             <div className="border rounded-md py-4 px-[3px] bg-[#f8fdf9] shadow-md">
               <Label className="text-base font-medium">{t("match.additional")}</Label>
               <div className="space-y-2 mt-3">
@@ -811,29 +1194,25 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   <Checkbox
                     id="golden-game"
                     checked={goldenGame}
-                    onCheckedChange={setGoldenGame}
+                    onCheckedChange={(checked) => {
+                      setGoldenGame(checked as boolean)
+                      applySettingsAuto({ goldenGame: checked })
+                    }}
                     disabled={match.isCompleted}
                   />
                   <Label htmlFor="golden-game" className="text-sm">
                     {t("match.goldenGame")}
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="golden-point"
-                    checked={goldenPoint}
-                    onCheckedChange={setGoldenPoint}
-                    disabled={match.isCompleted}
-                  />
-                  <Label htmlFor="golden-point" className="text-sm">
-                    {t("match.goldenPoint")}
-                  </Label>
-                </div>
+
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="windbreak"
                     checked={windbreak}
-                    onCheckedChange={setWindbreak}
+                    onCheckedChange={(checked) => {
+                      setWindbreak(checked as boolean)
+                      applySettingsAuto({ windbreak: checked })
+                    }}
                     disabled={match.isCompleted}
                   />
                   <Label htmlFor="windbreak" className="text-sm">
@@ -842,14 +1221,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                 </div>
               </div>
             </div>
-
-            <Button
-              className="w-full shadow-md transition-all duration-200 active:scale-95 bg-gradient-to-b from-[#f5f9fd] to-[#e1e9f5] hover:from-white hover:to-[#f5f9fd] text-[#00336d]"
-              onClick={applySettings}
-              disabled={match.isCompleted}
-            >
-              {t("match.applySettings")}
-            </Button>
           </div>
 
           <div className="pt-2 border-t">

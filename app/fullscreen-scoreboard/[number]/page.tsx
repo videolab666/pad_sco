@@ -7,6 +7,7 @@ import { getMatchByCourtNumber } from "@/lib/court-utils"
 import { getTennisPointName } from "@/lib/tennis-utils"
 import { logEvent } from "@/lib/error-logger"
 import { subscribeToMatchUpdates } from "@/lib/match-storage"
+import { applyScoreIncrement, getImportantPoint } from "@/lib/scoring-logic"
 import { Maximize2, Minimize2, Trophy, ArrowLeft, Clock } from "lucide-react"
 import { translations, type Language } from "@/lib/translations"
 import { getDefaultVmixSettings } from "@/lib/vmix-settings-storage"
@@ -32,62 +33,151 @@ const getPlayerCountryDisplay = (team, playerIndex, matchData) => {
 }
 
 export default function FullscreenScoreboard({ params }: FullscreenScoreboardParams) {
-  const [match, setMatch] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isCompletedMatch, setIsCompletedMatch] = useState(false)
-  const [lastMatchId, setLastMatchId] = useState(null)
-  const searchParams = useSearchParams()
-  const containerRef = useRef(null)
-  const courtNumber = Number.parseInt(params.number)
-  const [loadingSettings, setLoadingSettings] = useState(false)
-  const [settingsLoaded, setSettingsLoaded] = useState(false)
+  // --- All state hooks must be at the top ---
+  // TODO: Replace 'any' with a proper Match type if available
+  const [match, setMatch] = useState<any>(null);
+  const [matchHistory, setMatchHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isCompletedMatch, setIsCompletedMatch] = useState(false);
+  const [lastMatchId, setLastMatchId] = useState(null);
+  const searchParams = useSearchParams();
+  const containerRef = useRef(null);
+  const courtNumber = Number.parseInt(params.number);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   // Состояние для настроек отображения
-  const [theme, setTheme] = useState("default")
-  const [showNames, setShowNames] = useState(true)
-  const [showPoints, setShowPoints] = useState(true)
-  const [showSets, setShowSets] = useState(true)
-  const [showServer, setShowServer] = useState(true)
-  const [showCountry, setShowCountry] = useState(false)
-  const [textColor, setTextColor] = useState("#ffffff")
-  const [accentColor, setAccentColor] = useState("#a4fb23")
+  const [theme, setTheme] = useState("default");
+  const [showNames, setShowNames] = useState(true);
+  const [showPoints, setShowPoints] = useState(true);
+  const [showSets, setShowSets] = useState(true);
+  const [showServer, setShowServer] = useState(true);
+  const [showCountry, setShowCountry] = useState(false);
+  const [textColor, setTextColor] = useState("#ffffff");
+  const [accentColor, setAccentColor] = useState("#a4fb23");
+  const [namesBgColor, setNamesBgColor] = useState("#0369a1");
+  const [countryBgColor, setCountryBgColor] = useState("#0369a1");
+  const [pointsBgColor, setPointsBgColor] = useState("#0369a1");
+  const [setsBgColor, setSetsBgColor] = useState("#ffffff");
+  const [setsTextColor, setSetsTextColor] = useState("#000000");
+  const [serveBgColor, setServeBgColor] = useState("#000000");
+  const [namesGradient, setNamesGradient] = useState(true);
+  const [namesGradientFrom, setNamesGradientFrom] = useState("#0369a1");
+  const [namesGradientTo, setNamesGradientTo] = useState("#0284c7");
+  const [countryGradient, setCountryGradient] = useState(true);
+  const [countryGradientFrom, setCountryGradientFrom] = useState("#0369a1");
+  const [countryGradientTo, setCountryGradientTo] = useState("#0284c7");
+  const [pointsGradient, setPointsGradient] = useState(true);
+  const [pointsGradientFrom, setPointsGradientFrom] = useState("#0369a1");
+  const [pointsGradientTo, setPointsGradientTo] = useState("#0284c7");
+  const [setsGradient, setSetsGradient] = useState(true);
+  const [setsGradientFrom, setSetsGradientFrom] = useState("#ffffff");
+  const [setsGradientTo, setSetsGradientTo] = useState("#f0f0f0");
+  const [serveGradient, setServeGradient] = useState(true);
+  const [serveGradientFrom, setServeGradientFrom] = useState("#000000");
+  const [serveGradientTo, setServeGradientTo] = useState("#1e1e1e");
+  const [indicatorBgColor, setIndicatorBgColor] = useState("#7c2d12");
+  const [indicatorTextColor, setIndicatorTextColor] = useState("#ffffff");
+  const [indicatorGradient, setIndicatorGradient] = useState(true);
+  const [indicatorGradientFrom, setIndicatorGradientFrom] = useState("#7c2d12");
+  const [indicatorGradientTo, setIndicatorGradientTo] = useState("#991b1b");
+  const [language, setLanguage] = useState<Language>("ru");
+  const showDebug = searchParams.get("debug") === "true";
 
-  // Состояние для цветов с правильной обработкой параметров
-  const [namesBgColor, setNamesBgColor] = useState("#0369a1")
-  const [countryBgColor, setCountryBgColor] = useState("#0369a1")
-  const [pointsBgColor, setPointsBgColor] = useState("#0369a1")
-  const [setsBgColor, setSetsBgColor] = useState("#ffffff")
-  const [setsTextColor, setSetsTextColor] = useState("#000000")
-  const [serveBgColor, setServeBgColor] = useState("#000000")
+  // Handler to increment score for Team A or B
+  const handleIncrementScore = async (team: 'teamA' | 'teamB') => {
+    if (!match || match.isCompleted) return;
+    // Save current match state to history for undo
+    setMatchHistory(prev => [...prev, JSON.parse(JSON.stringify(match))]);
+    // Deep copy to avoid mutating state directly
+    const updatedMatch = JSON.parse(JSON.stringify(match));
+    // Use shared scoring logic
+    const resultMatch = applyScoreIncrement(updatedMatch, team);
+    setMatch(resultMatch);
+    try {
+      if (typeof window !== "undefined") {
+        const { updateMatch } = await import("@/lib/match-storage");
+        await updateMatch(resultMatch);
+      }
+    } catch (e) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error("Failed to update match after increment score:", e);
+      }
+    }
+    logEvent("info", `Score incremented for ${team}`, "fullscreen-scoreboard", { matchId: match.id });
+  };
 
-  // Состояние для параметров градиентов
-  const [namesGradient, setNamesGradient] = useState(true)
-  const [namesGradientFrom, setNamesGradientFrom] = useState("#0369a1")
-  const [namesGradientTo, setNamesGradientTo] = useState("#0284c7")
-  const [countryGradient, setCountryGradient] = useState(true)
-  const [countryGradientFrom, setCountryGradientFrom] = useState("#0369a1")
-  const [countryGradientTo, setCountryGradientTo] = useState("#0284c7")
-  const [pointsGradient, setPointsGradient] = useState(true)
-  const [pointsGradientFrom, setPointsGradientFrom] = useState("#0369a1")
-  const [pointsGradientTo, setPointsGradientTo] = useState("#0284c7")
-  const [setsGradient, setSetsGradient] = useState(true)
-  const [setsGradientFrom, setSetsGradientFrom] = useState("#ffffff")
-  const [setsGradientTo, setSetsGradientTo] = useState("#f0f0f0")
-  const [serveGradient, setServeGradient] = useState(true)
-  const [serveGradientFrom, setServeGradientFrom] = useState("#000000")
-  const [serveGradientTo, setServeGradientTo] = useState("#1e1e1e")
+  // Undo last score change
+  const handleUndoScoreChange = async () => {
+    if (!matchHistory.length) return;
+    const prevMatch = matchHistory[matchHistory.length - 1];
+    setMatch(prevMatch);
+    setMatchHistory(history => history.slice(0, -1));
+    try {
+      if (typeof window !== "undefined") {
+        const { updateMatch } = await import("@/lib/match-storage");
+        await updateMatch(prevMatch);
+      }
+    } catch (e) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error("Failed to update match after undo:", e);
+      }
+    }
+    logEvent("info", `Undo last score change`, "fullscreen-scoreboard", { matchId: prevMatch?.id });
+  };
 
-  // Состояние для параметров индикатора важных событий
-  const [indicatorBgColor, setIndicatorBgColor] = useState("#7c2d12")
-  const [indicatorTextColor, setIndicatorTextColor] = useState("#ffffff")
-  const [indicatorGradient, setIndicatorGradient] = useState(true)
-  const [indicatorGradientFrom, setIndicatorGradientFrom] = useState("#7c2d12")
-  const [indicatorGradientTo, setIndicatorGradientTo] = useState("#991b1b")
+  // Handler to finish the match
+  const handleFinishMatch = async () => {
+    if (!match || match.isCompleted) return;
+    const updatedMatch = { ...match, isCompleted: true, winner: null };
+    setMatch(updatedMatch);
+    setIsCompletedMatch(true);
 
-  const [language, setLanguage] = useState<Language>("ru")
-  const showDebug = searchParams.get("debug") === "true"
+    // Try to update backend (Supabase/localStorage)
+    try {
+      // Use updateMatch if available
+      if (typeof window !== "undefined") {
+        const { updateMatch } = await import("@/lib/match-storage");
+        await updateMatch(updatedMatch);
+      }
+    } catch (e) {
+      // Ignore backend errors but log for debug
+      if (process.env.NODE_ENV !== 'production') {
+        console.error("Failed to update match in backend:", e);
+      }
+    }
+  };
+
+  // Global keydown event for F key (finish match)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      // F key (case-insensitive)
+      if (e.key === 'F' || e.key === 'f') {
+        handleFinishMatch();
+        return;
+      }
+      // A key (increment Team A)
+      if (e.key === 'A' || e.key === 'a') {
+        handleIncrementScore('teamA');
+        return;
+      }
+      // B key (increment Team B)
+      if (e.key === 'B' || e.key === 'b') {
+        handleIncrementScore('teamB');
+        return;
+      }
+      // U key (undo last score change)
+      if (e.key === 'U' || e.key === 'u') {
+        handleUndoScoreChange();
+        return;
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [match, matchHistory]);
 
   // Функция для загрузки настроек из базы данных
   const loadSettingsFromDatabase = async () => {
@@ -339,8 +429,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
       if (isNaN(courtNumber) || courtNumber < 1 || courtNumber > 10) {
         setError(
           translations[language].common.error +
-            ": " +
-            (translations[language].scoreboard.invalidCourt || "Invalid court number"),
+          ": " +
+          (translations[language].scoreboard.invalidCourt || "Invalid court number"),
         )
         setLoading(false)
         logEvent("error", "Fullscreen Scoreboard: invalid court number", "fullscreen-scoreboard")
@@ -376,7 +466,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
       } else {
         setError(
           translations[language].scoreboard.noActiveMatches?.replace("{number}", courtNumber) ||
-            `No active matches on court ${courtNumber}`,
+          `No active matches on court ${courtNumber}`,
         )
         logEvent("warn", `Fullscreen Scoreboard: no active matches on court ${courtNumber}`, "fullscreen-scoreboard")
         return null
@@ -384,8 +474,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
     } catch (err) {
       setError(
         translations[language].common.error +
-          ": " +
-          (translations[language].scoreboard.loadError || "Error loading match"),
+        ": " +
+        (translations[language].scoreboard.loadError || "Error loading match"),
       )
       logEvent("error", "Ошибка загрузки матча для Fullscreen Scoreboard", "fullscreen-scoreboard", err)
       return null
@@ -406,14 +496,48 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
       if (!matchData) return
 
       // Настраиваем подписку на обновления матча
-      unsubscribe = subscribeToMatchUpdates(matchData.id, (updatedMatch) => {
+      unsubscribe = subscribeToMatchUpdates(matchData.id, async (updatedMatch) => {
         if (updatedMatch) {
+          // Загружаем состояние синхронизации
+          let hasPendingOperations = false;
+          try {
+            const { getMatchSyncState } = await import("@/lib/match-sync");
+            const syncState = getMatchSyncState(matchData.id);
+            hasPendingOperations = syncState && syncState.pendingCount > 0;
+          } catch (e) {
+            console.error("Ошибка при получении состояния синхронизации:", e);
+          }
+
+          if (hasPendingOperations) {
+            return;
+          }
+
           console.log("Match update received:", JSON.stringify(updatedMatch, null, 2))
-          setMatch(updatedMatch)
+          setMatch((prev) => {
+            if (
+              prev &&
+              typeof prev.revision === "number" &&
+              typeof updatedMatch.revision === "number" &&
+              updatedMatch.revision <= prev.revision
+            ) {
+              return prev;
+            }
+            return updatedMatch;
+          })
           setError("")
 
-          // Обновляем статус завершения
-          setIsCompletedMatch(updatedMatch.isCompleted === true)
+          // Preserve local completed state if we've already finished the match
+          if (isCompletedMatch && updatedMatch.isCompleted !== true) {
+            // Prevent rollback of completion status
+            setIsCompletedMatch(true);
+            // Optionally, merge isCompleted into match object for UI
+            setMatch((prev) => prev ? { ...prev, isCompleted: true } : updatedMatch);
+            logEvent("warn", "Realtime update tried to reset isCompleted to false, preserving local completed state", "fullscreen-scoreboard", {
+              matchId: updatedMatch.id,
+            });
+          } else {
+            setIsCompletedMatch(updatedMatch.isCompleted === true);
+          }
 
           logEvent("debug", "Fullscreen Scoreboard: получено обновление матча", "fullscreen-scoreboard", {
             matchId: updatedMatch.id,
@@ -454,9 +578,33 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           setError("")
 
           // Настраиваем новую подписку
-          unsubscribe = subscribeToMatchUpdates(newMatchData.id, (updatedMatch) => {
+          unsubscribe = subscribeToMatchUpdates(newMatchData.id, async (updatedMatch) => {
             if (updatedMatch) {
-              setMatch(updatedMatch)
+              // Загружаем состояние синхронизации
+              let hasPendingOperations = false;
+              try {
+                const { getMatchSyncState } = await import("@/lib/match-sync");
+                const syncState = getMatchSyncState(newMatchData.id);
+                hasPendingOperations = syncState && syncState.pendingCount > 0;
+              } catch (e) {
+                console.error("Ошибка при получении состояния синхронизации:", e);
+              }
+
+              if (hasPendingOperations) {
+                return;
+              }
+
+              setMatch((prev) => {
+                if (
+                  prev &&
+                  typeof prev.revision === "number" &&
+                  typeof updatedMatch.revision === "number" &&
+                  updatedMatch.revision <= prev.revision
+                ) {
+                  return prev;
+                }
+                return updatedMatch;
+              })
               setIsCompletedMatch(updatedMatch.isCompleted === true)
               setError("")
             }
@@ -529,288 +677,18 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
     return tiebreakScores
   }
 
-  // Функция для преобразования числового значения очков в теннисе в индекс
-  const getPointIndex = (point) => {
-    // Обработка строкового значения "Ad" (преимущество)
-    if (point === "Ad") return 4
+  // getPointIndex, isGamePoint, isSetPoint, isMatchPoint, getImportantPoint
+  // → removed, now imported from @/lib/scoring-logic
 
-    // Преобразуем числовые значения очков (0, 15, 30, 40) в индексы (0, 1, 2, 3)
-    if (point === 0) return 0
-    if (point === 15) return 1
-    if (point === 30) return 2
-    if (point === 40) return 3
-
-    // Если значение больше 40, считаем это преимуществом (Ad)
-    if (typeof point === "number" && point > 40) return 4
-
-    // Если это числовое значение, но не стандартное, возвращаем его как есть
-    // (это может быть счет в тай-брейке)
-    return point
-  }
-
-  // Улучшенная функция для определения game point с подробным логированием
-  const isGamePoint = (match) => {
-    console.log("=== CHECKING GAME POINT ===")
-
-    if (!match || !match.score || !match.score.currentSet) {
-      console.log("No match data or current set")
-      return false
-    }
-
-    const currentSet = match.score.currentSet
-    const currentGame = currentSet.currentGame
-
-    if (!currentGame) {
-      console.log("No current game data")
-      return false
-    }
-
-    console.log("Current game score:", JSON.stringify(currentGame))
-    console.log("Is tiebreak:", currentSet.isTiebreak)
-    console.log("Team A points:", currentGame.teamA, "Team B points:", currentGame.teamB)
-    console.log("Team A points name:", getTennisPointName(currentGame.teamA))
-    console.log("Team B points name:", getTennisPointName(currentGame.teamB))
-
-    // Получаем индексы очков для правильного сравнения
-    const teamAIndex = getPointIndex(currentGame.teamA)
-    const teamBIndex = getPointIndex(currentGame.teamB)
-
-    console.log("Team A points index:", teamAIndex, "Team B points index:", teamBIndex)
-
-    // Для тай-брейка
-    if (currentSet.isTiebreak) {
-      console.log("Tiebreak logic")
-      // В тай-брейке обычно нужно набрать 7 очков с разницей в 2 очка
-      // Если команда A имеет 6 очков и ведет, это game point
-      if (currentGame.teamA >= 6 && currentGame.teamA >= currentGame.teamB + 1) {
-        console.log("Game point for teamA in tiebreak")
-        return "teamA"
-      }
-      // Если команда B имеет 6 очков и ведет, это game point
-      if (currentGame.teamB >= 6 && currentGame.teamB >= currentGame.teamA + 1) {
-        console.log("Game point for teamB in tiebreak")
-        return "teamB"
-      }
-      console.log("No game point in tiebreak")
-      return false
-    }
-
-    // Для обычного гейма - исправленная логика с использованием индексов
-
-    // Если у команды A преимущество (Ad)
-    if (teamAIndex === 4 && teamBIndex <= 3) {
-      console.log("Game point for teamA: Ad")
-      return "teamA"
-    }
-
-    // Если команда A имеет 40 (индекс 3) и команда B имеет меньше или равно 30 (индекс <= 2)
-    if (teamAIndex === 3 && teamBIndex <= 2) {
-      console.log("Game point for teamA: 40-x")
-      return "teamA"
-    }
-
-    // Если у команды B преимущество (Ad)
-    if (teamBIndex === 4 && teamAIndex <= 3) {
-      console.log("Game point for teamB: Ad")
-      return "teamB"
-    }
-
-    // Если команда B имеет 40 (индекс 3) и команда A имеет меньше или равно 30 (индекс <= 2)
-    if (teamBIndex === 3 && teamAIndex <= 2) {
-      console.log("Game point for teamB: 40-x")
-      return "teamB"
-    }
-
-    console.log("No game point detected")
-    return false
-  }
-
-  // Улучшенная функция для определения set point с подробным логированием
-  const isSetPoint = (match) => {
-    console.log("=== CHECKING SET POINT ===")
-
-    if (!match || !match.score || !match.score.currentSet) {
-      console.log("No match data or current set")
-      return false
-    }
-
-    const currentSet = match.score.currentSet
-    const teamAGames = currentSet.teamA
-    const teamBGames = currentSet.teamB
-
-    console.log("Current set score - Team A:", teamAGames, "Team B:", teamBGames)
-
-    // Если идет тай-брейк, проверяем особым образом
-    if (currentSet.isTiebreak) {
-      // Получаем, кто имеет гейм-поинт в тай-брейке
-      const gamePoint = isGamePoint(match)
-      console.log("Game point in tiebreak result:", gamePoint)
-
-      // Если есть гейм-поинт в тай-брейке, то это также и сет-поинт
-      if (gamePoint) {
-        console.log("Set point in tiebreak for", gamePoint)
-        return gamePoint
-      }
-
-      console.log("No set point in tiebreak")
-      return false
-    }
-
-    // Для обычного гейма
-    // Получаем, кто имеет гейм-поинт
-    const gamePoint = isGamePoint(match)
-    console.log("Game point result:", gamePoint)
-
-    if (!gamePoint) {
-      console.log("No game point, so no set point")
-      return false
-    }
-
-    // Для команды A
-    if (gamePoint === "teamA") {
-      // Если команда A ведет 5-x и выиграет этот гейм, то счет станет 6-x
-      if (teamAGames === 5 && teamBGames <= 4) {
-        console.log("Set point for teamA: 5-x")
-        return "teamA"
-      }
-      // Если команда A ведет 6-5 и выиграет этот гейм, то счет станет 7-5
-      if (teamAGames === 6 && teamBGames === 5) {
-        console.log("Set point for teamA: 6-5")
-        return "teamA"
-      }
-    }
-
-    // Для команды B
-    if (gamePoint === "teamB") {
-      // Если команда B ведет 5-x и выиграет этот гейм, то счет станет 6-x
-      if (teamBGames === 5 && teamAGames <= 4) {
-        console.log("Set point for teamB: 5-x")
-        return "teamB"
-      }
-      // Если команда B ведет 6-5 и выиграет этот гейм, то счет станет 7-5
-      if (teamBGames === 6 && teamAGames === 5) {
-        console.log("Set point for teamB: 6-5")
-        return "teamB"
-      }
-    }
-
-    console.log("No set point detected")
-    return false
-  }
-
-  // Улучшенная функция для определения match point с подробным логированием
-  const isMatchPoint = (match) => {
-    console.log("=== CHECKING MATCH POINT ===")
-
-    if (!match || !match.score || !match.score.currentSet) {
-      console.log("No match data or current set")
-      return false
-    }
-
-    // Определяем, сколько сетов нужно для победы (обычно 2 из 3)
-    const setsToWin = match.setsToWin || 2
-    console.log("Sets to win:", setsToWin)
-
-    // Получаем текущий счет по сетам
-    const teamASets = match.score.sets ? match.score.sets.filter((set) => set.teamA > set.teamB).length : 0
-    const teamBSets = match.score.sets ? match.score.sets.filter((set) => set.teamB > set.teamA).length : 0
-    console.log("Sets won - Team A:", teamASets, "Team B:", teamBSets)
-
-    // Проверяем, является ли текущий гейм сет-поинтом
-    const setPoint = isSetPoint(match)
-    console.log("Set point result:", setPoint)
-
-    // Если нет сет-поинта, то не может быть и матч-поинта
-    if (!setPoint) {
-      console.log("No set point, so no match point")
-      return false
-    }
-
-    // Для команды A
-    if (setPoint === "teamA" && teamASets === setsToWin - 1) {
-      console.log("Match point for teamA")
-      return "teamA"
-    }
-
-    // Для команды B
-    if (setPoint === "teamB" && teamBSets === setsToWin - 1) {
-      console.log("Match point for teamB")
-      return "teamB"
-    }
-
-    console.log("No match point detected")
-    return false
-  }
-
-  // Улучшенная функция для определения важного момента с подробным логированием
-  const getImportantPoint = (match) => {
-    console.log("=== GETTING IMPORTANT POINT ===")
-
-    // Для отладки - выводим текущий счет
-    if (match && match.score && match.score.currentSet) {
-      console.log("Current game score:", JSON.stringify(match.score.currentSet.currentGame))
-      console.log("Current set score:", {
-        teamA: match.score.currentSet.teamA,
-        teamB: match.score.currentSet.teamB,
-        isTiebreak: match.score.currentSet.isTiebreak,
-      })
-      if (match.score.sets) {
-        console.log("Sets:", JSON.stringify(match.score.sets))
-      }
-    } else {
-      console.log("No match data available")
-    }
-
-    // Проверяем, идет ли тай-брейк
-    const isTiebreak = match?.score?.currentSet?.isTiebreak || false
-
-    // Сначала проверяем match point (самый приоритетный)
-    const matchPoint = isMatchPoint(match)
-    if (matchPoint) {
-      console.log("MATCH POINT detected for", matchPoint)
-      return { type: "MATCH POINT", team: matchPoint }
-    }
-
-    // Затем проверяем set point
-    const setPoint = isSetPoint(match)
-    if (setPoint) {
-      console.log("SET POINT detected for", setPoint)
-      return { type: "SET POINT", team: setPoint }
-    }
-
-    // Затем проверяем game point
-    const gamePoint = isGamePoint(match)
-    if (gamePoint) {
-      console.log("GAME POINT detected for", gamePoint)
-      // Если идет тай-брейк, показываем "TIEBREAK POINT" вместо "GAME POINT"
-      if (isTiebreak) {
-        return { type: "TIEBREAK POINT", team: gamePoint }
-      }
-      return { type: "GAME POINT", team: gamePoint }
-    }
-
-    console.log("No important point detected")
-    // Если нет важного момента, возвращаем тип индикатора в зависимости от того, идет ли тай-брейк
-    return { type: isTiebreak ? "TIEBREAK" : "GAME", team: null }
-  }
-
-  // Обновленная функция getImportantEvent, которая использует логику из vMix
   const getImportantEvent = () => {
     if (!match || !match.score) return null
 
-    // Проверяем, завершен ли матч
     if (match.isCompleted) {
       return translations[language].scoreboard.matchCompleted || "MATCH IS OVER"
     }
 
-    const importantPoint = getImportantPoint(match)
-
-    // Возвращаем тип важного события, если оно есть и это не обычный гейм
-    if (importantPoint.type && importantPoint.type !== "GAME") {
-      return importantPoint.type
-    }
-
-    return null
+    const { type } = getImportantPoint(match)
+    return type || null
   }
 
   // Получаем стиль градиента для фона
@@ -1096,11 +974,10 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           justify-content: center;
           transition: opacity 0.5s ease; /* Добавлен плавный переход */
           z-index: 10;
-          ${
-            indicatorGradient
-              ? `background: linear-gradient(to bottom, ${indicatorGradientFrom}, ${indicatorGradientTo});`
-              : `background-color: ${indicatorBgColor};`
-          }
+          ${indicatorGradient
+          ? `background: linear-gradient(to bottom, ${indicatorGradientFrom}, ${indicatorGradientTo});`
+          : `background-color: ${indicatorBgColor};`
+        }
         }
 
         /* Responsive font sizes */
@@ -1477,6 +1354,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 }
 
 // Добавить эту функцию после объявления компонента FullscreenScoreboard
+// (No changes needed here for F key logic)
 const getTranslation = (path: string, fallback: string, lang: Language): string => {
   const parts = path.split(".")
   let result = translations[lang]

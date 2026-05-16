@@ -702,6 +702,7 @@ export default function NewMatchPage() {
                 </SelectContent>
               </Select>
 
+              {scoringSystem === "classic" && (
               <div className="mt-4 space-y-2">
                 <Label>Golden Point</Label>
                 <Select value={goldenPointFormat} onValueChange={setGoldenPointFormat}>
@@ -716,6 +717,7 @@ export default function NewMatchPage() {
                   </SelectContent>
                 </Select>
               </div>
+              )}
             </div>
 
             <div className="border rounded-md p-3 bg-[#f0f4ff] shadow-md">

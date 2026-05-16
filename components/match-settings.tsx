@@ -984,6 +984,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                 </SelectContent>
               </Select>
 
+              {scoringSystem === "classic" && (
               <div className="mt-4 space-y-2">
                 <Label>Golden Point</Label>
                 <Select
@@ -1005,6 +1006,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   </SelectContent>
                 </Select>
               </div>
+              )}
             </div>
 
             {/* Games per set — auto-apply on change */}

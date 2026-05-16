@@ -321,7 +321,7 @@ export default function NewMatchPage() {
       }
     } catch (error) {
       console.error("Ошибка при добавлении игрока:", error)
-      showNotification("Произошла ошибка при добавлении игрока", "error")
+      showNotification(t("newMatch.errorAddingPlayer"), "error")
       logEvent("error", "Ошибка при добавлении игрока", "NewMatchPage", error)
     } finally {
       setIsAddingPlayer(false)
@@ -595,13 +595,13 @@ export default function NewMatchPage() {
                   <SelectValue placeholder={t("newMatch.selectSets")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1 — normal</SelectItem>
-                  <SelectItem value="2">2 + tiebreak</SelectItem>
-                  <SelectItem value="3">3 — normal</SelectItem>
-                  <SelectItem value="4">4 + tiebreak</SelectItem>
-                  <SelectItem value="5">5 — normal</SelectItem>
-                  <SelectItem value="6">6 + tiebreak</SelectItem>
-                  <SelectItem value="7">7 — normal</SelectItem>
+                  <SelectItem value="1">{t("newMatch.setsNnormal", { n: "1" })}</SelectItem>
+                  <SelectItem value="2">{t("newMatch.setsNplusTiebreak", { n: "2" })}</SelectItem>
+                  <SelectItem value="3">{t("newMatch.setsNnormal", { n: "3" })}</SelectItem>
+                  <SelectItem value="4">{t("newMatch.setsNplusTiebreak", { n: "4" })}</SelectItem>
+                  <SelectItem value="5">{t("newMatch.setsNnormal", { n: "5" })}</SelectItem>
+                  <SelectItem value="6">{t("newMatch.setsNplusTiebreak", { n: "6" })}</SelectItem>
+                  <SelectItem value="7">{t("newMatch.setsNnormal", { n: "7" })}</SelectItem>
                   <SelectItem value="super">
                     <div>
                       <span className="font-medium">{t("newMatch.superSet")}</span>
@@ -638,7 +638,7 @@ export default function NewMatchPage() {
 
               {finalSetTiebreak && (
                 <div className="space-y-2">
-                  <Label>Final set finish</Label>
+                  <Label>{t("newMatch.finalSetFinishLabel")}</Label>
                   <Select
                     value={finalSetFinish}
                     onValueChange={(value) => {
@@ -651,13 +651,13 @@ export default function NewMatchPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="standard-7">Games as normal - tiebreak to 7</SelectItem>
-                      <SelectItem value="standard-10">Games as normal - tiebreak to 10</SelectItem>
-                      <SelectItem value="match-tiebreak-7">No games - match tiebreak to 7</SelectItem>
-                      <SelectItem value="match-tiebreak-10">No games - match tiebreak to 10</SelectItem>
-                      <SelectItem value="games-to-12-7">Games to 12 - tiebreak to 7</SelectItem>
-                      <SelectItem value="games-to-12-10">Games to 12 - tiebreak to 10</SelectItem>
-                      <SelectItem value="no-tiebreak">No tiebreak</SelectItem>
+                      <SelectItem value="standard-7">{t("newMatch.finalSetGamesTiebreak7")}</SelectItem>
+                      <SelectItem value="standard-10">{t("newMatch.finalSetGamesTiebreak10")}</SelectItem>
+                      <SelectItem value="match-tiebreak-7">{t("newMatch.finalSetMatchTiebreak7")}</SelectItem>
+                      <SelectItem value="match-tiebreak-10">{t("newMatch.finalSetMatchTiebreak10")}</SelectItem>
+                      <SelectItem value="games-to-12-7">{t("newMatch.finalSetGamesTo12Tiebreak7")}</SelectItem>
+                      <SelectItem value="games-to-12-10">{t("newMatch.finalSetGamesTo12Tiebreak10")}</SelectItem>
+                      <SelectItem value="no-tiebreak">{t("newMatch.finalSetNoTiebreak")}</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -704,16 +704,16 @@ export default function NewMatchPage() {
 
               {scoringSystem === "classic" && (
                 <div className="mt-4 space-y-2">
-                  <Label>Golden Point</Label>
+                  <Label>{t("newMatch.goldenPoint")}</Label>
                   <Select value={goldenPointFormat} onValueChange={setGoldenPointFormat}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Off</SelectItem>
-                      <SelectItem value="first-deuce">Pro - first deuce</SelectItem>
-                      <SelectItem value="second-deuce">Amateur - second deuce</SelectItem>
-                      <SelectItem value="third-deuce">Star - third deuce</SelectItem>
+                      <SelectItem value="none">{t("newMatch.goldenPointOff")}</SelectItem>
+                      <SelectItem value="first-deuce">{t("newMatch.goldenPointFirstDeuce")}</SelectItem>
+                      <SelectItem value="second-deuce">{t("newMatch.goldenPointSecondDeuce")}</SelectItem>
+                      <SelectItem value="third-deuce">{t("newMatch.goldenPointThirdDeuce")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -721,7 +721,7 @@ export default function NewMatchPage() {
             </div>
 
             <div className="border rounded-md p-3 bg-[#f0f4ff] shadow-md">
-              <Label className="text-base font-medium">Кількість геймів у сеті</Label>
+              <Label className="text-base font-medium">{t("newMatch.gamesPerSet")}</Label>
               <Select value={gamesPerSet} onValueChange={(v) => {
                 setGamesPerSet(v)
                 if (v === "4") {
@@ -734,7 +734,7 @@ export default function NewMatchPage() {
                 <SelectContent>
                   {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
                     <SelectItem key={n} value={n.toString()}>
-                      {n} гейм{n === 1 ? "" : n < 5 ? "и" : "ів"}{n === 6 ? " (стандарт)" : ""}{n === 4 ? " (Fast4)" : ""}
+                      {n}{n === 6 ? ` ${t("newMatch.gamesStandard")}` : ""}{n === 4 ? ` ${t("newMatch.gamesFast4")}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -750,14 +750,14 @@ export default function NewMatchPage() {
                       className="text-sm text-blue-600 hover:text-blue-800 underline"
                       onClick={() => setShowPerSetGames(!showPerSetGames)}
                     >
-                      {showPerSetGames ? "Сховати налаштування для кожного сету" : "Налаштувати для кожного сету окремо"}
+                      {showPerSetGames ? t("newMatch.hidePerSetSettings") : t("newMatch.showPerSetSettings")}
                     </button>
 
                     {showPerSetGames && (
                       <div className="mt-2 space-y-2">
                         {Array.from({ length: totalSets }, (_, i) => i).map((setIdx) => (
                           <div key={setIdx} className="flex items-center gap-2">
-                            <span className="text-sm font-medium w-20 shrink-0">Сет {setIdx + 1}:</span>
+                            <span className="text-sm font-medium w-20 shrink-0">{t("newMatch.setNumber", { n: setIdx + 1 })}:</span>
                             <Select
                               value={gamesPerSetOverrides[setIdx] || gamesPerSet}
                               onValueChange={(v) => {
@@ -803,21 +803,21 @@ export default function NewMatchPage() {
               {tiebreakEnabled && (
                 <>
                   <div>
-                    <Label>{t("match.tiebreakType") || "Кількість очків тай-брейку"}</Label>
+                    <Label>{t("match.tiebreakType")}</Label>
                     <Select value={tiebreakFormat} onValueChange={setTiebreakFormat}>
                       <SelectTrigger className="mt-2">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="two-clear">Two clear points</SelectItem>
-                        <SelectItem value="receiver-select-1-or-2">Receiver selects 1 or 2</SelectItem>
-                        <SelectItem value="receiver-select-1-2-or-3">Receiver selects 1, 2 or 3</SelectItem>
-                        <SelectItem value="receiver-select-1-or-3">Receiver selects 1 or 3</SelectItem>
-                        <SelectItem value="sudden-death">Sudden death</SelectItem>
+                        <SelectItem value="two-clear">{t("newMatch.tiebreakTwoClear")}</SelectItem>
+                        <SelectItem value="receiver-select-1-or-2">{t("newMatch.tiebreakReceiver12")}</SelectItem>
+                        <SelectItem value="receiver-select-1-2-or-3">{t("newMatch.tiebreakReceiver123")}</SelectItem>
+                        <SelectItem value="receiver-select-1-or-3">{t("newMatch.tiebreakReceiver13")}</SelectItem>
+                        <SelectItem value="sudden-death">{t("newMatch.tiebreakSuddenDeath")}</SelectItem>
                       </SelectContent>
                     </Select>
 
-                    <Label className="mt-4 block">Tiebreak points</Label>
+                    <Label className="mt-4 block">{t("newMatch.tiebreakPoints")}</Label>
                     <Select
                       value={tiebreakLength}
                       onValueChange={(value) => {
@@ -830,13 +830,13 @@ export default function NewMatchPage() {
                       <SelectContent>
                         {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
                           <SelectItem key={n} value={n.toString()}>
-                            До {n} очків{n === 7 ? " (стандарт)" : ""}{n === 10 ? " (чемпіонський)" : ""}
+                            {n}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {Number.parseInt(tiebreakLength) > 1 ? `З різницею в 2 очки` : ""}
+                      {Number.parseInt(tiebreakLength) > 1 ? t("newMatch.tiebreakWith2Clear") : ""}
                     </p>
                   </div>
 
@@ -880,27 +880,27 @@ export default function NewMatchPage() {
                   </Label>
                 </div>
                 <div className="mt-4 border rounded-md shadow-md bg-[#fdead1] p-2">
-                  <Label>{t("newMatch.matchRound") || "Match Round"}</Label>
+                  <Label>{t("newMatch.matchRound")}</Label>
                   <Select
                     value={matchRound || ""}
                     onValueChange={(value) => setMatchRound(value === "" ? null : value)}
                   >
                     <SelectTrigger className="w-full mt-2">
-                      <SelectValue placeholder={t("newMatch.selectMatchRound") || "Select match round"} />
+                      <SelectValue placeholder={t("newMatch.selectMatchRound")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="final">Final</SelectItem>
-                      <SelectItem value="semifinal">Semifinal</SelectItem>
-                      <SelectItem value="quarterfinal">Quarterfinal</SelectItem>
-                      <SelectItem value="round16">Round of 16</SelectItem>
-                      <SelectItem value="round32">Round of 32</SelectItem>
-                      <SelectItem value="round64">Round of 64</SelectItem>
-                      <SelectItem value="round128">Round of 128</SelectItem>
-                      <SelectItem value="qualificationFinal">Qualification Final</SelectItem>
-                      <SelectItem value="qualificationRound2">Qualification Round 2</SelectItem>
-                      <SelectItem value="qualificationRound1">Qualification Round 1</SelectItem>
-                      <SelectItem value="prequalifying">Pre-qualifying</SelectItem>
+                      <SelectItem value="none">{t("newMatch.matchRounds.none")}</SelectItem>
+                      <SelectItem value="final">{t("newMatch.matchRounds.final")}</SelectItem>
+                      <SelectItem value="semifinal">{t("newMatch.matchRounds.semifinal")}</SelectItem>
+                      <SelectItem value="quarterfinal">{t("newMatch.matchRounds.quarterfinal")}</SelectItem>
+                      <SelectItem value="round16">{t("newMatch.matchRounds.round16")}</SelectItem>
+                      <SelectItem value="round32">{t("newMatch.matchRounds.round32")}</SelectItem>
+                      <SelectItem value="round64">{t("newMatch.matchRounds.round64")}</SelectItem>
+                      <SelectItem value="round128">{t("newMatch.matchRounds.round128")}</SelectItem>
+                      <SelectItem value="qualificationFinal">{t("newMatch.matchRounds.qualificationFinal")}</SelectItem>
+                      <SelectItem value="qualificationRound2">{t("newMatch.matchRounds.qualificationRound2")}</SelectItem>
+                      <SelectItem value="qualificationRound1">{t("newMatch.matchRounds.qualificationRound1")}</SelectItem>
+                      <SelectItem value="prequalifying">{t("newMatch.matchRounds.prequalifying")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

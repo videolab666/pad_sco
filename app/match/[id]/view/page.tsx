@@ -77,7 +77,7 @@ export default function MatchViewPage({ params }: MatchParams) {
     const loadMatch = async () => {
       try {
         if (!matchId) {
-          setError("Некорректный ID матча")
+          setError(t("matchPage.invalidMatchId"))
           setLoading(false)
           return
         }
@@ -87,10 +87,10 @@ export default function MatchViewPage({ params }: MatchParams) {
           setMatch(matchData)
           setError("")
         } else {
-          setError("Матч не найден")
+          setError(t("matchPage.matchNotFound"))
         }
       } catch (err) {
-        setError("Ошибка загрузки матча")
+        setError(t("matchPage.errorLoadingMatch"))
         console.error(err)
       } finally {
         setLoading(false)
@@ -105,7 +105,7 @@ export default function MatchViewPage({ params }: MatchParams) {
         setMatch(updatedMatch)
         setError("")
       } else {
-        setError("Матч не найден или был удален")
+        setError(t("matchPage.matchNotFoundOrDeleted"))
       }
     })
 
@@ -121,13 +121,13 @@ export default function MatchViewPage({ params }: MatchParams) {
 
     if (navigator.share) {
       navigator.share({
-        title: "Счет теннисного матча",
-        text: "Следите за счетом матча в реальном времени",
+        title: t("matchPage.shareMatchTitle"),
+        text: t("matchPage.shareMatchText"),
         url,
       })
     } else {
       navigator.clipboard.writeText(url)
-      setAlertMessage("Ссылка скопирована в буфер обмена")
+      setAlertMessage(t("matchPage.linkCopied"))
       setShowAlert(true)
       setTimeout(() => setShowAlert(false), 2000)
     }
@@ -148,7 +148,7 @@ export default function MatchViewPage({ params }: MatchParams) {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen bg-black text-white">Загрузка матча...</div>
+    return <div className="flex items-center justify-center h-screen bg-black text-white">{t("matchPage.loadingMatch")}</div>
   }
 
   if (error) {
@@ -160,17 +160,17 @@ export default function MatchViewPage({ params }: MatchParams) {
           onClick={() => router.push("/")}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          На главную
+          {t("debugPage.backToHome")}
         </Button>
         <div className="p-6 text-center border border-gray-700 rounded-md">
-          <h2 className="text-xl font-bold text-red-400 mb-2">Ошибка</h2>
+          <h2 className="text-xl font-bold text-red-400 mb-2">{t("matchPage.errorTitle")}</h2>
           <p className="mb-4">{error}</p>
           <Button
             variant="outline"
             className="text-white border-gray-700 hover:bg-gray-800 bg-gray-800"
             onClick={() => router.push("/")}
           >
-            Вернуться на главную
+            {t("matchPage.returnToHome")}
           </Button>
         </div>
       </div>
@@ -181,7 +181,7 @@ export default function MatchViewPage({ params }: MatchParams) {
     <div className="min-h-screen bg-black text-white">
       {showAlert && (
         <Alert className="fixed top-4 right-4 w-auto z-50 bg-green-900 border-green-700 text-white">
-          <AlertTitle>Уведомление</AlertTitle>
+          <AlertTitle>{t("matchPage.notification")}</AlertTitle>
           <AlertDescription>{alertMessage}</AlertDescription>
         </Alert>
       )}

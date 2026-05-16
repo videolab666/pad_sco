@@ -246,6 +246,13 @@ export type TranslationKeys = {
     importError: string
     matchDataSimplified: string
     backToMatchControl: string
+    invalidMatchId: string
+    matchNotFound: string
+    matchNotFoundOrDeleted: string
+    errorLoadingMatch: string
+    shareMatchTitle: string
+    shareMatchText: string
+    returnToHome: string
   }
   matchList: {
     loading: string
@@ -389,6 +396,38 @@ export type TranslationKeys = {
       qualificationRound1: string
       prequalifying: string
     }
+    gamesPerSet: string
+    gamesStandard: string
+    gamesFast4: string
+    goldenPoint: string
+    goldenPointOff: string
+    goldenPointFirstDeuce: string
+    goldenPointSecondDeuce: string
+    goldenPointThirdDeuce: string
+    tiebreakPoints: string
+    tiebreakTwoClear: string
+    tiebreakReceiver12: string
+    tiebreakReceiver123: string
+    tiebreakReceiver13: string
+    tiebreakSuddenDeath: string
+    tiebreakToNStandard: string
+    tiebreakToNChampionship: string
+    tiebreakWith2Clear: string
+    finalSetFinishLabel: string
+    finalSetGamesTiebreak7: string
+    finalSetGamesTiebreak10: string
+    finalSetMatchTiebreak7: string
+    finalSetMatchTiebreak10: string
+    finalSetGamesTo12Tiebreak7: string
+    finalSetGamesTo12Tiebreak10: string
+    finalSetNoTiebreak: string
+    setsNnormal: string
+    setsNplusTiebreak: string
+    selectTiebreakLength: string
+    hidePerSetSettings: string
+    showPerSetSettings: string
+    setNumber: string
+    errorAddingPlayer: string
   }
   vmixSettings: {
     title: string
@@ -1173,6 +1212,13 @@ export const translations: { [key in Language]: TranslationKeys } = {
       importError: "Ошибка при импорте матча. Проверьте формат данных.",
       matchDataSimplified: "Данные матча были упрощены из-за ограничений хранилища",
       backToMatchControl: "К управлению матчем",
+      invalidMatchId: "Некорректный ID матча",
+      matchNotFound: "Матч не найден",
+      matchNotFoundOrDeleted: "Матч не найден или был удален",
+      errorLoadingMatch: "Ошибка загрузки матча",
+      shareMatchTitle: "Счет теннисного матча",
+      shareMatchText: "Следите за счетом матча в реальном времени",
+      returnToHome: "Вернуться на главную",
     },
     matchList: {
       loading: "Загрузка матчей...",
@@ -1316,6 +1362,38 @@ export const translations: { [key in Language]: TranslationKeys } = {
         qualificationRound1: "Квалификация, раунд 1",
         prequalifying: "Пре-квалификация",
       },
+      gamesPerSet: "Количество геймов в сете",
+      gamesStandard: "(стандарт)",
+      gamesFast4: "(Fast4)",
+      goldenPoint: "Золотое очко",
+      goldenPointOff: "Выкл",
+      goldenPointFirstDeuce: "Про - первый ровно",
+      goldenPointSecondDeuce: "Любитель - второй ровно",
+      goldenPointThirdDeuce: "Звезда - третий ровно",
+      tiebreakPoints: "Очки тайбрейка",
+      tiebreakTwoClear: "С разницей в 2 очка",
+      tiebreakReceiver12: "Принимающий выбирает 1 или 2",
+      tiebreakReceiver123: "Принимающий выбирает 1, 2 или 3",
+      tiebreakReceiver13: "Принимающий выбирает 1 или 3",
+      tiebreakSuddenDeath: "Внезапная смерть",
+      tiebreakToNStandard: "До {n} очков (стандарт)",
+      tiebreakToNChampionship: "До {n} очков (чемпионский)",
+      tiebreakWith2Clear: "С разницей в 2 очка",
+      finalSetFinishLabel: "Финальный сет — завершение",
+      finalSetGamesTiebreak7: "Геймы как обычно — тайбрейк до 7",
+      finalSetGamesTiebreak10: "Геймы как обычно — тайбрейк до 10",
+      finalSetMatchTiebreak7: "Без геймов — матч-тайбрейк до 7",
+      finalSetMatchTiebreak10: "Без геймов — матч-тайбрейк до 10",
+      finalSetGamesTo12Tiebreak7: "Геймы до 12 — тайбрейк до 7",
+      finalSetGamesTo12Tiebreak10: "Геймы до 12 — тайбрейк до 10",
+      finalSetNoTiebreak: "Без тайбрейка",
+      setsNnormal: "{n} — обычный",
+      setsNplusTiebreak: "{n} + тайбрейк",
+      selectTiebreakLength: "Выберите длину тайбрейка",
+      hidePerSetSettings: "Скрыть настройки для каждого сета",
+      showPerSetSettings: "Настроить для каждого сета отдельно",
+      setNumber: "Сет {n}",
+      errorAddingPlayer: "Произошла ошибка при добавлении игрока",
     },
     vmixSettings: {
       title: "Настройки vMix для матча",
@@ -2099,6 +2177,13 @@ export const translations: { [key in Language]: TranslationKeys } = {
       importError: "Error importing match. Check data format.",
       matchDataSimplified: "Match data has been simplified due to storage limitations",
       backToMatchControl: "Back to Match Control",
+      invalidMatchId: "Invalid match ID",
+      matchNotFound: "Match not found",
+      matchNotFoundOrDeleted: "Match not found or was deleted",
+      errorLoadingMatch: "Error loading match",
+      shareMatchTitle: "Tennis Match Score",
+      shareMatchText: "Follow the match score in real time",
+      returnToHome: "Return to Home",
     },
     matchList: {
       loading: "Loading matches...",
@@ -2242,6 +2327,38 @@ export const translations: { [key in Language]: TranslationKeys } = {
         qualificationRound1: "Qualification Round 1",
         prequalifying: "Prequalifying",
       },
+      gamesPerSet: "Games per set",
+      gamesStandard: "(standard)",
+      gamesFast4: "(Fast4)",
+      goldenPoint: "Golden Point",
+      goldenPointOff: "Off",
+      goldenPointFirstDeuce: "Pro - first deuce",
+      goldenPointSecondDeuce: "Amateur - second deuce",
+      goldenPointThirdDeuce: "Star - third deuce",
+      tiebreakPoints: "Tiebreak points",
+      tiebreakTwoClear: "Two clear points",
+      tiebreakReceiver12: "Receiver selects 1 or 2",
+      tiebreakReceiver123: "Receiver selects 1, 2 or 3",
+      tiebreakReceiver13: "Receiver selects 1 or 3",
+      tiebreakSuddenDeath: "Sudden death",
+      tiebreakToNStandard: "To {n} points (standard)",
+      tiebreakToNChampionship: "To {n} points (championship)",
+      tiebreakWith2Clear: "With 2 clear points",
+      finalSetFinishLabel: "Final set finish",
+      finalSetGamesTiebreak7: "Games as normal - tiebreak to 7",
+      finalSetGamesTiebreak10: "Games as normal - tiebreak to 10",
+      finalSetMatchTiebreak7: "No games - match tiebreak to 7",
+      finalSetMatchTiebreak10: "No games - match tiebreak to 10",
+      finalSetGamesTo12Tiebreak7: "Games to 12 - tiebreak to 7",
+      finalSetGamesTo12Tiebreak10: "Games to 12 - tiebreak to 10",
+      finalSetNoTiebreak: "No tiebreak",
+      setsNnormal: "{n} — normal",
+      setsNplusTiebreak: "{n} + tiebreak",
+      selectTiebreakLength: "Select tiebreak length",
+      hidePerSetSettings: "Hide per-set settings",
+      showPerSetSettings: "Configure per set individually",
+      setNumber: "Set {n}",
+      errorAddingPlayer: "Error adding player",
     },
     vmixSettings: {
       title: "vMix Settings for Match",
@@ -3025,6 +3142,13 @@ export const translations: { [key in Language]: TranslationKeys } = {
       importError: "Помилка при імпорті матчу. Перевірте формат даних.",
       matchDataSimplified: "Дані матчу були спрощені через обмеження сховища",
       backToMatchControl: "До управління матчем",
+      invalidMatchId: "Некоректний ID матчу",
+      matchNotFound: "Матч не знайдено",
+      matchNotFoundOrDeleted: "Матч не знайдено або був видалений",
+      errorLoadingMatch: "Помилка завантаження матчу",
+      shareMatchTitle: "Рахунок тенісного матчу",
+      shareMatchText: "Слідкуйте за рахунком матчу в реальному часі",
+      returnToHome: "Повернутися на головну",
     },
     matchList: {
       loading: "Завантаження матчів...",
@@ -3168,6 +3292,38 @@ export const translations: { [key in Language]: TranslationKeys } = {
         qualificationRound1: "Кваліфікація, раунд 1",
         prequalifying: "Пре-кваліфікація",
       },
+      gamesPerSet: "Кількість геймів у сеті",
+      gamesStandard: "(стандарт)",
+      gamesFast4: "(Fast4)",
+      goldenPoint: "Золоте очко",
+      goldenPointOff: "Вимк",
+      goldenPointFirstDeuce: "Про - перший рівно",
+      goldenPointSecondDeuce: "Аматор - другий рівно",
+      goldenPointThirdDeuce: "Зірка - третій рівно",
+      tiebreakPoints: "Очки тайбрейку",
+      tiebreakTwoClear: "З різницею в 2 очки",
+      tiebreakReceiver12: "Приймаючий обирає 1 або 2",
+      tiebreakReceiver123: "Приймаючий обирає 1, 2 або 3",
+      tiebreakReceiver13: "Приймаючий обирає 1 або 3",
+      tiebreakSuddenDeath: "Раптова смерть",
+      tiebreakToNStandard: "До {n} очок (стандарт)",
+      tiebreakToNChampionship: "До {n} очок (чемпіонський)",
+      tiebreakWith2Clear: "З різницею в 2 очки",
+      finalSetFinishLabel: "Фінальний сет — завершення",
+      finalSetGamesTiebreak7: "Гейми як зазвичай — тайбрейк до 7",
+      finalSetGamesTiebreak10: "Гейми як зазвичай — тайбрейк до 10",
+      finalSetMatchTiebreak7: "Без геймів — матч-тайбрейк до 7",
+      finalSetMatchTiebreak10: "Без геймів — матч-тайбрейк до 10",
+      finalSetGamesTo12Tiebreak7: "Гейми до 12 — тайбрейк до 7",
+      finalSetGamesTo12Tiebreak10: "Гейми до 12 — тайбрейк до 10",
+      finalSetNoTiebreak: "Без тайбрейку",
+      setsNnormal: "{n} — звичайний",
+      setsNplusTiebreak: "{n} + тайбрейк",
+      selectTiebreakLength: "Виберіть довжину тайбрейку",
+      hidePerSetSettings: "Сховати налаштування для кожного сету",
+      showPerSetSettings: "Налаштувати для кожного сету окремо",
+      setNumber: "Сет {n}",
+      errorAddingPlayer: "Сталася помилка при додаванні гравця",
     },
     vmixSettings: {
       title: "Налаштування vMix для матчу",

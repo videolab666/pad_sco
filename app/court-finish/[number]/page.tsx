@@ -1,13 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
 import { freeUpCourt } from "@/lib/court-utils"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 
-export default function CourtFinishPage({ params }: { params: { number: string } }) {
+export default function CourtFinishPage({ params }: { params: Promise<{ number: string }> }) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const { t } = useLanguage()
   const [loading, setLoading] = useState(true)
@@ -15,12 +16,12 @@ export default function CourtFinishPage({ params }: { params: { number: string }
 
   useEffect(() => {
     const finish = async () => {
-      const ok = await freeUpCourt(params.number)
+      const ok = await freeUpCourt(resolvedParams.number)
       setSuccess(ok)
       setLoading(false)
     }
     finish()
-  }, [params.number])
+  }, [resolvedParams.number])
 
   if (loading) {
     return (

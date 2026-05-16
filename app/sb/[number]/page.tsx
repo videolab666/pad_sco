@@ -1,6 +1,8 @@
+import { use } from "react"
 import { redirect } from "next/navigation"
 
-export default function SBRedirect({ params }: { params: { number: string } }) {
+export default function SBRedirect({ params }: { params: Promise<{ number: string }> }) {
+  const resolvedParams = use(params)
   // Получаем параметры запроса из URL
   const searchParams = new URLSearchParams()
   if (typeof window !== "undefined") {
@@ -12,9 +14,8 @@ export default function SBRedirect({ params }: { params: { number: string } }) {
   }
 
   // Формируем URL для перенаправления
-  const redirectUrl = `/fullscreen-scoreboard/${params.number}${
-    searchParams.toString() ? `?${searchParams.toString()}` : ""
-  }`
+  const redirectUrl = `/fullscreen-scoreboard/${resolvedParams.number}${searchParams.toString() ? `?${searchParams.toString()}` : ""
+    }`
 
   // Перенаправляем на страницу fullscreen-scoreboard
   redirect(redirectUrl)

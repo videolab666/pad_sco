@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { getMatchByCourtNumber } from "@/lib/court-utils"
 import { getImportantPoint, isGamePoint, isSetPoint, isMatchPoint } from "@/lib/scoring-logic"
@@ -11,9 +11,9 @@ import { decompressFromUTF16 } from "lz-string"
 import { Trophy } from "lucide-react"
 
 type CourtParams = {
-  params: {
+  params: Promise<{
     number: string
-  }
+  }>
 }
 
 // Функция для безопасного парсинга JSON
@@ -121,6 +121,8 @@ const getPlayerCountryDisplay = (team, playerIndex, matchData) => {
 }
 
 export default function CourtVmixPage({ params }: CourtParams) {
+  const resolvedParams = React.use(params)
+  const courtNumber = Number.parseInt(resolvedParams.number)
   const [match, setMatch] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -131,7 +133,6 @@ export default function CourtVmixPage({ params }: CourtParams) {
   const [indicatorState, setIndicatorState] = useState("hidden") // "entering", "visible", "exiting", "hidden"
   const [breakPointState, setBreakPointState] = useState("hidden") // "entering", "visible", "exiting", "hidden"
   const [prevBreakPoint, setPrevBreakPoint] = useState({ team: null, count: { current: 0, total: 0 } })
-  const courtNumber = Number.parseInt(params.number)
 
   // Параметры отображения из URL
   const theme = searchParams.get("theme") || "default"
@@ -924,16 +925,16 @@ export default function CourtVmixPage({ params }: CourtParams) {
   // Рассчитываем ширину таблицы для индикатора
   const tableWidth = showPoints
     ? nameColumnWidth +
-      (showCountry ? countryColumnWidth : 0) +
-      (showServer ? serveColumnWidth : 0) +
-      (match.score.sets?.length || 0) * 40 +
-      (match.score.currentSet ? 40 : 0) +
-      60
+    (showCountry ? countryColumnWidth : 0) +
+    (showServer ? serveColumnWidth : 0) +
+    (match.score.sets?.length || 0) * 40 +
+    (match.score.currentSet ? 40 : 0) +
+    60
     : nameColumnWidth +
-      (showCountry ? countryColumnWidth : 0) +
-      (showServer ? serveColumnWidth : 0) +
-      (match.score.sets?.length || 0) * 40 +
-      (match.score.currentSet ? 40 : 0)
+    (showCountry ? countryColumnWidth : 0) +
+    (showServer ? serveColumnWidth : 0) +
+    (match.score.sets?.length || 0) * 40 +
+    (match.score.currentSet ? 40 : 0)
 
   // Иначе возвращаем HTML интерфейс в стиле скриншота
   return (

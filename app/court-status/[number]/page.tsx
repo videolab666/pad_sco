@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { getMatchByCourtNumber } from "@/lib/court-utils"
@@ -9,14 +9,15 @@ import { logEvent } from "@/lib/error-logger"
 import { useLanguage } from "@/contexts/language-context"
 import { translations } from "@/lib/translations"
 
-export default function CourtStatusPage({ params }: { params: { number: string } }) {
+export default function CourtStatusPage({ params }: { params: Promise<{ number: string }> }) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const [isMatchActive, setIsMatchActive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const { language } = useLanguage()
   const t = translations[language]
-  const courtNumber = Number.parseInt(params.number)
+  const courtNumber = Number.parseInt(resolvedParams.number)
 
   useEffect(() => {
     const checkCourtStatus = async () => {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { getMatchByCourtNumber } from "@/lib/court-utils"
@@ -13,9 +13,9 @@ import { translations, type Language } from "@/lib/translations"
 import { getDefaultVmixSettings } from "@/lib/vmix-settings-storage"
 
 type FullscreenScoreboardParams = {
-  params: {
+  params: Promise<{
     number: string
-  }
+  }>
 }
 
 // Функция для преобразования параметра цвета из URL
@@ -33,6 +33,7 @@ const getPlayerCountryDisplay = (team, playerIndex, matchData) => {
 }
 
 export default function FullscreenScoreboard({ params }: FullscreenScoreboardParams) {
+  const resolvedParams = React.use(params)
   // --- All state hooks must be at the top ---
   // TODO: Replace 'any' with a proper Match type if available
   const [match, setMatch] = useState<any>(null);
@@ -44,7 +45,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   const [lastMatchId, setLastMatchId] = useState(null);
   const searchParams = useSearchParams();
   const containerRef = useRef(null);
-  const courtNumber = Number.parseInt(params.number);
+  const courtNumber = Number.parseInt(resolvedParams.number);
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { getMatch, subscribeToMatchUpdates } from "@/lib/match-storage"
 import { getImportantPoint, isGamePoint, isSetPoint, isMatchPoint } from "@/lib/scoring-logic"
@@ -77,8 +77,9 @@ const getPlayerCountryDisplay = (team, playerIndex, matchData) => {
   return getPlayerCountry(team, playerIndex, matchData) || " "
 }
 
-export default function VmixPage({ params }: { params: { id: string } }) { // Исправление здесь!
-  const id = params.id
+export default function VmixPage({ params }: { params: Promise<{ id: string }> }) { // Исправление здесь!
+  const resolvedParams = React.use(params)
+  const id = resolvedParams.id
   const router = useRouter()
   const { t } = useLanguage()
   const [match, setMatch] = useState(null)
@@ -767,16 +768,16 @@ export default function VmixPage({ params }: { params: { id: string } }) { // И
   // Рассчитываем ширину таблицы для индикатора
   const tableWidth = showPoints
     ? nameColumnWidth +
-      (showCountry ? countryColumnWidth : 0) +
-      (showServer ? serveColumnWidth : 0) +
-      (match.score.sets?.length || 0) * 40 +
-      (match.score.currentSet ? 40 : 0) +
-      60
+    (showCountry ? countryColumnWidth : 0) +
+    (showServer ? serveColumnWidth : 0) +
+    (match.score.sets?.length || 0) * 40 +
+    (match.score.currentSet ? 40 : 0) +
+    60
     : nameColumnWidth +
-      (showCountry ? countryColumnWidth : 0) +
-      (showServer ? serveColumnWidth : 0) +
-      (match.score.sets?.length || 0) * 40 +
-      (match.score.currentSet ? 40 : 0)
+    (showCountry ? countryColumnWidth : 0) +
+    (showServer ? serveColumnWidth : 0) +
+    (match.score.sets?.length || 0) * 40 +
+    (match.score.currentSet ? 40 : 0)
 
   // Иначе возвращаем HTML интерфейс в стиле скриншота
   return (

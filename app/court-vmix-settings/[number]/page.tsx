@@ -2,7 +2,7 @@
 
 import { CardFooter } from "@/components/ui/card"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -75,13 +75,14 @@ function VmixPreview({ url, height = 200 }) {
 }
 
 export default function CourtVmixSettingsPage({ params }) {
+  const resolvedParams = React.use(params) as any
   const router = useRouter()
   const { t } = useLanguage()
   const [match, setMatch] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [copying, setCopying] = useState(false)
-  const courtNumber = Number.parseInt(params.number)
+  const courtNumber = Number.parseInt(resolvedParams.number)
 
   // Состояние для работы с базой данных
   const [savedSettings, setSavedSettings] = useState<VmixSettings[]>([])
@@ -1636,8 +1637,8 @@ export default function CourtVmixSettingsPage({ params }) {
                             color: indicatorTextColor,
                             ...(indicatorGradient
                               ? {
-                                  background: `linear-gradient(to bottom, ${indicatorGradientFrom}, ${indicatorGradientTo})`,
-                                }
+                                background: `linear-gradient(to bottom, ${indicatorGradientFrom}, ${indicatorGradientTo})`,
+                              }
                               : { background: indicatorBgColor }),
                           }}
                         >

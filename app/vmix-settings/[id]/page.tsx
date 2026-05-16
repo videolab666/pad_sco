@@ -21,13 +21,14 @@ import { Separator } from "@/components/ui/separator"
 import { useLanguage } from "@/contexts/language-context"
 
 interface VmixSettingsPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default function VmixSettingsPage({ params }: VmixSettingsPageProps) {
-  const id = React.use(params.id)
+  const resolvedParams = React.use(params)
+  const id = resolvedParams.id
   const router = useRouter()
   const { t } = useLanguage()
   const [match, setMatch] = useState<Match | null>(null)
@@ -1321,8 +1322,8 @@ export default function VmixSettingsPage({ params }: VmixSettingsPageProps) {
                             color: indicatorTextColor,
                             ...(indicatorGradient
                               ? {
-                                  background: `linear-gradient(to bottom, ${indicatorGradientFrom}, ${indicatorGradientTo})`,
-                                }
+                                background: `linear-gradient(to bottom, ${indicatorGradientFrom}, ${indicatorGradientTo})`,
+                              }
                               : { background: indicatorBgColor }),
                           }}
                         >

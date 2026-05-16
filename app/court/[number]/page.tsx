@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, ExternalLink, Share2, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import { subscribeToMatchUpdates } from "@/lib/match-storage"
 import { logEvent } from "@/lib/error-logger"
 
 export default function CourtViewPage({ params }) {
+  const resolvedParams = use(params) as any
   const router = useRouter()
   const [match, setMatch] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -21,7 +22,7 @@ export default function CourtViewPage({ params }) {
   const [alertMessage, setAlertMessage] = useState("")
   const [isFullScreen, setIsFullScreen] = useState(false)
   const { soundsEnabled, toggleSounds } = useSoundEffects()
-  const courtNumber = Number.parseInt(params.number)
+  const courtNumber = Number.parseInt(resolvedParams.number)
 
   useEffect(() => {
     const loadMatch = async () => {
@@ -179,7 +180,7 @@ export default function CourtViewPage({ params }) {
               variant="outline"
               size="sm"
               className="ml-2 text-white border-gray-700 hover:bg-gray-800 bg-gray-800"
-              onClick={() => router.push(`/court-vmix-settings/${params.number}`)}
+              onClick={() => router.push(`/court-vmix-settings/${resolvedParams.number}`)}
             >
               <Settings className="mr-2 h-4 w-4" />
               Настройки vMix

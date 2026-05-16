@@ -9,8 +9,10 @@ import { checkTablesExist, checkTablesContent } from "@/lib/supabase"
 import { logEvent } from "@/lib/error-logger"
 
 export function DatabaseChecker() {
-  const [tablesStatus, setTablesStatus] = useState(null)
-  const [tablesContent, setTablesContent] = useState(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [tablesStatus, setTablesStatus] = useState<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [tablesContent, setTablesContent] = useState<any>(null)
   const [isChecking, setIsChecking] = useState(true)
 
   const checkDatabase = async () => {
@@ -27,7 +29,7 @@ export function DatabaseChecker() {
         setTablesContent(content)
         logEvent("info", "Проверка содержимого таблиц", "DatabaseChecker", content)
       }
-    } catch (error) {
+    } catch (error: any) {
       logEvent("error", "Ошибка при проверке базы данных", "DatabaseChecker", error)
     } finally {
       setIsChecking(false)

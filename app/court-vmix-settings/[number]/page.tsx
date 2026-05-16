@@ -30,7 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useEffect as useEffectForPreview } from "react"
 
 // Add a new component for the vMix preview
-function VmixPreview({ url, height = 200 }) {
+function VmixPreview({ url, height = 200 }: { url: string; height?: number }) {
   return (
     <div className="border rounded-md overflow-hidden bg-gray-100 w-full">
       <div className="bg-gray-200 p-2 flex justify-between items-center">
@@ -74,11 +74,13 @@ function VmixPreview({ url, height = 200 }) {
   )
 }
 
-export default function CourtVmixSettingsPage({ params }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default function CourtVmixSettingsPage({ params }: any) {
   const resolvedParams = React.use(params) as any
   const router = useRouter()
   const { t } = useLanguage()
-  const [match, setMatch] = useState(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [match, setMatch] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [copying, setCopying] = useState(false)
@@ -184,7 +186,8 @@ export default function CourtVmixSettingsPage({ params }) {
   }
 
   // Функция для применения настроек
-  const applySettings = (settings) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const applySettings = (settings: any) => {
     if (!settings) return
 
     // Применяем сохраненные настройки
@@ -303,7 +306,7 @@ export default function CourtVmixSettingsPage({ params }) {
 
         // Если это новые настройки, выбираем их
         if (!selectedSettingsId) {
-          setSelectedSettingsId(result.id)
+          setSelectedSettingsId(result.id || null)
         }
 
         setShowSaveDialog(false)
@@ -336,7 +339,7 @@ export default function CourtVmixSettingsPage({ params }) {
         applySettings(settings.settings)
         setSettingsName(settings.name)
         setIsDefault(settings.is_default || false)
-        setSelectedSettingsId(settings.id)
+        setSelectedSettingsId(settings.id || null)
 
         toast({
           title: "Настройки загружены",
@@ -371,7 +374,7 @@ export default function CourtVmixSettingsPage({ params }) {
         applySettings(settings.settings)
         setSettingsName(settings.name)
         setIsDefault(true)
-        setSelectedSettingsId(settings.id)
+        setSelectedSettingsId(settings.id || null)
 
         toast({
           title: "Настройки по умолчанию загружены",
@@ -510,7 +513,7 @@ export default function CourtVmixSettingsPage({ params }) {
   }
 
   // Функция для корректной передачи цветов в URL
-  const formatColorForUrl = (color) => {
+  const formatColorForUrl = (color: string) => {
     // Удаляем # из цвета для URL
     return color.replace("#", "")
   }
@@ -717,13 +720,13 @@ export default function CourtVmixSettingsPage({ params }) {
       ) : match ? (
         <div className="mb-4">
           <p className="font-medium">
-            {t("courtVmixSettings.matchOnCourt")}: {courtNumber}: {match.teamA.players.map((p) => p.name).join(" / ")}{" "}
-            vs {match.teamB.players.map((p) => p.name).join(" / ")}
+            {t("courtVmixSettings.matchOnCourt")}: {courtNumber}: {match.teamA.players.map((p: any) => p.name).join(" / ")}{" "}
+            vs {match.teamB.players.map((p: any) => p.name).join(" / ")}
           </p>
         </div>
       ) : (
         <div className="mb-4">
-          <p className="font-medium">{t("courtVmixSettings.noActiveMatches", { number: courtNumber })}</p>
+          <p className="font-medium">{t("courtVmixSettings.noActiveMatches") + " " + courtNumber}</p>
         </div>
       )}
 
@@ -1832,7 +1835,7 @@ export default function CourtVmixSettingsPage({ params }) {
                 />
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox id="isDefault" checked={isDefault} onCheckedChange={setIsDefault} />
+                <Checkbox id="isDefault" checked={isDefault} onCheckedChange={(c) => setIsDefault(c === true)} />
                 <Label htmlFor="isDefault">Использовать как настройки по умолчанию</Label>
               </div>
             </CardContent>
@@ -1867,7 +1870,7 @@ export default function CourtVmixSettingsPage({ params }) {
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => deleteSettingsFromDatabase(selectedSettingsId)}
+                onClick={() => deleteSettingsFromDatabase(selectedSettingsId as string)}
                 disabled={deletingFromDb}
               >
                 {deletingFromDb ? "Удаление..." : "Удалить"}

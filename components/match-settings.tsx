@@ -232,7 +232,8 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       const minimalMatch = { ...updatedMatch, history: [] }
       if (minimalMatch.score?.currentSet) minimalMatch.score.currentSet.games = []
       if (minimalMatch.score?.sets) {
-        minimalMatch.score.sets = minimalMatch.score.sets.map((set) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        minimalMatch.score.sets = minimalMatch.score.sets.map((set: any) => ({
           teamA: set.teamA,
           teamB: set.teamB,
           winner: set.winner,
@@ -243,7 +244,8 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   }
 
   // Bug #7 fix: save tiebreak score when ending tiebreak manually
-  const endTiebreak = (winner) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const endTiebreak = (winner: any) => {
     if (!match || !updateMatch) return
 
     const updatedMatch = { ...match }
@@ -262,7 +264,8 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   }
 
   // Bug #5 fix: single winSet implementation with tiebreak score saving
-  const winSetInSettings = (team, updatedMatch) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const winSetInSettings = (team: any, updatedMatch: any) => {
     if (!match || !updateMatch) return
 
     updatedMatch.score[team]++
@@ -357,7 +360,8 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   }
 
   // Bug #8 fix: recalculate isCompleted and winner after set score edit
-  const updateSetScore = (index, team, delta) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateSetScore = (index: any, team: any, delta: any) => {
     if (!match || !updateMatch) return
 
     const updatedMatch = { ...match }
@@ -387,8 +391,10 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
         set.winner = null
       }
 
-      updatedMatch.score.teamA = updatedMatch.score.sets.filter((s) => s.winner === "teamA").length
-      updatedMatch.score.teamB = updatedMatch.score.sets.filter((s) => s.winner === "teamB").length
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      updatedMatch.score.teamA = updatedMatch.score.sets.filter((s: any) => s.winner === "teamA").length
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      updatedMatch.score.teamB = updatedMatch.score.sets.filter((s: any) => s.winner === "teamB").length
 
       // Bug #8 fix: recalculate isCompleted and winner
       const setsToWin = getSetsToWin(updatedMatch.settings)
@@ -407,7 +413,8 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     updateMatch(updatedMatch)
   }
 
-  const startEditSet = (index) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const startEditSet = (index: any) => {
     if (!match) return
 
     if (index < match.score.sets.length) {
@@ -438,8 +445,10 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
         updatedMatch.score.sets[editSetIndex].winner = "teamB"
       }
 
-      updatedMatch.score.teamA = updatedMatch.score.sets.filter((set) => set.winner === "teamA").length
-      updatedMatch.score.teamB = updatedMatch.score.sets.filter((set) => set.winner === "teamB").length
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      updatedMatch.score.teamA = updatedMatch.score.sets.filter((set: any) => set.winner === "teamA").length
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      updatedMatch.score.teamB = updatedMatch.score.sets.filter((set: any) => set.winner === "teamB").length
 
       // Recalculate isCompleted/winner
       const setsToWin = getSetsToWin(updatedMatch.settings)
@@ -627,10 +636,12 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
   if (!match) return null
 
-  const getTeamPlayerNames = (teamKey) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getTeamPlayerNames = (teamKey: any) => {
     if (match[teamKey]?.players && Array.isArray(match[teamKey].players)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return match[teamKey].players
-        .map((p) => p.name || p.firstName || p.lastName || "")
+        .map((p: any) => p.name || p.firstName || p.lastName || "")
         .filter(Boolean)
         .join(", ")
     }
@@ -644,12 +655,14 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       ]
 
       const teamPlayers = match.players.filter(
-        (p) => teamIdentifiers.includes(p.team) || teamIdentifiers.includes(p.teamId),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (p: any) => teamIdentifiers.includes(p.team) || teamIdentifiers.includes(p.teamId),
       )
 
       if (teamPlayers.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return teamPlayers
-          .map((p) => p.name || p.firstName || p.lastName || "")
+          .map((p: any) => p.name || p.firstName || p.lastName || "")
           .filter(Boolean)
           .join(", ")
       }
@@ -985,27 +998,27 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               </Select>
 
               {scoringSystem === "classic" && (
-              <div className="mt-4 space-y-2">
-                <Label>Golden Point</Label>
-                <Select
-                  value={goldenPointFormat}
-                  onValueChange={(value) => {
-                    setGoldenPointFormat(value)
-                    applySettingsAuto({ goldenPointFormat: value })
-                  }}
-                  disabled={match.isCompleted}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Off</SelectItem>
-                    <SelectItem value="first-deuce">Pro - first deuce</SelectItem>
-                    <SelectItem value="second-deuce">Amateur - second deuce</SelectItem>
-                    <SelectItem value="third-deuce">Star - third deuce</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="mt-4 space-y-2">
+                  <Label>Golden Point</Label>
+                  <Select
+                    value={goldenPointFormat}
+                    onValueChange={(value) => {
+                      setGoldenPointFormat(value)
+                      applySettingsAuto({ goldenPointFormat: value })
+                    }}
+                    disabled={match.isCompleted}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Off</SelectItem>
+                      <SelectItem value="first-deuce">Pro - first deuce</SelectItem>
+                      <SelectItem value="second-deuce">Amateur - second deuce</SelectItem>
+                      <SelectItem value="third-deuce">Star - third deuce</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
             </div>
 
@@ -1069,7 +1082,8 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                                 if (v === gamesPerSet) {
                                   delete updatedOverrides[setIdx]
                                 } else {
-                                  updatedOverrides[setIdx] = Number.parseInt(v)
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  ; (updatedOverrides as any)[setIdx] = Number.parseInt(v)
                                 }
                                 applySettingsAuto({ gamesPerSetOverrides: updatedOverrides })
                               }}

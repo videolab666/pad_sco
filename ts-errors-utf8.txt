@@ -1,0 +1,469 @@
+﻿app/api/court/[number]/route.ts(12,23): error TS7006: Parameter 'match' implicitly has an 'any' type.
+app/api/court/[number]/route.ts(48,23): error TS7006: Parameter 'match' implicitly has an 'any' type.
+app/api/court/[number]/route.ts(70,30): error TS7006: Parameter 'match' implicitly has an 'any' type.
+app/api/court/[number]/route.ts(124,73): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/api/court/[number]/route.ts(125,73): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/api/court/[number]/route.ts(144,51): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/api/court/[number]/route.ts(148,51): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/api/court/[number]/route.ts(176,44): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/api/court/[number]/route.ts(189,44): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/api/court/[number]/route.ts(231,7): error TS7053: Element implicitly has an 'any' type because expression of type '`teamA_set${number}`' can't be used to index type '{ match_id: any; court_number: number; teamA_name: any; teamA_player1_name: any; teamA_player2_name: any; teamA_score: any; teamA_game_score: any; teamA_current_set: any; teamA_serving: string; ... 23 more ...; update_time: string; }'.
+app/api/court/[number]/route.ts(232,7): error TS7053: Element implicitly has an 'any' type because expression of type '`teamB_set${number}`' can't be used to index type '{ match_id: any; court_number: number; teamA_name: any; teamA_player1_name: any; teamA_player2_name: any; teamA_score: any; teamA_game_score: any; teamA_current_set: any; teamA_serving: string; ... 23 more ...; update_time: string; }'.
+app/api/court/[number]/route.ts(255,18): error TS18046: 'error' is of type 'unknown'.
+app/api/match/[id]/route.ts(13,23): error TS7006: Parameter 'match' implicitly has an 'any' type.
+app/api/match/[id]/route.ts(49,23): error TS7006: Parameter 'match' implicitly has an 'any' type.
+app/api/match/[id]/route.ts(71,30): error TS7006: Parameter 'match' implicitly has an 'any' type.
+app/api/match/[id]/route.ts(134,64): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/api/match/[id]/route.ts(135,64): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/api/match/[id]/route.ts(144,51): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/api/match/[id]/route.ts(148,51): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/api/match/[id]/route.ts(176,44): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/api/match/[id]/route.ts(189,44): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/api/match/[id]/route.ts(230,7): error TS7053: Element implicitly has an 'any' type because expression of type '`teamA_set${number}`' can't be used to index type '{ match_id: any; court_number: any; teamA_name: any; teamA_player1_name: any; teamA_player2_name: any; teamA_score: any; teamA_game_score: any; teamA_current_set: any; teamA_serving: string; ... 22 more ...; update_time: string; }'.
+app/api/match/[id]/route.ts(231,7): error TS7053: Element implicitly has an 'any' type because expression of type '`teamB_set${number}`' can't be used to index type '{ match_id: any; court_number: any; teamA_name: any; teamA_player1_name: any; teamA_player2_name: any; teamA_score: any; teamA_game_score: any; teamA_current_set: any; teamA_serving: string; ... 22 more ...; update_time: string; }'.
+app/api/vmix/[id]/route.ts(27,64): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/api/vmix/[id]/route.ts(28,64): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/api/vmix/[id]/route.ts(36,44): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/api/vmix/[id]/route.ts(47,44): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/api/vmix/[id]/route.ts(96,18): error TS18046: 'error' is of type 'unknown'.
+app/court-finish/[number]/page.tsx(36,14): error TS2322: Type '"destructive" | "success"' is not assignable to type '"default" | "destructive" | null | undefined'.
+  Type '"success"' is not assignable to type '"default" | "destructive" | null | undefined'.
+app/court-vmix-settings/[number]/page.tsx(33,24): error TS7031: Binding element 'url' implicitly has an 'any' type.
+app/court-vmix-settings/[number]/page.tsx(77,49): error TS7031: Binding element 'params' implicitly has an 'any' type.
+app/court-vmix-settings/[number]/page.tsx(187,26): error TS7006: Parameter 'settings' implicitly has an 'any' type.
+app/court-vmix-settings/[number]/page.tsx(306,33): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'SetStateAction<string | null>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<string | null>'.
+app/court-vmix-settings/[number]/page.tsx(339,31): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'SetStateAction<string | null>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<string | null>'.
+app/court-vmix-settings/[number]/page.tsx(374,31): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'SetStateAction<string | null>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<string | null>'.
+app/court-vmix-settings/[number]/page.tsx(481,20): error TS2345: Argument of type '{ id: any; type: any; format: any; createdAt: any; settings: any; teamA: any; teamB: any; score: any; currentServer: any; courtSides: any; shouldChangeSides: any; isCompleted: any; winner: any; courtNumber: any; revision: any; history: never[]; }' is not assignable to parameter of type 'SetStateAction<null>'.
+  Type '{ id: any; type: any; format: any; createdAt: any; settings: any; teamA: any; teamB: any; score: any; currentServer: any; courtSides: any; shouldChangeSides: any; isCompleted: any; winner: any; courtNumber: any; revision: any; history: never[]; }' provides no match for the signature '(prevState: null): null'.
+app/court-vmix-settings/[number]/page.tsx(513,30): error TS7006: Parameter 'color' implicitly has an 'any' type.
+app/court-vmix-settings/[number]/page.tsx(720,74): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/court-vmix-settings/[number]/page.tsx(720,93): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix-settings/[number]/page.tsx(721,23): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/court-vmix-settings/[number]/page.tsx(721,42): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix-settings/[number]/page.tsx(726,78): error TS2554: Expected 1 arguments, but got 2.
+app/court-vmix-settings/[number]/page.tsx(1835,62): error TS2322: Type 'Dispatch<SetStateAction<boolean>>' is not assignable to type '(checked: CheckedState) => void'.
+  Types of parameters 'value' and 'checked' are incompatible.
+    Type 'CheckedState' is not assignable to type 'SetStateAction<boolean>'.
+      Type '"indeterminate"' is not assignable to type 'SetStateAction<boolean>'.
+app/court-vmix-settings/[number]/page.tsx(1870,59): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+app/court-vmix/[number]/page.tsx(20,24): error TS7006: Parameter 'data' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(29,34): error TS7006: Parameter 'key' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(60,26): error TS7006: Parameter 'param' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(60,33): error TS7006: Parameter 'defaultColor' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(70,23): error TS7006: Parameter 'match' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(92,29): error TS7006: Parameter 'match' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(112,27): error TS7006: Parameter 'team' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(112,33): error TS7006: Parameter 'playerIndex' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(112,46): error TS7006: Parameter 'matchData' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(119,34): error TS7006: Parameter 'team' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(119,40): error TS7006: Parameter 'playerIndex' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(119,53): error TS7006: Parameter 'matchData' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(347,18): error TS2345: Argument of type '{ id: any; type: any; format: any; createdAt: any; settings: any; teamA: any; teamB: any; score: any; currentServer: any; courtSides: any; shouldChangeSides: any; isCompleted: any; winner: any; courtNumber: any; revision: any; history: never[]; }' is not assignable to parameter of type 'SetStateAction<null>'.
+  Type '{ id: any; type: any; format: any; createdAt: any; settings: any; teamA: any; teamB: any; score: any; currentServer: any; courtSides: any; shouldChangeSides: any; isCompleted: any; winner: any; courtNumber: any; revision: any; history: never[]; }' provides no match for the signature '(prevState: null): null'.
+app/court-vmix/[number]/page.tsx(379,50): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(386,70): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(389,55): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(392,50): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(399,70): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(402,55): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(444,74): error TS2339: Property 'id' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(445,20): error TS2345: Argument of type '{ id: any; type: any; format: any; createdAt: any; settings: any; teamA: any; teamB: any; score: any; currentServer: any; courtSides: any; shouldChangeSides: any; isCompleted: any; winner: any; courtNumber: any; revision: any; history: never[]; }' is not assignable to parameter of type 'SetStateAction<null>'.
+  Type '{ id: any; type: any; format: any; createdAt: any; settings: any; teamA: any; teamB: any; score: any; currentServer: any; courtSides: any; shouldChangeSides: any; isCompleted: any; winner: any; courtNumber: any; revision: any; history: never[]; }' provides no match for the signature '(prevState: null): null'.
+app/court-vmix/[number]/page.tsx(478,59): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(485,86): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(488,64): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(491,59): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(498,86): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(501,64): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(524,24): error TS2339: Property 'id' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(525,56): error TS2339: Property 'id' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(525,61): error TS7006: Parameter 'updatedMatch' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(530,41): error TS2339: Property 'id' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(535,56): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(580,55): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(587,78): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(590,60): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(593,55): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(600,78): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(603,60): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(624,14): error TS2339: Property 'id' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(664,27): error TS2345: Argument of type '{ type: string | null; team: string | null; }' is not assignable to parameter of type 'SetStateAction<{ type: null; team: null; }>'.
+  Type '{ type: string | null; team: string | null; }' is not assignable to type '{ type: null; team: null; }'.
+    Types of property 'type' are incompatible.
+      Type 'string | null' is not assignable to type 'null'.
+        Type 'string' is not assignable to type 'null'.
+app/court-vmix/[number]/page.tsx(705,25): error TS2322: Type 'false | TeamKey | "both"' is not assignable to type 'null'.
+  Type 'false' is not assignable to type 'null'.
+app/court-vmix/[number]/page.tsx(709,32): error TS7006: Parameter 'team' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(710,26): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(710,42): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(712,30): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(722,22): error TS7006: Parameter 'team' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(722,28): error TS7006: Parameter 'playerIndex' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(723,26): error TS2339: Property 'currentServer' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(724,18): error TS2339: Property 'currentServer' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(724,55): error TS2339: Property 'currentServer' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(728,27): error TS7006: Parameter 'score' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(766,19): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ small: { container: string; score: string; point: string; }; normal: { container: string; score: string; point: string; }; large: { container: string; score: string; point: string; }; xlarge: { container: string; score: string; point: string; }; }'.
+  No index signature with a parameter of type 'string' was found on type '{ small: { container: string; score: string; point: string; }; normal: { container: string; score: string; point: string; }; large: { container: string; score: string; point: string; }; xlarge: { container: string; score: string; point: string; }; }'.
+app/court-vmix/[number]/page.tsx(791,26): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ default: { bg: string; text: any; accent: any; }; light: { bg: string; text: string; accent: string; }; dark: { bg: string; text: string; accent: string; }; transparent: { bg: string; text: any; accent: any; }; }'.
+  No index signature with a parameter of type 'string' was found on type '{ default: { bg: string; text: any; accent: any; }; light: { bg: string; text: string; accent: string; }; dark: { bg: string; text: string; accent: string; }; transparent: { bg: string; text: any; accent: any; }; }'.
+app/court-vmix/[number]/page.tsx(806,29): error TS7006: Parameter 'useGradient' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(806,42): error TS7006: Parameter 'fromColor' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(806,53): error TS7006: Parameter 'toColor' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(886,16): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(886,36): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(889,11): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(889,31): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(889,36): error TS7006: Parameter 'index' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(891,9): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/court-vmix/[number]/page.tsx(930,12): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(931,12): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(936,12): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(937,12): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1080,28): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1083,24): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1095,30): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1123,35): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1131,24): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1177,26): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1193,32): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1195,24): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1195,40): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(1195,45): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(1197,59): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/court-vmix/[number]/page.tsx(1217,22): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/court-vmix/[number]/page.tsx(1217,70): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/court-vmix/[number]/page.tsx(1221,24): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1221,51): error TS2339: Property 'isCompleted' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1242,28): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1271,24): error TS2339: Property 'isCompleted' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1271,45): error TS2339: Property 'winner' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1274,25): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1276,49): error TS2339: Property 'id' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1276,76): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1318,28): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1321,24): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1333,30): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1361,35): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1369,24): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1415,26): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1431,32): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1433,24): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1433,40): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(1433,45): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/court-vmix/[number]/page.tsx(1435,59): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/court-vmix/[number]/page.tsx(1455,22): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/court-vmix/[number]/page.tsx(1455,70): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/court-vmix/[number]/page.tsx(1460,24): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1460,51): error TS2339: Property 'isCompleted' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1481,28): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1510,24): error TS2339: Property 'isCompleted' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1510,45): error TS2339: Property 'winner' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1513,25): error TS2339: Property 'score' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1515,49): error TS2339: Property 'id' does not exist on type 'never'.
+app/court-vmix/[number]/page.tsx(1515,76): error TS2339: Property 'score' does not exist on type 'never'.
+app/court/[number]/page.tsx(15,41): error TS7031: Binding element 'params' implicitly has an 'any' type.
+app/court/[number]/page.tsx(38,20): error TS2345: Argument of type '{ id: any; type: any; format: any; createdAt: any; settings: any; teamA: any; teamB: any; score: any; currentServer: any; courtSides: any; shouldChangeSides: any; isCompleted: any; winner: any; courtNumber: any; revision: any; history: never[]; }' is not assignable to parameter of type 'SetStateAction<null>'.
+  Type '{ id: any; type: any; format: any; createdAt: any; settings: any; teamA: any; teamB: any; score: any; currentServer: any; courtSides: any; shouldChangeSides: any; isCompleted: any; winner: any; courtNumber: any; revision: any; history: never[]; }' provides no match for the signature '(prevState: null): null'.
+app/court/[number]/page.tsx(42,70): error TS7006: Parameter 'updatedMatch' implicitly has an 'any' type.
+app/debug/page.tsx(59,22): error TS2345: Argument of type '{ timestamp: string; isAvailable: boolean; responseTime: number; connectionInfo: { available: boolean; error: string; details: { supabaseUrl: boolean; supabaseAnonKey: boolean; code?: undefined; ... 5 more ...; stack?: undefined; }; } | ... 4 more ... | { ...; }; ... 4 more ...; online: boolean; }' is not assignable to parameter of type 'SetStateAction<null>'.
+  Type '{ timestamp: string; isAvailable: boolean; responseTime: number; connectionInfo: { available: boolean; error: string; details: { supabaseUrl: boolean; supabaseAnonKey: boolean; code?: undefined; ... 5 more ...; stack?: undefined; }; } | ... 4 more ... | { ...; }; ... 4 more ...; online: boolean; }' provides no match for the signature '(prevState: null): null'.
+app/debug/page.tsx(63,24): error TS2353: Object literal may only specify known properties, and 'error' does not exist in type '(prevState: null) => null'.
+app/debug/page.tsx(63,31): error TS18046: 'error' is of type 'unknown'.
+app/debug/page.tsx(63,53): error TS18046: 'error' is of type 'unknown'.
+app/fullscreen-scoreboard/[number]/page.tsx(22,26): error TS7006: Parameter 'param' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(22,33): error TS7006: Parameter 'defaultColor' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(29,34): error TS7006: Parameter 'team' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(29,40): error TS7006: Parameter 'playerIndex' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(29,53): error TS7006: Parameter 'matchData' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(228,26): error TS7006: Parameter 'settings' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(370,33): error TS2339: Property 'requestFullscreen' does not exist on type 'never'.
+app/fullscreen-scoreboard/[number]/page.tsx(372,12): error TS2339: Property 'requestFullscreen' does not exist on type 'never'.
+app/fullscreen-scoreboard/[number]/page.tsx(376,19): error TS7006: Parameter 'err' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(416,11): error TS18047: 'containerRef.current' is possibly 'null'.
+app/fullscreen-scoreboard/[number]/page.tsx(416,59): error TS7006: Parameter 'err' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(434,46): error TS2339: Property 'invalidCourt' does not exist on type '{ tennis: string; padel: string; singles: string; doubles: string; matchCompleted: string; set: string; of: string; tiebreak: string; game: string; leftCourtSide: string; rightCourtSide: string; currentServer: string; playerA: string; playerB: string; }'.
+app/fullscreen-scoreboard/[number]/page.tsx(469,45): error TS2339: Property 'noActiveMatches' does not exist on type '{ tennis: string; padel: string; singles: string; doubles: string; matchCompleted: string; set: string; of: string; tiebreak: string; game: string; leftCourtSide: string; rightCourtSide: string; currentServer: string; playerA: string; playerB: string; }'.
+app/fullscreen-scoreboard/[number]/page.tsx(479,44): error TS2339: Property 'loadError' does not exist on type '{ tennis: string; padel: string; singles: string; doubles: string; matchCompleted: string; set: string; of: string; tiebreak: string; game: string; leftCourtSide: string; rightCourtSide: string; currentServer: string; playerA: string; playerB: string; }'.
+app/fullscreen-scoreboard/[number]/page.tsx(490,9): error TS7034: Variable 'unsubscribe' implicitly has type 'any' in some locations where its type cannot be determined.
+app/fullscreen-scoreboard/[number]/page.tsx(500,66): error TS7006: Parameter 'updatedMatch' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(517,21): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(535,23): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(571,15): error TS7005: Variable 'unsubscribe' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(582,73): error TS7006: Parameter 'updatedMatch' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(598,25): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(619,11): error TS7005: Variable 'unsubscribe' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(629,32): error TS7006: Parameter 'team' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(642,22): error TS7006: Parameter 'team' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(642,28): error TS7006: Parameter 'playerIndex' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(648,27): error TS7006: Parameter 'score' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(666,31): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(666,36): error TS7006: Parameter 'index' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(669,9): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/fullscreen-scoreboard/[number]/page.tsx(696,29): error TS7006: Parameter 'useGradient' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(696,42): error TS7006: Parameter 'fromColor' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(696,53): error TS7006: Parameter 'toColor' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(707,47): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(708,47): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(743,25): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'TranslationKeys'.
+  No index signature with a parameter of type 'string' was found on type 'TranslationKeys'.
+app/fullscreen-scoreboard/[number]/page.tsx(747,18): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'TranslationKeys'.
+  No index signature with a parameter of type 'string' was found on type 'TranslationKeys'.
+app/fullscreen-scoreboard/[number]/page.tsx(1092,43): error TS7006: Parameter 'player' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1092,51): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1115,43): error TS7006: Parameter 'player' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1115,51): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1138,43): error TS7006: Parameter 'player' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1138,51): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1152,37): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1152,42): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1165,20): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/fullscreen-scoreboard/[number]/page.tsx(1165,68): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/fullscreen-scoreboard/[number]/page.tsx(1225,43): error TS7006: Parameter 'player' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1225,51): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1248,43): error TS7006: Parameter 'player' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1248,51): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1271,43): error TS7006: Parameter 'player' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1271,51): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1285,37): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1285,42): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/fullscreen-scoreboard/[number]/page.tsx(1298,20): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/fullscreen-scoreboard/[number]/page.tsx(1298,68): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/fullscreen-scoreboard/[number]/page.tsx(1364,21): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'TranslationKeys'.
+  No index signature with a parameter of type 'string' was found on type 'TranslationKeys'.
+app/fullscreen-scoreboard/[number]/page.tsx(1368,14): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type 'TranslationKeys'.
+  No index signature with a parameter of type 'string' was found on type 'TranslationKeys'.
+app/fullscreen-scoreboard/[number]/page.tsx(1371,10): error TS2352: Conversion of type 'TranslationKeys' to type 'string' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+app/match/[id]/page.tsx(40,11): error TS2339: Property 'language' does not exist on type 'LanguageContextType | undefined'.
+app/match/[id]/page.tsx(41,13): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ ru: TranslationKeys; en: TranslationKeys; uk: TranslationKeys; }'.
+app/match/[id]/page.tsx(83,65): error TS7006: Parameter 'updatedMatch' implicitly has an 'any' type.
+app/match/[id]/page.tsx(122,39): error TS7006: Parameter 'event' implicitly has an 'any' type.
+app/match/[id]/page.tsx(146,38): error TS7006: Parameter 'event' implicitly has an 'any' type.
+app/match/[id]/page.tsx(165,36): error TS7006: Parameter 'updatedMatch' implicitly has an 'any' type.
+app/match/[id]/page.tsx(196,66): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/match/[id]/page.tsx(332,29): error TS2339: Property 'created_via_court_link' does not exist on type 'never'.
+app/match/[id]/page.tsx(338,27): error TS2339: Property 'courtNumber' does not exist on type 'never'.
+app/match/[id]/page.tsx(340,42): error TS2339: Property 'courtNumber' does not exist on type 'never'.
+app/match/[id]/page.tsx(350,17): error TS2339: Property 'created_via_court_link' does not exist on type 'never'.
+app/match/[id]/page.tsx(446,21): error TS2339: Property 'created_via_court_link' does not exist on type 'never'.
+app/match/[id]/page.tsx(516,39): error TS2339: Property 'courtNumber' does not exist on type 'never'.
+app/match/[id]/page.tsx(520,25): error TS2339: Property 'courtNumber' does not exist on type 'never'.
+app/match/[id]/page.tsx(523,68): error TS2339: Property 'courtNumber' does not exist on type 'never'.
+app/match/[id]/page.tsx(528,52): error TS2339: Property 'courtNumber' does not exist on type 'never'.
+app/match/[id]/page.tsx(531,25): error TS2339: Property 'courtNumber' does not exist on type 'never'.
+app/match/[id]/page.tsx(534,69): error TS2339: Property 'courtNumber' does not exist on type 'never'.
+app/match/[id]/page.tsx(539,52): error TS2339: Property 'courtNumber' does not exist on type 'never'.
+app/match/[id]/view/page.tsx(103,59): error TS7006: Parameter 'updatedMatch' implicitly has an 'any' type.
+app/new-match/page.tsx(204,20): error TS2345: Argument of type 'Player[]' is not assignable to parameter of type 'SetStateAction<never[]>'.
+  Type 'Player[]' is not assignable to type 'never[]'.
+    Type 'Player' is not assignable to type 'never'.
+app/new-match/page.tsx(205,9): error TS2322: Type 'Player[]' is not assignable to type 'never[]'.
+  Type 'Player' is not assignable to type 'never'.
+app/new-match/page.tsx(217,34): error TS7006: Parameter 'e' implicitly has an 'any' type.
+app/new-match/page.tsx(248,29): error TS7006: Parameter 'message' implicitly has an 'any' type.
+app/new-match/page.tsx(305,9): error TS2322: Type '{ id: string; name: string; }[]' is not assignable to type 'never[]'.
+  Type '{ id: string; name: string; }' is not assignable to type 'never'.
+app/new-match/page.tsx(306,20): error TS2345: Argument of type '{ id: string; name: string; }[]' is not assignable to parameter of type 'SetStateAction<never[]>'.
+  Type '{ id: string; name: string; }[]' is not assignable to type 'never[]'.
+    Type '{ id: string; name: string; }' is not assignable to type 'never'.
+app/new-match/page.tsx(332,16): error TS2345: Argument of type 'Player[]' is not assignable to parameter of type 'SetStateAction<never[]>'.
+  Type 'Player[]' is not assignable to type 'never[]'.
+    Type 'Player' is not assignable to type 'never'.
+app/new-match/page.tsx(333,5): error TS2322: Type 'Player[]' is not assignable to type 'never[]'.
+  Type 'Player' is not assignable to type 'never'.
+app/new-match/page.tsx(371,54): error TS2554: Expected 1 arguments, but got 2.
+app/new-match/page.tsx(418,35): error TS2551: Property 'tiebreakType' does not exist on type '{ sets: number; scoringSystem: string; gamesPerSet: number; gamesPerSetOverrides: Record<number, number>; tiebreakEnabled: boolean; tiebreakFormat: string; tiebreakLength: number; ... 9 more ...; superSetTiebreakAt: number; }'. Did you mean 'tiebreakAt'?
+app/new-match/page.tsx(431,93): error TS2339: Property 'id' does not exist on type 'never'.
+app/new-match/page.tsx(431,115): error TS2339: Property 'name' does not exist on type 'never'.
+app/new-match/page.tsx(434,99): error TS2339: Property 'id' does not exist on type 'never'.
+app/new-match/page.tsx(434,121): error TS2339: Property 'name' does not exist on type 'never'.
+app/new-match/page.tsx(439,63): error TS2339: Property 'id' does not exist on type 'never'.
+app/new-match/page.tsx(439,85): error TS2339: Property 'name' does not exist on type 'never'.
+app/new-match/page.tsx(441,68): error TS2339: Property 'id' does not exist on type 'never'.
+app/new-match/page.tsx(441,90): error TS2339: Property 'name' does not exist on type 'never'.
+app/new-match/page.tsx(449,93): error TS2339: Property 'id' does not exist on type 'never'.
+app/new-match/page.tsx(449,115): error TS2339: Property 'name' does not exist on type 'never'.
+app/new-match/page.tsx(452,99): error TS2339: Property 'id' does not exist on type 'never'.
+app/new-match/page.tsx(452,121): error TS2339: Property 'name' does not exist on type 'never'.
+app/new-match/page.tsx(457,63): error TS2339: Property 'id' does not exist on type 'never'.
+app/new-match/page.tsx(457,85): error TS2339: Property 'name' does not exist on type 'never'.
+app/new-match/page.tsx(459,68): error TS2339: Property 'id' does not exist on type 'never'.
+app/new-match/page.tsx(459,90): error TS2339: Property 'name' does not exist on type 'never'.
+app/new-match/page.tsx(870,67): error TS2322: Type 'Dispatch<SetStateAction<boolean>>' is not assignable to type '(checked: CheckedState) => void'.
+  Types of parameters 'value' and 'checked' are incompatible.
+    Type 'CheckedState' is not assignable to type 'SetStateAction<boolean>'.
+      Type '"indeterminate"' is not assignable to type 'SetStateAction<boolean>'.
+app/new-match/page.tsx(877,64): error TS2322: Type 'Dispatch<SetStateAction<boolean>>' is not assignable to type '(checked: CheckedState) => void'.
+  Types of parameters 'value' and 'checked' are incompatible.
+    Type 'CheckedState' is not assignable to type 'SetStateAction<boolean>'.
+      Type '"indeterminate"' is not assignable to type 'SetStateAction<boolean>'.
+app/players/page.tsx(52,44): error TS7006: Parameter 'updatedPlayers' implicitly has an 'any' type.
+app/players/page.tsx(61,20): error TS2345: Argument of type 'Player[]' is not assignable to parameter of type 'SetStateAction<never[]>'.
+  Type 'Player[]' is not assignable to type 'never[]'.
+    Type 'Player' is not assignable to type 'never'.
+app/players/page.tsx(84,29): error TS7006: Parameter 'message' implicitly has an 'any' type.
+app/players/page.tsx(170,34): error TS7006: Parameter 'playerId' implicitly has an 'any' type.
+app/players/page.tsx(171,24): error TS2345: Argument of type '(prev: never[]) => any[]' is not assignable to parameter of type 'SetStateAction<never[]>'.
+  Type '(prev: never[]) => any[]' is not assignable to type '(prevState: never[]) => never[]'.
+    Type 'any[]' is not assignable to type 'never[]'.
+      Type 'any' is not assignable to type 'never'.
+app/players/page.tsx(172,25): error TS2345: Argument of type 'any' is not assignable to parameter of type 'never'.
+app/players/page.tsx(185,26): error TS2345: Argument of type 'any[]' is not assignable to parameter of type 'SetStateAction<never[]>'.
+  Type 'any[]' is not assignable to type 'never[]'.
+    Type 'any' is not assignable to type 'never'.
+app/players/page.tsx(185,57): error TS2339: Property 'id' does not exist on type 'never'.
+app/players/page.tsx(216,41): error TS2345: Argument of type 'null' is not assignable to parameter of type 'string'.
+app/players/page.tsx(245,31): error TS7006: Parameter 'player' implicitly has an 'any' type.
+app/players/page.tsx(374,36): error TS2339: Property 'id' does not exist on type 'never'.
+app/players/page.tsx(375,49): error TS2339: Property 'id' does not exist on type 'never'.
+app/players/page.tsx(424,50): error TS2339: Property 'id' does not exist on type 'never'.
+app/players/page.tsx(425,63): error TS2345: Argument of type 'any' is not assignable to parameter of type 'never'.
+app/players/page.tsx(425,70): error TS2339: Property 'id' does not exist on type 'never'.
+app/players/page.tsx(426,81): error TS2339: Property 'id' does not exist on type 'never'.
+app/players/page.tsx(429,60): error TS2339: Property 'id' does not exist on type 'never'.
+app/players/page.tsx(430,37): error TS2339: Property 'name' does not exist on type 'never'.
+app/players/page.tsx(431,37): error TS2339: Property 'country' does not exist on type 'never'.
+app/players/page.tsx(434,41): error TS2339: Property 'country' does not exist on type 'never'.
+app/players/page.tsx(467,73): error TS2339: Property 'id' does not exist on type 'never'.
+app/players/page.tsx(470,55): error TS2345: Argument of type 'any' is not assignable to parameter of type 'never'.
+app/players/page.tsx(470,62): error TS2339: Property 'id' does not exist on type 'never'.
+app/vmix-settings/[id]/page.tsx(1385,67): error TS2554: Expected 1 arguments, but got 2.
+app/vmix-settings/[id]/page.tsx(1390,71): error TS2554: Expected 1 arguments, but got 2.
+app/vmix-settings/[id]/page.tsx(1397,64): error TS2554: Expected 1 arguments, but got 2.
+app/vmix/[id]/page.tsx(19,24): error TS7006: Parameter 'data' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(28,34): error TS7006: Parameter 'key' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(59,26): error TS7006: Parameter 'param' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(59,33): error TS7006: Parameter 'defaultColor' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(69,27): error TS7006: Parameter 'team' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(69,33): error TS7006: Parameter 'playerIndex' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(69,46): error TS7006: Parameter 'matchData' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(76,34): error TS7006: Parameter 'team' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(76,40): error TS7006: Parameter 'playerIndex' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(76,53): error TS7006: Parameter 'matchData' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(339,29): error TS2339: Property 'id' does not exist on type 'Promise<{ id: string; }>'.
+app/vmix/[id]/page.tsx(350,31): error TS2339: Property 'id' does not exist on type 'Promise<{ id: string; }>'.
+app/vmix/[id]/page.tsx(386,52): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(393,72): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(396,57): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(399,52): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(406,72): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(409,57): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(438,54): error TS7006: Parameter 'updatedMatch' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(470,53): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(477,76): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(480,58): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(483,53): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(490,76): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(493,58): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(505,27): error TS2339: Property 'id' does not exist on type 'Promise<{ id: string; }>'.
+app/vmix/[id]/page.tsx(511,105): error TS2339: Property 'id' does not exist on type 'Promise<{ id: string; }>'.
+app/vmix/[id]/page.tsx(560,27): error TS2345: Argument of type '{ type: string | null; team: string | null; }' is not assignable to parameter of type 'SetStateAction<{ type: null; team: null; }>'.
+  Type '{ type: string | null; team: string | null; }' is not assignable to type '{ type: null; team: null; }'.
+    Types of property 'type' are incompatible.
+      Type 'string | null' is not assignable to type 'null'.
+        Type 'string' is not assignable to type 'null'.
+app/vmix/[id]/page.tsx(564,32): error TS7006: Parameter 'team' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(565,26): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(565,42): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(567,30): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(577,22): error TS7006: Parameter 'team' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(577,28): error TS7006: Parameter 'playerIndex' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(578,26): error TS2339: Property 'currentServer' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(579,18): error TS2339: Property 'currentServer' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(579,55): error TS2339: Property 'currentServer' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(583,27): error TS7006: Parameter 'score' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(617,19): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ small: { container: string; score: string; point: string; }; normal: { container: string; score: string; point: string; }; large: { container: string; score: string; point: string; }; xlarge: { container: string; score: string; point: string; }; }'.
+  No index signature with a parameter of type 'string' was found on type '{ small: { container: string; score: string; point: string; }; normal: { container: string; score: string; point: string; }; large: { container: string; score: string; point: string; }; xlarge: { container: string; score: string; point: string; }; }'.
+app/vmix/[id]/page.tsx(642,26): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ default: { bg: string; text: any; accent: any; }; light: { bg: string; text: string; accent: string; }; dark: { bg: string; text: string; accent: string; }; transparent: { bg: string; text: any; accent: any; }; }'.
+  No index signature with a parameter of type 'string' was found on type '{ default: { bg: string; text: any; accent: any; }; light: { bg: string; text: string; accent: string; }; dark: { bg: string; text: string; accent: string; }; transparent: { bg: string; text: any; accent: any; }; }'.
+app/vmix/[id]/page.tsx(657,29): error TS7006: Parameter 'useGradient' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(657,42): error TS7006: Parameter 'fromColor' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(657,53): error TS7006: Parameter 'toColor' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(737,16): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(737,36): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(740,11): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(740,31): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(740,36): error TS7006: Parameter 'index' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(742,9): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/vmix/[id]/page.tsx(773,12): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(774,12): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(779,12): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(780,12): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(877,28): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(880,24): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(892,30): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(920,35): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(928,24): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(974,26): error TS2339: Property 'teamA' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(990,32): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(992,24): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(992,40): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(992,45): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(1014,22): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/vmix/[id]/page.tsx(1014,70): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/vmix/[id]/page.tsx(1018,24): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1039,28): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1046,34): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1105,28): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1108,24): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1120,30): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1148,35): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1156,24): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1202,26): error TS2339: Property 'teamB' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1218,32): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1220,24): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1220,40): error TS7006: Parameter 'set' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(1220,45): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+app/vmix/[id]/page.tsx(1242,22): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/vmix/[id]/page.tsx(1242,70): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{}'.
+app/vmix/[id]/page.tsx(1247,24): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1268,28): error TS2339: Property 'score' does not exist on type 'never'.
+app/vmix/[id]/page.tsx(1275,34): error TS2339: Property 'score' does not exist on type 'never'.
+components/court-svg-preview.tsx(12,3): error TS7031: Binding element 'swapTeamAPlayers' implicitly has an 'any' type.
+components/court-svg-preview.tsx(13,3): error TS7031: Binding element 'swapTeamBPlayers' implicitly has an 'any' type.
+components/court-svg-preview.tsx(14,3): error TS7031: Binding element 'swapCourtSides' implicitly has an 'any' type.
+components/court-svg-preview.tsx(18,3): error TS7031: Binding element 'match' implicitly has an 'any' type.
+components/court-svg-preview.tsx(20,11): error TS2339: Property 'language' does not exist on type 'LanguageContextType | undefined'.
+components/court-svg-preview.tsx(23,22): error TS7006: Parameter 'team' implicitly has an 'any' type.
+components/court-svg-preview.tsx(23,28): error TS7006: Parameter 'playerIndex' implicitly has an 'any' type.
+components/court-svg-preview.tsx(102,26): error TS7006: Parameter 'position' implicitly has an 'any' type.
+components/court-svg-preview.tsx(410,15): error TS2322: Type '{ children: Element; xmlns: string; style: { width: string; height: string; color: "white"; fontFamily: "Inter, sans-serif"; fontSize: string; fontWeight: "bold"; userSelect: "text"; lineHeight: string; display: "flex"; flexDirection: "column"; wordWrap: "break-word"; whiteSpace: "normal"; }; }' is not assignable to type 'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
+  Property 'xmlns' does not exist on type 'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
+components/court-svg-preview.tsx(456,15): error TS2322: Type '{ children: Element; xmlns: string; style: { width: string; height: string; color: "white"; fontFamily: "Inter, sans-serif"; fontSize: string; fontWeight: "bold"; userSelect: "text"; lineHeight: string; display: "flex"; flexDirection: "column-reverse"; wordWrap: "break-word"; whiteSpace: "normal"; }; }' is not assignable to type 'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
+  Property 'xmlns' does not exist on type 'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
+components/court-svg-preview.tsx(502,15): error TS2322: Type '{ children: Element; xmlns: string; style: { width: string; height: string; color: "white"; fontFamily: "Inter, sans-serif"; fontSize: string; fontWeight: "bold"; userSelect: "text"; textAlign: "right"; ... 5 more ...; whiteSpace: "normal"; }; }' is not assignable to type 'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
+  Property 'xmlns' does not exist on type 'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
+components/court-svg-preview.tsx(550,15): error TS2322: Type '{ children: Element; xmlns: string; style: { width: string; height: string; color: "white"; fontFamily: "Inter, sans-serif"; fontSize: string; fontWeight: "bold"; userSelect: "text"; textAlign: "right"; ... 5 more ...; whiteSpace: "normal"; }; }' is not assignable to type 'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
+  Property 'xmlns' does not exist on type 'DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>'.
+components/court-svg-preview.tsx(869,40): error TS7031: Binding element 'match' implicitly has an 'any' type.
+components/court-svg-preview.tsx(870,11): error TS2339: Property 'language' does not exist on type 'LanguageContextType | undefined'.
+components/court-svg-preview.tsx(871,13): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ ru: TranslationKeys; en: TranslationKeys; uk: TranslationKeys; }'.
+components/court-svg-preview.tsx(890,26): error TS7006: Parameter 'team' implicitly has an 'any' type.
+components/court-svg-preview.tsx(890,32): error TS7006: Parameter 'index' implicitly has an 'any' type.
+components/court-visualization.tsx(72,29): error TS2322: Type 'string' is not assignable to type 'null'.
+components/court-visualization.tsx(72,45): error TS2322: Type 'number' is not assignable to type 'null'.
+components/court-visualization.tsx(73,32): error TS2322: Type 'string' is not assignable to type 'null'.
+components/court-visualization.tsx(73,48): error TS2322: Type 'number' is not assignable to type 'null'.
+components/court-visualization.tsx(74,30): error TS2322: Type 'string' is not assignable to type 'null'.
+components/court-visualization.tsx(74,47): error TS2322: Type 'number' is not assignable to type 'null'.
+components/court-visualization.tsx(75,33): error TS2322: Type 'string' is not assignable to type 'null'.
+components/court-visualization.tsx(75,50): error TS2322: Type 'number' is not assignable to type 'null'.
+components/court-visualization.tsx(78,29): error TS2322: Type 'string' is not assignable to type 'null'.
+components/court-visualization.tsx(78,44): error TS2322: Type 'number' is not assignable to type 'null'.
+components/court-visualization.tsx(79,32): error TS2322: Type 'string' is not assignable to type 'null'.
+components/court-visualization.tsx(79,47): error TS2322: Type 'number' is not assignable to type 'null'.
+components/court-visualization.tsx(80,30): error TS2322: Type 'string' is not assignable to type 'null'.
+components/court-visualization.tsx(80,45): error TS2322: Type 'number' is not assignable to type 'null'.
+components/court-visualization.tsx(81,33): error TS2322: Type 'string' is not assignable to type 'null'.
+components/court-visualization.tsx(81,48): error TS2322: Type 'number' is not assignable to type 'null'.
+components/courts-list.tsx(51,28): error TS7006: Parameter 'courtNumber' implicitly has an 'any' type.
+components/courts-list.tsx(96,11): error TS2322: Type '"outline" | "success"' is not assignable to type '"default" | "destructive" | "outline" | "secondary" | null | undefined'.
+  Type '"success"' is not assignable to type '"default" | "destructive" | "outline" | "secondary" | null | undefined'.
+components/courts-list.tsx(103,12): error TS2741: Property 'matchId' is missing in type '{ courtNumber: number; directLink: true; size: "sm"; className: string; iconClassName: string; }' but required in type 'VmixButtonProps'.
+components/courts-list.tsx(110,12): error TS2741: Property 'matchId' is missing in type '{ courtNumber: number; directLink: false; size: "sm"; className: string; iconClassName: string; }' but required in type 'VmixButtonProps'.

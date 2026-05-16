@@ -186,7 +186,8 @@ export const checkTablesExist = async () => {
           players: playersError?.message,
         },
       }
-    } catch (fetchError) {
+    } catch (err) {
+      const fetchError = err as Error;
       if (fetchError.name === "AbortError") {
         logEvent("error", "Таймаут при проверке существования таблиц", "checkTablesExist")
       } else {
@@ -235,7 +236,8 @@ export const checkTablesContent = async () => {
           matches: matchesResponse.error?.message,
         },
       }
-    } catch (fetchError) {
+    } catch (err) {
+      const fetchError = err as Error;
       if (fetchError.name === "AbortError") {
         logEvent("error", "Таймаут при проверке содержимого таблиц", "checkTablesContent")
       } else {
@@ -306,7 +308,8 @@ export const getSupabaseConnectionInfo = async () => {
           tablesStatus,
         },
       }
-    } catch (fetchError) {
+    } catch (err) {
+      const fetchError = err as Error;
       if (fetchError.name === "AbortError") {
         return {
           available: false,
@@ -490,9 +493,10 @@ export const initializeDatabase = async () => {
             return { success: false, error: error.message }
           }
         }
-      } catch (fetchError) {
+      } catch (err) {
+        const fetchError = err as Error;
         if (fetchError.name === "AbortError") {
-          logEvent("error", "Тайма��т при выполнении SQL", "initializeDatabase", { statement })
+          logEvent("error", "Таймаут при выполнении SQL", "initializeDatabase", { statement })
         } else {
           logEvent("error", `Ошибка при запросе к Supabase: ${fetchError.message}`, "initializeDatabase", {
             error: fetchError,
@@ -564,7 +568,8 @@ export const executeSql = async (sql: string) => {
       }
 
       return { success: true, data }
-    } catch (fetchError) {
+    } catch (err) {
+      const fetchError = err as Error;
       if (fetchError.name === "AbortError") {
         return { success: false, error: "Таймаут при выполнении SQL-запроса" }
       } else {
@@ -629,7 +634,8 @@ export const checkAndEnableRealtime = async () => {
       }
 
       return { success: true }
-    } catch (fetchError) {
+    } catch (err) {
+      const fetchError = err as Error;
       if (fetchError.name === "AbortError") {
         return { success: false, error: "Таймаут при проверке Realtime" }
       } else {

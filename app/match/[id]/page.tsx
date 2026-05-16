@@ -37,10 +37,11 @@ export default function MatchPage({ params }: MatchParams) {
   const matchId = typeof resolvedParams.id === 'string' ? resolvedParams.id : ''
 
   const router = useRouter()
-  const { language } = useContext(LanguageContext)
-  const t = translations[language]
+  const languageContext = useContext(LanguageContext)
+  const language = languageContext?.language || "ru"
+  const t: any = translations[language as keyof typeof translations] || translations.ru
 
-  const [match, setMatch] = useState(null)
+  const [match, setMatch] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [showAlert, setShowAlert] = useState(false)
@@ -80,7 +81,7 @@ export default function MatchPage({ params }: MatchParams) {
     loadMatch()
 
     // Подписываемся на обновления матча в реальном времени
-    const unsubscribe = subscribeToMatchUpdates(matchId, async (updatedMatch) => {
+    const unsubscribe = subscribeToMatchUpdates(matchId, async (updatedMatch: any) => {
       if (updatedMatch) {
         // Загружаем состояние синхронизации
         let hasPendingOperations = false;
@@ -119,7 +120,7 @@ export default function MatchPage({ params }: MatchParams) {
     })
 
     // Добавляем обработчик события match-updated
-    const handleMatchUpdated = async (event) => {
+    const handleMatchUpdated = async (event: any) => {
       if (event.detail && event.detail.id === matchId) {
         // Перезагружаем матч при получении события обновления
         const matchData = await getMatch(matchId)
@@ -143,7 +144,7 @@ export default function MatchPage({ params }: MatchParams) {
     window.addEventListener("match-updated", handleMatchUpdated)
 
     // Добавляем обработчик события смены сторон
-    const handleCourtSidesSwapped = (event) => {
+    const handleCourtSidesSwapped = (event: any) => {
       if (event.detail && event.detail.newSides) {
         setSideChangeAlert(true)
         setTimeout(() => setSideChangeAlert(false), 2000)
@@ -162,7 +163,7 @@ export default function MatchPage({ params }: MatchParams) {
     }
   }, [matchId, language])
 
-  const handleUpdateMatch = async (updatedMatch) => {
+  const handleUpdateMatch = async (updatedMatch: any) => {
     try {
       // Отключаем функцию отмены для экономии места
       updatedMatch.history = []
@@ -193,7 +194,7 @@ export default function MatchPage({ params }: MatchParams) {
         }
 
         if (minimalMatch.score && minimalMatch.score.sets) {
-          minimalMatch.score.sets = minimalMatch.score.sets.map((set) => ({
+          minimalMatch.score.sets = minimalMatch.score.sets.map((set: any) => ({
             teamA: set.teamA,
             teamB: set.teamB,
             winner: set.winner,

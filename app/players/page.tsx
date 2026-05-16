@@ -31,11 +31,11 @@ import { useLanguage } from "@/contexts/language-context"
 export default function PlayersPage() {
   const router = useRouter()
   const { t } = useLanguage()
-  const [players, setPlayers] = useState([])
+  const [players, setPlayers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [newPlayerName, setNewPlayerName] = useState("")
   const [newPlayerCountry, setNewPlayerCountry] = useState("") // Новое состояние для страны
-  const [selectedPlayers, setSelectedPlayers] = useState([])
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([])
   const [showAlert, setShowAlert] = useState(false)
   const [alertMessage, setAlertMessage] = useState("")
   const [alertType, setAlertType] = useState("success") // success, error, warning
@@ -43,13 +43,13 @@ export default function PlayersPage() {
   const [isAddingPlayer, setIsAddingPlayer] = useState(false)
   const [isDeletingPlayers, setIsDeletingPlayers] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [editingPlayerId, setEditingPlayerId] = useState(null)
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null)
   const [editedPlayerName, setEditedPlayerName] = useState("")
   const [editedPlayerCountry, setEditedPlayerCountry] = useState("")
   const [isEditingPlayer, setIsEditingPlayer] = useState(false)
 
   // Обработчик обновления списка игроков
-  const handlePlayersUpdate = useCallback((updatedPlayers) => {
+  const handlePlayersUpdate = useCallback((updatedPlayers: any[]) => {
     setPlayers(updatedPlayers)
   }, [])
 
@@ -81,7 +81,7 @@ export default function PlayersPage() {
   }, [handlePlayersUpdate])
 
   // Показать уведомление
-  const showNotification = (message, type = "success") => {
+  const showNotification = (message: string, type = "success") => {
     setAlertMessage(message)
     setAlertType(type)
     setShowAlert(true)
@@ -167,7 +167,7 @@ export default function PlayersPage() {
   }
 
   // Выбор/отмена выбора игрока
-  const togglePlayerSelection = (playerId) => {
+  const togglePlayerSelection = (playerId: string) => {
     setSelectedPlayers((prev) => {
       if (prev.includes(playerId)) {
         return prev.filter((id) => id !== playerId)
@@ -198,7 +198,7 @@ export default function PlayersPage() {
 
   // Обновление игрока
   const handleUpdatePlayer = async () => {
-    if (!editedPlayerName.trim()) return
+    if (!editedPlayerName.trim() || !editingPlayerId) return
 
     setIsEditingPlayer(true)
     try {
@@ -242,7 +242,7 @@ export default function PlayersPage() {
   }
 
   // Начать редактирование игрока
-  const startEditingPlayer = (player) => {
+  const startEditingPlayer = (player: any) => {
     setEditingPlayerId(player.id)
     setEditedPlayerName(player.name)
     setEditedPlayerCountry(player.country || "")
@@ -261,13 +261,12 @@ export default function PlayersPage() {
     <div className="container max-w-2xl mx-auto px-4 py-8">
       {showAlert && (
         <Alert
-          className={`fixed top-4 right-4 w-auto z-50 ${
-            alertType === "success"
-              ? "bg-green-50 border-green-200"
-              : alertType === "error"
-                ? "bg-red-50 border-red-200"
-                : "bg-amber-50 border-amber-200"
-          }`}
+          className={`fixed top-4 right-4 w-auto z-50 ${alertType === "success"
+            ? "bg-green-50 border-green-200"
+            : alertType === "error"
+              ? "bg-red-50 border-red-200"
+              : "bg-amber-50 border-amber-200"
+            }`}
         >
           <AlertTitle>
             {alertType === "success"

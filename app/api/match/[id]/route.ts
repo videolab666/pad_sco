@@ -9,8 +9,8 @@ import { createServerSupabaseClient } from "@/lib/supabase"
 // getPointIndex, isGamePoint, isSetPoint, isMatchPoint, getImportantPoint
 // → removed, now imported from @/lib/scoring-logic
 
-// Функция для определения общего количества сетов
-const getTotalSets = (match) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getTotalSets = (match: any) => {
   // Проверяем различные возможные пути к данным о формате матча
   if (match.format && typeof match.format === "object") {
     // Прямое указание общего количества сетов
@@ -45,8 +45,8 @@ const getTotalSets = (match) => {
   return 3
 }
 
-// Функция для определения количества сетов для победы
-const getSetsToWin = (match) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getSetsToWin = (match: any) => {
   // Проверяем различные возможные пути к данным о формате матча
   if (match.format && typeof match.format === "object") {
     // Прямое указание количества сетов для победы
@@ -67,8 +67,8 @@ const getSetsToWin = (match) => {
   return getConfiguredSetsToWin({ ...match.settings, sets: getTotalSets(match) })
 }
 
-// Функция для определения номера текущего сета
-const getCurrentSetNumber = (match) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getCurrentSetNumber = (match: any) => {
   if (!match || !match.score) {
     return 1
   }
@@ -131,8 +131,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     })
 
     // Получаем текущие сеты для обеих команд
-    const teamASets = match.score.sets ? match.score.sets.map((set) => set.teamA) : []
-    const teamBSets = match.score.sets ? match.score.sets.map((set) => set.teamB) : []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const teamASets = match.score.sets ? match.score.sets.map((set: any) => set.teamA) : []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const teamBSets = match.score.sets ? match.score.sets.map((set: any) => set.teamB) : []
 
     // Определяем информацию о победителе
     let winnerTeamName = ""
@@ -141,11 +143,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (match.isCompleted && match.winner) {
       if (match.winner === "teamA") {
-        winnerTeamName = match.teamA.players.map((p) => p.name).join(" / ")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        winnerTeamName = match.teamA.players.map((p: any) => p.name).join(" / ")
         winnerName1 = match.teamA.players[0]?.name || ""
         winnerName2 = match.teamA.players[1]?.name || ""
       } else if (match.winner === "teamB") {
-        winnerTeamName = match.teamB.players.map((p) => p.name).join(" / ")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        winnerTeamName = match.teamB.players.map((p: any) => p.name).join(" / ")
         winnerName1 = match.teamB.players[0]?.name || ""
         winnerName2 = match.teamB.players[1]?.name || ""
       }
@@ -173,7 +177,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       court_number: match.courtNumber || 0,
 
       // Данные команды A
-      teamA_name: match.teamA.players.map((p) => p.name).join(" / "),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      teamA_name: match.teamA.players.map((p: any) => p.name).join(" / "),
       teamA_player1_name: match.teamA.players[0]?.name || "",
       teamA_player2_name: match.teamA.players[1]?.name || "",
       teamA_score: match.score.teamA,
@@ -186,7 +191,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       teamA_serving: match.currentServer && match.currentServer.team === "teamA" ? "True" : "False",
 
       // Данные команды B
-      teamB_name: match.teamB.players.map((p) => p.name).join(" / "),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      teamB_name: match.teamB.players.map((p: any) => p.name).join(" / "),
       teamB_player1_name: match.teamB.players[0]?.name || "",
       teamB_player2_name: match.teamB.players[1]?.name || "",
       teamB_score: match.score.teamB,
@@ -227,8 +233,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // Гарантируем, что будет как минимум 5 сетов для совместимости с vMix
     const maxSets = Math.max(5, totalSets)
     for (let i = 0; i < maxSets; i++) {
-      flatMatchData[`teamA_set${i + 1}`] = teamASets[i] !== undefined ? teamASets[i] : ""
-      flatMatchData[`teamB_set${i + 1}`] = teamBSets[i] !== undefined ? teamBSets[i] : ""
+      ; (flatMatchData as any)[`teamA_set${i + 1}`] = teamASets[i] !== undefined ? teamASets[i] : ""
+        ; (flatMatchData as any)[`teamB_set${i + 1}`] = teamBSets[i] !== undefined ? teamBSets[i] : ""
     }
 
     // Устанавливаем заголовки для предотвращения кэширования
@@ -246,7 +252,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       status: 200,
       headers: headers,
     })
-  } catch (error) {
+  } catch (error: any) {
     logEvent("error", "Ошибка при обработке API запроса", "match-api", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

@@ -30,13 +30,15 @@ const loadVmixSettings = () => {
 }
 
 // Функция для форматирования цвета в URL
-const formatColorForUrl = (color) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const formatColorForUrl = (color: any) => {
   if (!color) return ""
   return color.replace("#", "")
 }
 
 // Функция для генерации URL с настройками
-const generateFullscreenUrl = (courtNumber, settings) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const generateFullscreenUrl = (courtNumber: any, settings: any) => {
   const baseUrl = window.location.origin
   const url = new URL(`${baseUrl}/fullscreen-scoreboard/${courtNumber}`)
 

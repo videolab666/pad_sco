@@ -100,7 +100,7 @@ export default function MatchViewPage({ params }: MatchParams) {
     loadMatch()
 
     // Подписываемся на обновления матча в реальном времени
-    const unsubscribe = subscribeToMatchUpdates(matchId, (updatedMatch) => {
+    const unsubscribe = subscribeToMatchUpdates(matchId, (updatedMatch: any) => {
       if (updatedMatch) {
         setMatch(updatedMatch)
         setError("")

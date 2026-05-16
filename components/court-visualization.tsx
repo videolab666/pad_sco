@@ -48,16 +48,16 @@ export function CourtVisualization({ match, fixedSides }: CourtVisualizationProp
     const receiverPlayerIndex = serverPlayerIndex === 0 ? 0 : 1
     const receiverPlayerName = getPlayerName(receiverTeam, receiverPlayerIndex)
 
-    return `${serverTeamName} ${t("match.toServe") || "to serve"}, ${serverPlayerName} ${t("match.to") || "to"} ${receiverPlayerName}, ${
-      match.score.currentSet.currentGame.teamA === 0 && match.score.currentSet.currentGame.teamB === 0
+    return `${serverTeamName} ${t("match.toServe") || "to serve"}, ${serverPlayerName} ${t("match.to") || "to"} ${receiverPlayerName}, ${match.score.currentSet.currentGame.teamA === 0 && match.score.currentSet.currentGame.teamB === 0
         ? t("match.loveAll") || "love all"
         : t("match.play") || "play"
-    }`
+      }`
   }
 
   // Determine player positions based on court sides and fixed sides setting
   const getPlayerPositions = () => {
-    const positions = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const positions: any = {
       topLeft: { team: null, playerIndex: null },
       topRight: { team: null, playerIndex: null },
       bottomLeft: { team: null, playerIndex: null },

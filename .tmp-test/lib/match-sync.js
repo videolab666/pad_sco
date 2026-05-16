@@ -52,10 +52,31 @@ function __setSyncTestHooks(hooks) {
 }
 function __resetSyncTestState() {
     revisionColumnMissing = false;
+    envCache = null;
     draining.clear();
     for (const t of retryTimers.values())
         clearTimeout(t);
     retryTimers.clear();
+}
+// ─── Environment check cache ───────────────────────────────────────────────────
+// Probing Supabase availability + table existence on every drain adds network
+// round-trips that delay each write (and widen the optimistic-UI flicker window).
+// The result barely changes, so it is cached briefly and invalidated on failure
+// / reconnect.
+const ENV_CACHE_TTL = 30000;
+let envCache = null;
+async function checkEnv() {
+    if (envCache && Date.now() - envCache.ts < ENV_CACHE_TTL) {
+        return { ok: envCache.ok, tablesExist: envCache.tablesExist };
+    }
+    const ok = await _isAvailable();
+    let tablesExist = false;
+    if (ok) {
+        const tables = await _checkTables();
+        tablesExist = Boolean(tables?.exists);
+    }
+    envCache = { ok, tablesExist, ts: Date.now() };
+    return { ok, tablesExist };
 }
 // ─── Sync-state pub/sub (Observability — guardrail #4) ─────────────────────────
 const stateListeners = new Map();
@@ -205,15 +226,14 @@ async function drainMatch(matchId) {
     }
     draining.add(matchId);
     try {
-        const available = await _isAvailable();
-        if (!available) {
+        const env = await checkEnv();
+        if (!env.ok) {
             (0, match_operation_log_1.setSyncStatus)(matchId, "offline");
             notifyState(matchId);
             scheduleRetry(matchId, 0);
             return;
         }
-        const tables = await _checkTables();
-        if (!tables?.exists) {
+        if (!env.tablesExist) {
             // No remote tables: local storage is the only source of truth. Treat the
             // queue as confirmed locally so the UI is not stuck on "pending".
             (0, match_operation_log_1.markOperationsSynced)(matchId, record.queue.map((o) => o.operationId), record.revision);
@@ -246,6 +266,8 @@ async function drainMatch(matchId) {
                 (0, error_logger_1.logEvent)("error", `Операция матча ${matchId} перемещена в dead-letter: ${result.error}`, "match-sync");
             }
             else {
+                // A transient failure may mean we went offline — re-probe next time.
+                envCache = null;
                 (0, match_operation_log_1.markOperationFailed)(matchId, effective.operationId, result.error, MAX_RETRIES);
                 scheduleRetry(matchId, effective.retryCount);
             }
@@ -254,6 +276,7 @@ async function drainMatch(matchId) {
     }
     catch (error) {
         (0, error_logger_1.logEvent)("error", `Ошибка слива очереди матча ${matchId}`, "match-sync", error);
+        envCache = null;
         (0, match_operation_log_1.setSyncStatus)(matchId, "error");
         notifyState(matchId);
         scheduleRetry(matchId, 0);
@@ -429,6 +452,8 @@ function initSyncRecovery() {
         return;
     recoveryInitialised = true;
     const recover = () => {
+        // Re-probe the environment on reconnect / focus instead of trusting a cache.
+        envCache = null;
         void drainAllPending();
     };
     window.addEventListener("online", recover);
@@ -443,6 +468,7 @@ function initSyncRecovery() {
 /** Manual retry entry point for the UI ("retry sync" button). */
 async function retrySyncNow(matchId) {
     // A manual retry should not be blocked by a stale availability cache.
+    envCache = null;
     if (matchId) {
         const rec = (0, match_operation_log_1.loadSyncRecord)(matchId);
         if (rec.syncStatus === "error" || rec.syncStatus === "offline") {

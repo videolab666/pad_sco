@@ -11,12 +11,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 
 export function DatabaseInitializer() {
-  const [tablesStatus, setTablesStatus] = useState(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [tablesStatus, setTablesStatus] = useState<any>(null)
   const [isInitializing, setIsInitializing] = useState(false)
-  const [initResult, setInitResult] = useState(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [initResult, setInitResult] = useState<any>(null)
   const [isChecking, setIsChecking] = useState(true)
   const [customSql, setCustomSql] = useState("")
-  const [sqlResult, setSqlResult] = useState(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [sqlResult, setSqlResult] = useState<any>(null)
   const [isExecutingSql, setIsExecutingSql] = useState(false)
 
   const checkTables = async () => {
@@ -49,7 +52,7 @@ export function DatabaseInitializer() {
         // Перепроверяем статус таблиц после инициализации
         await checkTables()
       }
-    } catch (error) {
+    } catch (error: any) {
       logEvent("error", "Ошибка при инициализации базы данных", "DatabaseInitializer", error)
       setInitResult({ success: false, error: error.message })
     } finally {
@@ -72,7 +75,7 @@ export function DatabaseInitializer() {
         // Перепроверяем статус таблиц после выполнения SQL
         await checkTables()
       }
-    } catch (error) {
+    } catch (error: any) {
       logEvent("error", "Ошибка при выполнении SQL", "DatabaseInitializer", error)
       setSqlResult({ success: false, error: error.message })
     } finally {
@@ -110,7 +113,7 @@ CREATE TABLE IF NOT EXISTS matches (
       if (result.success) {
         await checkTables()
       }
-    } catch (error) {
+    } catch (error: any) {
       logEvent("error", "Ошибка при создании таблицы matches", "DatabaseInitializer", error)
       setSqlResult({ success: false, error: error.message })
     } finally {
@@ -138,7 +141,7 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
       if (result.success) {
         await checkTables()
       }
-    } catch (error) {
+    } catch (error: any) {
       logEvent("error", "Ошибка при создании таблицы players", "DatabaseInitializer", error)
       setSqlResult({ success: false, error: error.message })
     } finally {
@@ -201,7 +204,7 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
             </div>
 
             {!tablesStatus.exists && (
-              <Alert variant="warning" className="bg-amber-50 border-amber-200">
+              <Alert variant="default" className="bg-amber-50 border-amber-200">
                 <AlertCircle className="h-4 w-4 text-amber-800" />
                 <AlertTitle className="text-amber-800">Таблицы не созданы</AlertTitle>
                 <AlertDescription className="text-amber-800">

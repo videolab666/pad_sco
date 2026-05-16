@@ -24,8 +24,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // Получаем текущие сеты для обеих команд
-    const teamASets = match.score.sets ? match.score.sets.map((set) => set.teamA) : []
-    const teamBSets = match.score.sets ? match.score.sets.map((set) => set.teamB) : []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const teamASets = match.score.sets ? match.score.sets.map((set: any) => set.teamA) : []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const teamBSets = match.score.sets ? match.score.sets.map((set: any) => set.teamB) : []
 
     // Формируем "плоский" JSON для vMix без вложенных объектов
     const flatVmixData = {
@@ -33,7 +35,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       court_number: match.courtNumber || "",
 
       // Данные команды A
-      teamA_name: match.teamA.players.map((p) => p.name).join(" / "),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      teamA_name: match.teamA.players.map((p: any) => p.name).join(" / "),
       teamA_score: match.score.teamA,
       teamA_game_score: match.score.currentSet
         ? match.score.currentSet.isTiebreak
@@ -44,7 +47,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       teamA_serving: match.currentServer && match.currentServer.team === "teamA" ? "True" : "False",
 
       // Данные команды B
-      teamB_name: match.teamB.players.map((p) => p.name).join(" / "),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      teamB_name: match.teamB.players.map((p: any) => p.name).join(" / "),
       teamB_score: match.score.teamB,
       teamB_game_score: match.score.currentSet
         ? match.score.currentSet.isTiebreak
@@ -88,7 +92,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         "Cache-Control": "no-cache, no-store, must-revalidate",
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     logEvent("error", "vMix API: ошибка при обработке запроса", "vmix-api", error)
     return NextResponse.json(
       {

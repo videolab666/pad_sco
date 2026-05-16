@@ -103,7 +103,8 @@ export function MatchHistoryList({ showControls = false }: MatchHistoryListProps
 
       if (matchesFromStorage && matchesFromStorage.length > 0) {
         // Преобразуем формат данных для совместимости с компонентом
-        const formattedMatches = matchesFromStorage.map((match) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const formattedMatches = matchesFromStorage.map((match: any) => ({
           id: match.id,
           date: match.createdAt || new Date().toISOString(),
           team1: {
@@ -139,7 +140,8 @@ export function MatchHistoryList({ showControls = false }: MatchHistoryListProps
           setError("Матчи не найдены в хранилище")
         }
       }
-    } catch (error) {
+    } catch (err) {
+      const error = err as Error
       console.error("Ошибка при загрузке матчей:", error)
       setError(`Ошибка при загрузке матчей: ${error.message}`)
       toast({
@@ -314,11 +316,10 @@ export function MatchHistoryList({ showControls = false }: MatchHistoryListProps
                       match.sets.map((set, idx) => (
                         <span
                           key={idx}
-                          className={`mr-1 px-1 rounded shadow-sm ${
-                            Number.parseInt(set.teamA) > Number.parseInt(set.teamB)
+                          className={`mr-1 px-1 rounded shadow-sm ${Number.parseInt(set.teamA) > Number.parseInt(set.teamB)
                               ? "bg-[#fffec0]" // Победитель
                               : "bg-[#dff1ff]" // Проигравший
-                          }`}
+                            }`}
                         >
                           {set.teamA}
                         </span>
@@ -340,11 +341,10 @@ export function MatchHistoryList({ showControls = false }: MatchHistoryListProps
                       match.sets.map((set, idx) => (
                         <span
                           key={idx}
-                          className={`mr-1 px-1 rounded shadow-sm ${
-                            Number.parseInt(set.teamB) > Number.parseInt(set.teamA)
+                          className={`mr-1 px-1 rounded shadow-sm ${Number.parseInt(set.teamB) > Number.parseInt(set.teamA)
                               ? "bg-[#fffec0]" // Победитель
                               : "bg-[#dff1ff]" // Проигравший
-                          }`}
+                            }`}
                         >
                           {set.teamB}
                         </span>

@@ -61,25 +61,26 @@ const colorSchemes = {
   },
 }
 
-export function ScoreboardSettings({ settings, onSettingsChange }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function ScoreboardSettings({ settings, onSettingsChange }: { settings: any; onSettingsChange: any }) {
   const [showSettings, setShowSettings] = useState(false)
   const { t } = useLanguage()
 
   // Применение цветовой схемы
-  const applyColorScheme = (scheme) => {
+  const applyColorScheme = (scheme: string) => {
     onSettingsChange({
       ...settings,
-      backgroundColor: colorSchemes[scheme].background,
-      textColor: colorSchemes[scheme].text,
-      teamAColorFrom: colorSchemes[scheme].teamA.from,
-      teamAColorTo: colorSchemes[scheme].teamA.to,
-      teamBColorFrom: colorSchemes[scheme].teamB.from,
-      teamBColorTo: colorSchemes[scheme].teamB.to,
+      backgroundColor: colorSchemes[scheme as keyof typeof colorSchemes].background,
+      textColor: colorSchemes[scheme as keyof typeof colorSchemes].text,
+      teamAColorFrom: colorSchemes[scheme as keyof typeof colorSchemes].teamA.from,
+      teamAColorTo: colorSchemes[scheme as keyof typeof colorSchemes].teamA.to,
+      teamBColorFrom: colorSchemes[scheme as keyof typeof colorSchemes].teamB.from,
+      teamBColorTo: colorSchemes[scheme as keyof typeof colorSchemes].teamB.to,
     })
   }
 
   // Функция для генерации градиентного стиля из цветов
-  const getGradientStyle = (fromColor, toColor) => {
+  const getGradientStyle = (fromColor: string, toColor: string) => {
     return {
       background: `linear-gradient(to right, ${fromColor}, ${toColor})`,
     }

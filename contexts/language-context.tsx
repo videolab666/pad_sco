@@ -8,7 +8,7 @@ import { logEvent } from "@/lib/error-logger"
 type LanguageContextType = {
   language: Language
   setLanguage: (lang: Language) => void
-  t: (key: string) => string
+  t: (key: string, params?: Record<string, string | number>) => string
   languages: typeof LANGUAGES
 }
 
@@ -76,7 +76,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setLanguageState(lang)
   }
 
-  const t = (key: string): string => {
+  const t = (key: string, params?: Record<string, string | number>): string => {
     const keys = key.split(".")
     let value: any = translations[language]
 
@@ -89,7 +89,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    return value
+    if (typeof value === "string" && params) {
+      let result = value
+      for (const [p, v] of Object.entries(params)) {
+        result = result.replace(new RegExp(`\\{\\{${p}\\}\\}`, 'g'), String(v))
+        result = result.replace(new RegExp(`\\{${p}\\}`, 'g'), String(v))
+      }
+      return result
+    }
+
+    return value as string
   }
 
   return (

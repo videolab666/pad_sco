@@ -12,10 +12,10 @@ import { SoundToggle } from "@/components/sound-toggle"
 import { subscribeToMatchUpdates } from "@/lib/match-storage"
 import { logEvent } from "@/lib/error-logger"
 
-export default function CourtViewPage({ params }) {
+export default function CourtViewPage({ params }: { params: Promise<{ number: string }> }) {
   const resolvedParams = use(params) as any
   const router = useRouter()
-  const [match, setMatch] = useState(null)
+  const [match, setMatch] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [showAlert, setShowAlert] = useState(false)
@@ -39,7 +39,7 @@ export default function CourtViewPage({ params }) {
           setError("")
 
           // Подписываемся на обновления матча
-          const unsubscribe = subscribeToMatchUpdates(matchData.id, (updatedMatch) => {
+          const unsubscribe = subscribeToMatchUpdates(matchData.id, (updatedMatch: any) => {
             if (updatedMatch) {
               setMatch(updatedMatch)
               setError("")

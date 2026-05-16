@@ -4,6 +4,7 @@ import { useContext, useState, useEffect } from "react"
 import { LanguageContext } from "@/contexts/language-context"
 import { translations } from "@/lib/translations"
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CourtSVG({
   teamAPlayer1 = "Player 1",
   teamAPlayer2 = "Player 2",
@@ -16,11 +17,13 @@ function CourtSVG({
   servingPlayerIndex = 0,
   courtSides = { teamA: "left", teamB: "right" },
   match,
-}) {
-  const { language } = useContext(LanguageContext)
+}: any) {
+  const context = useContext(LanguageContext)
+  const language = context?.language || "en"
 
   // Определяем, какая четверть корта должна быть подсвечена
-  const isServing = (team, playerIndex) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isServing = (team: any, playerIndex: any) => {
     return team === servingTeam && playerIndex === servingPlayerIndex
   }
 
@@ -99,7 +102,8 @@ function CourtSVG({
   const positions = getPlayerPositions()
 
   // Получаем имена игроков для каждой позиции
-  const getPlayerName = (position) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getPlayerName = (position: any) => {
     const { team, playerIndex } = position
     if (team === "teamA") {
       return playerIndex === 0 ? teamAPlayer1 : teamAPlayer2
@@ -298,45 +302,45 @@ function CourtSVG({
                   fill="url(#paint2_linear_2106_354)"
                 />
                 <g
-  style={{ cursor: "pointer" }}
-  onClick={() => {
-    // Определяем, какая команда находится справа, и меняем её игроков
-    if (courtSides.teamA === "right") {
-      swapTeamAPlayers()
-    } else {
-      swapTeamBPlayers()
-    }
-  }}
-  tabIndex={0} // для фокуса с клавиатуры
-  aria-label="Swap players team B"
->
-  <rect
-    x={1588}
-    y={431}
-    width={155}
-    height={132}
-    rx={14}
-    fill="transparent"
-    stroke="#0022FF"
-    strokeWidth={3}
-  />
-  <svg
-    x={1588 + 37.5}
-    y={431 + 26}
-    width={80}
-    height={80}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="#0022FF"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="m18 8-6-6-6 6" />
-    <path d="m18 16-6 6-6-6" />
-    <path d="M12 2v20" />
-  </svg>
-</g>
+                  style={{ cursor: "pointer" }}
+                  onClick={() => {
+                    // Определяем, какая команда находится справа, и меняем её игроков
+                    if (courtSides.teamA === "right") {
+                      swapTeamAPlayers()
+                    } else {
+                      swapTeamBPlayers()
+                    }
+                  }}
+                  tabIndex={0} // для фокуса с клавиатуры
+                  aria-label="Swap players team B"
+                >
+                  <rect
+                    x={1588}
+                    y={431}
+                    width={155}
+                    height={132}
+                    rx={14}
+                    fill="transparent"
+                    stroke="#0022FF"
+                    strokeWidth={3}
+                  />
+                  <svg
+                    x={1588 + 37.5}
+                    y={431 + 26}
+                    width={80}
+                    height={80}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#0022FF"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m18 8-6-6-6 6" />
+                    <path d="m18 16-6 6-6-6" />
+                    <path d="M12 2v20" />
+                  </svg>
+                </g>
               </g>
             </g>
           </g>
@@ -407,7 +411,7 @@ function CourtSVG({
           {/* Игрок в верхнем левом углу */}
           <foreignObject x="50" y="50" width="978" height="300">
             <div
-              xmlns="http://www.w3.org/1999/xhtml"
+              {...({ xmlns: "http://www.w3.org/1999/xhtml" } as any)}
               style={{
                 width: "100%",
                 height: "100%",
@@ -453,7 +457,7 @@ function CourtSVG({
           {/* Игрок в нижнем левом углу */}
           <foreignObject x="50" y="600" width="978" height="300">
             <div
-              xmlns="http://www.w3.org/1999/xhtml"
+              {...({ xmlns: "http://www.w3.org/1999/xhtml" } as any)}
               style={{
                 width: "100%",
                 height: "100%",
@@ -499,7 +503,7 @@ function CourtSVG({
           {/* Игрок в верхнем правом углу */}
           <foreignObject x="992" y="50" width="978" height="300">
             <div
-              xmlns="http://www.w3.org/1999/xhtml"
+              {...({ xmlns: "http://www.w3.org/1999/xhtml" } as any)}
               style={{
                 width: "100%",
                 height: "100%",
@@ -547,7 +551,7 @@ function CourtSVG({
           {/* Игрок в нижнем правом углу */}
           <foreignObject x="992" y="600" width="978" height="300">
             <div
-              xmlns="http://www.w3.org/1999/xhtml"
+              {...({ xmlns: "http://www.w3.org/1999/xhtml" } as any)}
               style={{
                 width: "100%",
                 height: "100%",
@@ -866,9 +870,12 @@ function CourtSVG({
   )
 }
 
-export default function CourtPreview({ match }) {
-  const { language } = useContext(LanguageContext)
-  const t = translations[language]
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default function CourtPreview({ match }: any) {
+  const context = useContext(LanguageContext)
+  const language = context?.language || "en"
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const t = (translations as any)[language as any] || translations.en
   const [swappedTeamA, setSwappedTeamA] = useState(false)
   const [swappedTeamB, setSwappedTeamB] = useState(false)
   const [localCourtSides, setLocalCourtSides] = useState({ teamA: "left", teamB: "right" })
@@ -887,7 +894,8 @@ export default function CourtPreview({ match }) {
   }, [match])
 
   // Получаем имена игроков из объекта match
-  const getPlayerName = (team, index) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getPlayerName = (team: any, index: any) => {
     try {
       return match?.[team]?.players[index]?.name || `${t.player} ${index + 1}`
     } catch (e) {

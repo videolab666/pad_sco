@@ -37,10 +37,10 @@ export function FullScreenScoreboard({
     setsScoreTextColor: "#ffffff",
     useCustomSizes: true,
     infoBlockFontSize: 100,
-  },
-}) {
+  }
+}: any) {
   const [currentTime, setCurrentTime] = useState(new Date())
-  const wrapperRef = useRef(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const { t } = useLanguage()
 
   // Деструктурируем настройки
@@ -101,7 +101,8 @@ export function FullScreenScoreboard({
 
   const { teamA, teamB } = match
   const currentSet = match.score.currentSet
-  const isServing = (team, playerIndex) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isServing = (team: any, playerIndex: any) => {
     return (
       showServerIndicator !== false &&
       match.currentServer.team === team &&
@@ -110,7 +111,8 @@ export function FullScreenScoreboard({
   }
 
   // Получаем текущий счет в виде строки (0, 15, 30, 40, Ad)
-  const getCurrentGameScore = (team) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getCurrentGameScore = (team: any) => {
     if (currentSet.isTiebreak) {
       return currentSet.currentGame[team]
     }
@@ -145,7 +147,7 @@ export function FullScreenScoreboard({
   }
 
   // Форматируем время
-  const formatTime = (date) => {
+  const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
   }
 
@@ -165,7 +167,8 @@ export function FullScreenScoreboard({
   }
 
   // Функция для определения, кто выиграл сет
-  const getSetWinner = (set) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getSetWinner = (set: any) => {
     if (set.isFuture || set.isCurrent) return null
 
     const teamAScore = Number.parseInt(set.teamA)
@@ -226,13 +229,15 @@ export function FullScreenScoreboard({
   const gameColWidth = `${100 - playerCellWidth - (showSetsScore ? allSets.length * 5 : 0)}%`
 
   // Функция для получения стилей размера шрифта в зависимости от настроек
-  const getFontSizeStyle = (baseSize, customSize, defaultValue = 100) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getFontSizeStyle = (baseSize: any, customSize: any, defaultValue = 100) => {
     if (!useCustomSizes) return {}
     return { fontSize: `${(baseSize * (customSize || defaultValue)) / 100}rem` }
   }
 
   // Добавьте эту функцию, если ее нет
-  const getTiebreakScore = (set) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getTiebreakScore = (set: any) => {
     // Проверяем наличие данных тай-брейка
     if (set && set.tiebreak) {
       console.log("Найден счет тай-брейка:", set.tiebreak)
@@ -310,7 +315,7 @@ export function FullScreenScoreboard({
                       className="flex flex-col p-2 rounded h-full flex items-center justify-center"
                       style={dynamicStyles.teamABackground}
                     >
-                      {teamA.players.map((player, idx) => (
+                      {teamA.players.map((player: any, idx: any) => (
                         <div key={idx} className="flex items-center w-full">
                           {isServing("teamA", idx) && showServerIndicator && (
                             <span
@@ -402,7 +407,7 @@ export function FullScreenScoreboard({
                       className="flex flex-col p-2 rounded h-full flex items-center justify-center"
                       style={dynamicStyles.teamBBackground}
                     >
-                      {teamB.players.map((player, idx) => (
+                      {teamB.players.map((player: any, idx: any) => (
                         <div key={idx} className="flex items-center w-full">
                           {isServing("teamB", idx) && showServerIndicator && (
                             <span
@@ -518,9 +523,11 @@ export function FullScreenScoreboard({
                                 }}
                               >
                                 {match.courtSides?.teamA === "left"
-                                  ? teamA.players.map((p) => p.name).join(" / ")
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  ? teamA.players.map((p: any) => p.name).join(" / ")
                                   : match.courtSides?.teamB === "left"
-                                    ? teamB.players.map((p) => p.name).join(" / ")
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    ? teamB.players.map((p: any) => p.name).join(" / ")
                                     : ""}
                               </p>
                             </div>
@@ -548,9 +555,11 @@ export function FullScreenScoreboard({
                                 }}
                               >
                                 {match.courtSides?.teamA === "right"
-                                  ? teamA.players.map((p) => p.name).join(" / ")
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  ? teamA.players.map((p: any) => p.name).join(" / ")
                                   : match.courtSides?.teamB === "right"
-                                    ? teamB.players.map((p) => p.name).join(" / ")
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    ? teamB.players.map((p: any) => p.name).join(" / ")
                                     : ""}
                               </p>
                             </div>
@@ -674,7 +683,7 @@ export function FullScreenScoreboard({
                       className="flex flex-col p-2 rounded h-full flex items-center justify-center"
                       style={dynamicStyles.teamABackground}
                     >
-                      {teamA.players.map((player, idx) => (
+                      {teamA.players.map((player: any, idx: any) => (
                         <div key={idx} className="flex items-center w-full">
                           {isServing("teamA", idx) && showServerIndicator && (
                             <span
@@ -732,9 +741,9 @@ export function FullScreenScoreboard({
                               style={{
                                 ...(useCustomSizes
                                   ? {
-                                      fontSize: `calc(min(6vh, 6vw) * ${setsScoreFontSize || 100} / 100)`,
-                                      color: setsScoreTextColor,
-                                    }
+                                    fontSize: `calc(min(6vh, 6vw) * ${setsScoreFontSize || 100} / 100)`,
+                                    color: setsScoreTextColor,
+                                  }
                                   : { fontSize: "clamp(1rem, 3vw, 1.5rem)", color: setsScoreTextColor }),
                                 color: setsScoreTextColor,
                                 textShadow: "0px 0px 2px rgba(0,0,0,0.7)",
@@ -755,10 +764,10 @@ export function FullScreenScoreboard({
                         style={
                           useCustomSizes
                             ? {
-                                fontSize: `calc(min(20vh, 20vw) * ${gameScoreFontSize || 100} / 100)`,
-                                color: gameScoreTextColor,
-                                lineHeight: 0.9,
-                              }
+                              fontSize: `calc(min(20vh, 20vw) * ${gameScoreFontSize || 100} / 100)`,
+                              color: gameScoreTextColor,
+                              lineHeight: 0.9,
+                            }
                             : { fontSize: "clamp(3rem, 15vw, 9rem)", color: gameScoreTextColor, lineHeight: 0.9 }
                         }
                       >
@@ -775,7 +784,7 @@ export function FullScreenScoreboard({
                       className="flex flex-col p-2 rounded h-full flex items-center justify-center"
                       style={dynamicStyles.teamBBackground}
                     >
-                      {teamB.players.map((player, idx) => (
+                      {teamB.players.map((player: any, idx: any) => (
                         <div key={idx} className="flex items-center w-full">
                           {isServing("teamB", idx) && showServerIndicator && (
                             <span
@@ -831,9 +840,9 @@ export function FullScreenScoreboard({
                               style={{
                                 ...(useCustomSizes
                                   ? {
-                                      fontSize: `calc(min(6vh, 6vw) * ${setsScoreFontSize || 100} / 100)`,
-                                      color: setsScoreTextColor,
-                                    }
+                                    fontSize: `calc(min(6vh, 6vw) * ${setsScoreFontSize || 100} / 100)`,
+                                    color: setsScoreTextColor,
+                                  }
                                   : { fontSize: "clamp(1rem, 3vw, 1.5rem)", color: setsScoreTextColor }),
                                 color: setsScoreTextColor,
                                 textShadow: "0px 0px 2px rgba(0,0,0,0.7)",
@@ -854,10 +863,10 @@ export function FullScreenScoreboard({
                         style={
                           useCustomSizes
                             ? {
-                                fontSize: `calc(min(20vh, 20vw) * ${gameScoreFontSize || 100} / 100)`,
-                                color: gameScoreTextColor,
-                                lineHeight: 0.9,
-                              }
+                              fontSize: `calc(min(20vh, 20vw) * ${gameScoreFontSize || 100} / 100)`,
+                              color: gameScoreTextColor,
+                              lineHeight: 0.9,
+                            }
                             : { fontSize: "clamp(3rem, 15vw, 9rem)", color: gameScoreTextColor, lineHeight: 0.9 }
                         }
                       >
@@ -898,9 +907,11 @@ export function FullScreenScoreboard({
                                 }}
                               >
                                 {match.courtSides?.teamA === "left"
-                                  ? teamA.players.map((p) => p.name).join(" / ")
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  ? teamA.players.map((p: any) => p.name).join(" / ")
                                   : match.courtSides?.teamB === "left"
-                                    ? teamB.players.map((p) => p.name).join(" / ")
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    ? teamB.players.map((p: any) => p.name).join(" / ")
                                     : ""}
                               </p>
                             </div>
@@ -928,9 +939,11 @@ export function FullScreenScoreboard({
                                 }}
                               >
                                 {match.courtSides?.teamA === "right"
-                                  ? teamA.players.map((p) => p.name).join(" / ")
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  ? teamA.players.map((p: any) => p.name).join(" / ")
                                   : match.courtSides?.teamB === "right"
-                                    ? teamB.players.map((p) => p.name).join(" / ")
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    ? teamB.players.map((p: any) => p.name).join(" / ")
                                     : ""}
                               </p>
                             </div>

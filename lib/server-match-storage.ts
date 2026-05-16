@@ -1,9 +1,9 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerSupabaseClient } from "./supabase"
 import { logEvent } from "./error-logger"
 
 // Обновим функцию transformMatchFromSupabase, добавив поле courtNumber
-const transformMatchFromSupabase = (match) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const transformMatchFromSupabase = (match: any) => {
   return {
     id: match.id,
     type: match.type,
@@ -25,12 +25,12 @@ const transformMatchFromSupabase = (match) => {
 }
 
 // Получение конкретного матча по ID (серверная версия)
-export const getMatchFromServer = async (id) => {
+export const getMatchFromServer = async (id: string) => {
   try {
     logEvent("info", `Получение матча по ID (сервер): ${id}`, "getMatchFromServer")
 
-    // Создаем клиент Supabase для серверного компонента
-    const supabase = createServerComponentClient({ cookies })
+    // Серверный клиент с service-role ключом (без cookie/auth-helpers).
+    const supabase = createServerSupabaseClient()
 
     // Получаем матч из Supabase
     const { data, error, status } = await supabase.from("matches").select("*").eq("id", id).single()
@@ -63,7 +63,8 @@ export const getMatchFromServer = async (id) => {
     }
 
     return match
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", `Ошибка при получении матча (сервер): ${error.message}`, "getMatchFromServer", {
       error: {
         name: error.name,
@@ -77,12 +78,12 @@ export const getMatchFromServer = async (id) => {
 }
 
 // Изменим функцию getMatchFromServerByCourtNumber, чтобы она возвращала и завершенные матчи
-export const getMatchFromServerByCourtNumber = async (courtNumber) => {
+export const getMatchFromServerByCourtNumber = async (courtNumber: number) => {
   try {
     logEvent("info", `Получение матча по номеру корта (сервер): ${courtNumber}`, "getMatchFromServerByCourtNumber")
 
-    // Создаем клиент Supabase для серверного компонента
-    const supabase = createServerComponentClient({ cookies })
+    // Серверный клиент с service-role ключом (без cookie/auth-helpers).
+    const supabase = createServerSupabaseClient()
 
     // Сначала пытаемся получить активный (незавершенный) матч
     let { data, error, status } = await supabase
@@ -149,7 +150,8 @@ export const getMatchFromServerByCourtNumber = async (courtNumber) => {
     }
 
     return match
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", `Ошибка при получении матча (сервер): ${error.message}`, "getMatchFromServerByCourtNumber", {
       error: {
         name: error.name,

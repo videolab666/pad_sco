@@ -21,7 +21,8 @@ import { useLanguage } from "@/contexts/language-context"
 export function SupabaseStatus() {
   const [isConnected, setIsConnected] = useState(false)
   const [isChecking, setIsChecking] = useState(true)
-  const [connectionInfo, setConnectionInfo] = useState(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [connectionInfo, setConnectionInfo] = useState<any>(null)
   const [showDetails, setShowDetails] = useState(false)
   const { t } = useLanguage()
 
@@ -92,13 +93,12 @@ export function SupabaseStatus() {
           <div className="inline-flex items-center">
             <Badge
               variant="outline"
-              className={`${
-                isChecking
+              className={`${isChecking
                   ? "bg-gray-100 text-gray-800"
                   : isConnected
                     ? "bg-green-100 text-green-800"
                     : "bg-amber-100 text-amber-800"
-              } flex items-center gap-1`}
+                } flex items-center gap-1`}
             >
               {isChecking ? (
                 <span className="animate-pulse">{t("common.checking")}</span>

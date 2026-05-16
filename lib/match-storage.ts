@@ -16,13 +16,14 @@ const matchCache = new Map()
 const CACHE_TTL = 30000 // 30 секунд вместо 5 секунд
 
 // Добавим кэш для проверки доступности Supabase
-let supabaseAvailabilityCache = {
+let supabaseAvailabilityCache: { available: boolean | null, timestamp: number } = {
   available: null,
   timestamp: 0,
 }
 
 // Проверка валидности JSON строки
-const isValidJSON = (str) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isValidJSON = (str: string) => {
   try {
     JSON.parse(str)
     return true
@@ -32,7 +33,8 @@ const isValidJSON = (str) => {
 }
 
 // Безопасное получение данных из localStorage
-const safeGetItem = (key, defaultValue = null) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const safeGetItem = (key: string, defaultValue: any = null) => {
   try {
     const item = localStorage.getItem(key)
     if (!item) return defaultValue
@@ -64,7 +66,8 @@ const safeGetItem = (key, defaultValue = null) => {
 }
 
 // Безопасное сохранение данных в localStorage
-const safeSetItem = (key, value) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const safeSetItem = (key: string, value: any) => {
   try {
     // Если value - объект, преобразуем его в JSON строку
     const stringValue = typeof value === "string" ? value : JSON.stringify(value)
@@ -82,7 +85,8 @@ const safeSetItem = (key, value) => {
 }
 
 // Изменим функцию transformMatchForSupabase, чтобы не отправлять поле code в Supabase
-const transformMatchForSupabase = (match) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const transformMatchForSupabase = (match: any) => {
   // Добавляем логирование перед отправкой данных в Supabase
   console.log("Отправка данных в Supabase:", {
     shouldChangeSides: match.shouldChangeSides,
@@ -125,7 +129,8 @@ export const invalidateMatchCache = (idOrCode?: string) => {
 }
 
 // Обновим функцию transformMatchFromSupabase, добавив поле code
-const transformMatchFromSupabase = (match) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const transformMatchFromSupabase = (match: any) => {
   return {
     id: match.id,
     code: match.code,
@@ -182,7 +187,8 @@ export const getMatches = async () => {
           logEvent("info", `Получено ${data.length} матчей из Supabase`, "getMatches")
 
           // Преобразуем данные из Supabase в нужный формат с проверкой на undefined
-          const matches = data.map((match) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const matches = data.map((match: any) => {
             // Безопасное получение данных с проверкой на undefined
             const teamAPlayers = match.team_a?.players || []
             const teamBPlayers = match.team_b?.players || []
@@ -313,10 +319,6 @@ const findAllMatchesInLocalStorage = () => {
                       teamA: match.score.teamA,
                       teamB: match.score.teamB,
                     },
-                    score: {
-                      teamA: match.score.teamA,
-                      teamB: match.score.teamB,
-                    },
                     isCompleted: match.isCompleted,
                     courtNumber: match.courtNumber,
                   })
@@ -341,7 +343,7 @@ const findAllMatchesInLocalStorage = () => {
 }
 
 // Изменим функцию getMatch, чтобы не искать по коду в Supabase
-export const getMatch = async (idOrCode) => {
+export const getMatch = async (idOrCode: string) => {
   if (typeof window === "undefined") return null
 
   try {
@@ -408,10 +410,12 @@ export const getMatch = async (idOrCode) => {
 
             // Загружаем информацию о странах игроков
             try {
-              // Собираем ID всех игроков из матча
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const playerIds = [
-                ...match.teamA.players.map((p) => p.id),
-                ...match.teamB.players.map((p) => p.id),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ...match.teamA.players.map((p: any) => p.id),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ...match.teamB.players.map((p: any) => p.id),
               ].filter((id, index, self) => self.indexOf(id) === index) // Убираем дубликаты
 
               if (playerIds.length > 0) {
@@ -423,21 +427,23 @@ export const getMatch = async (idOrCode) => {
 
                 if (!playersError && playersData) {
                   // Создаем карту игрок ID -> страна
-                  const playerCountryMap = {}
-                  playersData.forEach((player) => {
+                  const playerCountryMap: Record<string, string> = {}
+                  playersData.forEach((player: any) => {
                     if (player.country) {
                       playerCountryMap[player.id] = player.country
                     }
                   })
 
                   // Обновляем информацию о странах в объекте матча
-                  match.teamA.players.forEach((player) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  match.teamA.players.forEach((player: any) => {
                     if (playerCountryMap[player.id]) {
                       player.country = playerCountryMap[player.id]
                     }
                   })
 
-                  match.teamB.players.forEach((player) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  match.teamB.players.forEach((player: any) => {
                     if (playerCountryMap[player.id]) {
                       player.country = playerCountryMap[player.id]
                     }
@@ -524,7 +530,8 @@ export const getMatch = async (idOrCode) => {
 
     // Если нет, ищем в общем списке по ID или коду
     const matches = safeGetItem("tennis_padel_matches", [])
-    const foundMatch = matches.find((m) => m.id === idOrCode || m.code === idOrCode) || null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const foundMatch = matches.find((m: any) => m.id === idOrCode || m.code === idOrCode) || null
 
     if (foundMatch) {
       logEvent("info", "Матч найден в общем списке локального хранилища", "getMatch", {
@@ -557,7 +564,8 @@ export const getMatch = async (idOrCode) => {
     }
 
     return foundMatch
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", `Ошибка при получении матча: ${error.message}`, "getMatch", {
       error: {
         name: error.name,
@@ -580,8 +588,8 @@ const cleanupStorage = () => {
     if (matches.length > MAX_MATCHES) {
       logEvent("info", `Очистка локального хранилища: ${matches.length} матчей, лимит ${MAX_MATCHES}`, "cleanupStorage")
 
-      // Сортируем по дате создания (от новых к старым)
-      matches.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      matches.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
       // Оставляем только MAX_MATCHES матчей\
       const updatedMatches = matches.slice(0, MAX_MATCHES)
@@ -591,7 +599,8 @@ const cleanupStorage = () => {
 
       // Удаляем отдельные записи для старых матчей
       const deletedMatches = matches.slice(MAX_MATCHES)
-      deletedMatches.forEach((match) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      deletedMatches.forEach((match: any) => {
         localStorage.removeItem(`match_${match.id}`)
         if (match.code) {
           localStorage.removeItem(`match_${match.code}`)
@@ -617,7 +626,8 @@ const generateNumericCode = () => {
 }
 
 // Создание нового матча
-export const createMatch = async (match) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const createMatch = async (match: any) => {
   if (typeof window === "undefined") return null
 
   try {
@@ -742,7 +752,8 @@ export const createMatch = async (match) => {
 
     // Возвращаем код матча для пользовательского интерфейса
     return newMatch.code
-  } catch (error) {
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err))
     logEvent("error", `Ошибка при создании матча: ${error.message}`, "createMatch", {
       error: {
         name: error.name,
@@ -757,7 +768,8 @@ export const createMatch = async (match) => {
 
 // Обновление существующего матча
 // Оптимизируем функцию updateMatch для более быстрой работы
-export const updateMatch = async (updatedMatch) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const updateMatch = async (updatedMatch: any) => {
   if (typeof window === "undefined") return false
 
   try {
@@ -815,7 +827,8 @@ export const updateMatch = async (updatedMatch) => {
       }
 
       if (essentialMatchData.score && essentialMatchData.score.sets) {
-        essentialMatchData.score.sets = essentialMatchData.score.sets.map((set) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        essentialMatchData.score.sets = essentialMatchData.score.sets.map((set: any) => ({
           teamA: set.teamA,
           teamB: set.teamB,
           winner: set.winner,
@@ -831,7 +844,8 @@ export const updateMatch = async (updatedMatch) => {
 
     // Обновляем запись в общем списке
     const matches = safeGetItem("tennis_padel_matches", [])
-    const index = matches.findIndex((match) => match.id === updatedMatch.id || match.code === updatedMatch.code)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const index = matches.findIndex((match: any) => match.id === updatedMatch.id || match.code === updatedMatch.code)
 
     if (index !== -1) {
       matches[index] = {
@@ -859,14 +873,15 @@ export const updateMatch = async (updatedMatch) => {
 
       safeSetItem("tennis_padel_matches", matches)
     }
-    
+
     // Durable sync: persist the change as an idempotent, revisioned operation
     // and let the sync engine replay it (offline-safe, retry, conflict-aware).
     // Local storage above is already authoritative; this never blocks the UI.
     syncMatchToServer(updatedMatch)
 
     return true
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     // Отключаем избыточное логирование в продакшене
     if (process.env.NODE_ENV !== 'production') {
       console.error(`Critical error updating match: ${error.message}`)
@@ -876,7 +891,8 @@ export const updateMatch = async (updatedMatch) => {
 }
 
 // Новая функция для частичного обновления матча - отправляет только измененные поля
-export const updateMatchPartial = async (matchId, partialData) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const updateMatchPartial = async (matchId: string, partialData: any) => {
   if (typeof window === "undefined") return false
 
   try {
@@ -925,7 +941,7 @@ export const updateMatchPartial = async (matchId, partialData) => {
         ...updatedMatch,
         history: [], // Убираем историю для экономии места
       }
-      
+
       safeSetItem(singleMatchKeyId, essentialMatchData)
       if (singleMatchKeyCode) {
         safeSetItem(singleMatchKeyCode, essentialMatchData)
@@ -933,7 +949,8 @@ export const updateMatchPartial = async (matchId, partialData) => {
     }
 
     return true
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     if (process.env.NODE_ENV !== 'production') {
       console.error(`Error updating match partially: ${error.message}`)
     }
@@ -942,7 +959,7 @@ export const updateMatchPartial = async (matchId, partialData) => {
 }
 
 // Удаление матча
-export const deleteMatch = async (idOrCode) => {
+export const deleteMatch = async (idOrCode: string) => {
   if (typeof window === "undefined") return false
 
   try {
@@ -1004,7 +1021,8 @@ export const deleteMatch = async (idOrCode) => {
 
     // Удаляем из общего списка
     const matches = safeGetItem("tennis_padel_matches", [])
-    const filteredMatches = matches.filter((m) => m.id !== match.id && m.code !== match.code)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const filteredMatches = matches.filter((m: any) => m.id !== match.id && m.code !== match.code)
     safeSetItem("tennis_padel_matches", filteredMatches)
 
     // Уведомляем другие вкладки об изменении
@@ -1015,7 +1033,8 @@ export const deleteMatch = async (idOrCode) => {
       matchCode: match.code,
     })
     return true
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", `Ошибка при удалении матча: ${error.message}`, "deleteMatch", {
       error: {
         name: error.name,
@@ -1029,10 +1048,11 @@ export const deleteMatch = async (idOrCode) => {
 }
 
 // Подписка на обновления матча в реальном времени
-export const subscribeToMatchUpdates = (idOrCode, callback) => {
-  if (typeof window === "undefined") return () => {}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const subscribeToMatchUpdates = (idOrCode: string, callback: any) => {
+  if (typeof window === "undefined") return () => { }
 
-  let unsubscribe = null
+  let unsubscribe: (() => void) | null = null
 
   // Проверяем доступность Supabase
   isSupabaseAvailable().then(async (supabaseAvailable) => {
@@ -1067,7 +1087,8 @@ export const subscribeToMatchUpdates = (idOrCode, callback) => {
               table: "matches",
               filter: `id=eq.${matchId}`,
             },
-            async (payload) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            async (payload: any) => {
               logEvent("debug", `Получено событие Supabase для матча ${matchId}`, "subscribeToMatchUpdates", payload)
 
               if (payload.eventType === "DELETE") {
@@ -1095,7 +1116,8 @@ export const subscribeToMatchUpdates = (idOrCode, callback) => {
               }
             },
           )
-          .subscribe((status) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .subscribe((status: any) => {
             logEvent("info", `Статус подписки на матч ${matchId}: ${status}`, "subscribeToMatchUpdates")
           })
 
@@ -1116,7 +1138,8 @@ export const subscribeToMatchUpdates = (idOrCode, callback) => {
 
   // Функция для настройки локальной подписки
   const setupLocalSubscription = () => {
-    const handleStorageChange = async (event) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleStorageChange = async (event: any) => {
       if (event.key === `match_${idOrCode}` || event.key === "tennis_padel_matches" || !event.key) {
         const match = await getMatch(idOrCode)
         if (match) {
@@ -1149,7 +1172,8 @@ export const subscribeToMatchUpdates = (idOrCode, callback) => {
 }
 
 // Подписка на обновления списка матчей в реальном времени
-export const subscribeToMatchesListUpdates = (callback) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const subscribeToMatchesListUpdates = (callback: any) => {
   // Проверяем доступность Supabase
   isSupabaseAvailable().then(async (supabaseAvailable) => {
     if (supabaseAvailable) {
@@ -1213,11 +1237,11 @@ export const subscribeToMatchesListUpdates = (callback) => {
   })
 
   // Возвращаем пустую функцию отписки по умолчанию
-  return () => {}
+  return () => { }
 }
 
 // Сохранение матча в URL для шаринга
-export const getMatchShareUrl = (idOrCode) => {
+export const getMatchShareUrl = (idOrCode: string) => {
   if (typeof window === "undefined") return ""
 
   const baseUrl = window.location.origin
@@ -1225,7 +1249,7 @@ export const getMatchShareUrl = (idOrCode) => {
 }
 
 // Функция для экспорта матча в JSON
-export const exportMatchToJson = async (idOrCode) => {
+export const exportMatchToJson = async (idOrCode: string) => {
   if (typeof window === "undefined") return null
 
   try {
@@ -1237,14 +1261,15 @@ export const exportMatchToJson = async (idOrCode) => {
 
     // Преобразуем в JSON
     return JSON.stringify(exportMatch)
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", `Ошибка при экспорте матча: ${error.message}`, "exportMatchToJson", error)
     return null
   }
 }
 
 // Функция для импорта матча из JSON
-export const importMatchFromJson = async (jsonData) => {
+export const importMatchFromJson = async (jsonData: string) => {
   if (typeof window === "undefined") return false
 
   try {
@@ -1273,7 +1298,8 @@ export const importMatchFromJson = async (jsonData) => {
     // Сохраняем импортированный матч
     await createMatch(match)
     return match.code || match.id
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", `Ошибка при импорте матча: ${error.message}`, "importMatchFromJson", error)
     return false
   }
@@ -1294,7 +1320,8 @@ export async function getAllMatches() {
       logEvent("info", `Получено ${matches.length} матчей через getMatches`, "getAllMatches")
 
       // Преобразуем формат данных для совместимости с компонентом истории
-      return matches.map((match) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return matches.map((match: any) => ({
         id: match.id,
         code: match.code,
         date: match.createdAt || new Date().toISOString(),
@@ -1463,7 +1490,8 @@ export const isSupabaseAvailable = async () => {
     })
     supabaseAvailabilityCache = { available: true, timestamp: Date.now() }
     return true
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", "Исключение при проверке доступности Supabase", "isSupabaseAvailable", {
       error: {
         name: error.name,
@@ -1477,7 +1505,7 @@ export const isSupabaseAvailable = async () => {
 }
 
 // Кэш для проверки существования таблиц
-let tablesExistCache = {
+let tablesExistCache: { exists: any; timestamp: number } = {
   exists: null,
   timestamp: 0,
 }
@@ -1531,7 +1559,8 @@ export const checkTablesExist = async () => {
 
     tablesExistCache = { exists: result, timestamp: Date.now() }
     return result
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", "Ошибка при проверке существования таблиц", "checkTablesExist", error)
     return { exists: false, error: error.message }
   }

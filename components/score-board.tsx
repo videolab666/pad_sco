@@ -20,10 +20,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CircleDot } from "lucide-react"
 import { applyScoreIncrement, getImportantPoint } from "@/lib/scoring-logic"
 
-export function ScoreBoard({ match, updateMatch }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: any }) {
   const [showMatchEndDialog, setShowMatchEndDialog] = useState(false)
-  const [pendingMatchUpdate, setPendingMatchUpdate] = useState(null)
-  const [previousMatchState, setPreviousMatchState] = useState(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [pendingMatchUpdate, setPendingMatchUpdate] = useState<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [previousMatchState, setPreviousMatchState] = useState<any>(null)
   const [fixedSides, setFixedSides] = useState(false)
 
   // Always force 'fixed players' as default on mount
@@ -33,30 +36,32 @@ export function ScoreBoard({ match, updateMatch }) {
       setFixedSides(false)
     }
   }, [])
-  const [matchHistory, setMatchHistory] = useState([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [matchHistory, setMatchHistory] = useState<any[]>([])
   // Task 4: tracks the rule revision the scoreboard has already reconciled.
   const [ruleRevisionSeen, setRuleRevisionSeen] = useState(match?.ruleRevision)
   const { t } = useLanguage()
 
   const [swappedTeamA, setSwappedTeamA] = useState(false)
   const [swappedTeamB, setSwappedTeamB] = useState(false)
-  
+
   // Add state to track if a score button click is being processed
   const [isProcessingClick, setIsProcessingClick] = useState(false)
-  
+
   // Track which team's score is being processed for visual feedback
   const [processingTeam, setProcessingTeam] = useState(null)
-  
+
   // Add local state to keep track of our current scores during rapid clicks
   // This helps prevent flickering when receiving real-time updates
-  const [localMatchState, setLocalMatchState] = useState(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [localMatchState, setLocalMatchState] = useState<any>(null)
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("fixedSidesPreference", fixedSides.toString())
     }
   }, [fixedSides])
-  
+
   // Keep localMatchState in sync with match
   useEffect(() => {
     // Only update localMatchState if we're not currently processing a click
@@ -81,7 +86,8 @@ export function ScoreBoard({ match, updateMatch }) {
   }, [match?.ruleRevision])
 
   useEffect(() => {
-    const handleStorageChange = (e) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleStorageChange = (e: any) => {
       if (e.key === "fixedSidesPreference") {
         setFixedSides(e.newValue === "true")
       }
@@ -92,7 +98,8 @@ export function ScoreBoard({ match, updateMatch }) {
   }, [])
 
   useEffect(() => {
-    const handleTeamSwapChange = (e) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleTeamSwapChange = (e: any) => {
       if (e.detail && e.detail.team === "teamA") {
         setSwappedTeamA(e.detail.swapped)
       } else if (e.detail && e.detail.team === "teamB") {
@@ -105,7 +112,8 @@ export function ScoreBoard({ match, updateMatch }) {
   }, [])
 
   useEffect(() => {
-    const handleCourtSidesSwapped = (e) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleCourtSidesSwapped = (e: any) => {
       if (!updateMatch || match.isCompleted) return
 
       // Save the current match state before any changes
@@ -132,7 +140,8 @@ export function ScoreBoard({ match, updateMatch }) {
   }, [match, updateMatch])
 
   useEffect(() => {
-    const handleSwitchServer = (e) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleSwitchServer = (e: any) => {
       if (!updateMatch || match.isCompleted) return
 
       // Save the current match state before any changes
@@ -156,7 +165,7 @@ export function ScoreBoard({ match, updateMatch }) {
 
   // Use localMatchState if available for more responsive UI
   const displayMatch = localMatchState || match
-  
+
   // Extract values from match data
   const { teamA, teamB } = displayMatch
   const currentSet = displayMatch.score.currentSet
@@ -164,33 +173,34 @@ export function ScoreBoard({ match, updateMatch }) {
   if (!displayMatch) return null
 
   // Оптимизируем обработчик нажатия на счет для более быстрой работы
-  const handleScoreClick = (team) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleScoreClick = (team: any) => {
     if (!updateMatch || displayMatch.isCompleted) {
       console.log("Cannot update: updateMatch function missing or match completed")
       return
     }
-    
+
     // Prevent multiple rapid clicks
     if (isProcessingClick) {
       return
     }
-    
+
     // Set processing flag
     setIsProcessingClick(true)
-    
+
     // Use a longer debounce time to ensure we don't process clicks too quickly
     // and to allow any database operations to complete
     setTimeout(() => {
       setIsProcessingClick(false)
       setProcessingTeam(null) // Clear the processing team indicator
     }, 500) // Increased to 500ms debounce for better protection
-    
+
     // Set which team is being processed for visual feedback
     setProcessingTeam(team)
 
     // Use localMatchState if available, otherwise use the match prop
     const currentMatchState = localMatchState || match
-    
+
     // Save the current match state before any changes
     const previousState = JSON.parse(JSON.stringify(currentMatchState))
     // Save to history
@@ -216,26 +226,27 @@ export function ScoreBoard({ match, updateMatch }) {
   }
 
   // Обработчик уменьшения счета
-  const handleScoreDecrease = (team) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleScoreDecrease = (team: any) => {
     if (!updateMatch || displayMatch.isCompleted) {
       console.log("Cannot update: updateMatch function missing or match completed")
       return
     }
-    
+
     // Prevent multiple rapid clicks
     if (isProcessingClick) {
       return
     }
-    
+
     // Set processing flag
     setIsProcessingClick(true)
-    
+
     // Use a longer debounce time to match the handleScoreClick function
     setTimeout(() => {
       setIsProcessingClick(false)
       setProcessingTeam(null)
     }, 500)
-    
+
     // Set which team is being processed for visual feedback
     setProcessingTeam(team)
 
@@ -319,7 +330,8 @@ export function ScoreBoard({ match, updateMatch }) {
     setShowMatchEndDialog(false)
   }
 
-  const switchServer = (updatedMatch) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const switchServer = (updatedMatch: any) => {
     const currentTeam = updatedMatch.currentServer.team
     const otherTeam = currentTeam === "teamA" ? "teamB" : "teamA"
 
@@ -353,7 +365,8 @@ export function ScoreBoard({ match, updateMatch }) {
     return type || null
   }
 
-  const isServing = (team, playerIndex) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isServing = (team: any, playerIndex: any) => {
     return match.currentServer.team === team && match.currentServer.playerIndex === playerIndex
   }
 
@@ -444,7 +457,8 @@ export function ScoreBoard({ match, updateMatch }) {
   }
 
   // Получаем текущий счет в виде строки (0, 15, 30, 40, Ad)
-  const getCurrentGameScore = (team) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getCurrentGameScore = (team: any) => {
     if (currentSet.isTiebreak) {
       return currentSet.currentGame[team]
     }
@@ -486,12 +500,12 @@ export function ScoreBoard({ match, updateMatch }) {
             <AlertDialogTitle>{t("match.finishMatch")}</AlertDialogTitle>
             <AlertDialogDescription>
               {pendingMatchUpdate &&
-                t("match.teamWonMatch", {
-                  team:
-                    pendingMatchUpdate.winner === "teamA"
-                      ? pendingMatchUpdate.teamA.players.map((p) => p.name).join(" & ")
-                      : pendingMatchUpdate.teamB.players.map((p) => p.name).join(" & "),
-                })}
+                t("match.teamWonMatch").replace(
+                  "{team}",
+                  pendingMatchUpdate.winner === "teamA"
+                    ? pendingMatchUpdate.teamA.players.map((p: any) => p.name).join(" & ")
+                    : pendingMatchUpdate.teamB.players.map((p: any) => p.name).join(" & ")
+                )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -547,59 +561,8 @@ export function ScoreBoard({ match, updateMatch }) {
           {fixedSides
             ? match.courtSides?.teamA === "left"
               ? // Команда A на левой стороне
-                teamA.players.map((player, idx) => {
-                  // Учитываем смену игроков
-                  const actualIdx = swappedTeamA ? (idx === 0 ? 1 : 0) : idx
-                  return (
-                    <div
-                      key={idx}
-                      className={`flex items-center justify-end w-full ${isServing("teamA", actualIdx) ? "bg-lime-100 rounded-md" : ""}`}
-                    >
-                      {isServing("teamA", actualIdx) && (
-                        <Badge
-                          variant="outline"
-                          className="mr-2 rounded-full bg-lime-400 border-lime-600 p-0 flex items-center justify-center flex-shrink-0"
-                          style={{ width: "14.4px", height: "14.4px" }}
-                        >
-                          <span className="text-[10.88px] font-bold text-lime-800">{getServeSide()}</span>
-                        </Badge>
-                      )}
-                      <div className="w-full overflow-hidden max-w-full">
-                        <p className="font-medium text-right truncate text-[10px] sm:text-[14px] md:text-[16px]">
-                          {teamA.players[actualIdx].name}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })
-              : // Команда B на левой стороне
-                teamB.players.map((player, idx) => {
-                  // Учитываем смену игроков
-                  const actualIdx = swappedTeamB ? (idx === 0 ? 1 : 0) : idx
-                  return (
-                    <div
-                      key={idx}
-                      className={`flex items-center justify-end w-full ${isServing("teamB", actualIdx) ? "bg-lime-100 rounded-md" : ""}`}
-                    >
-                      {isServing("teamB", actualIdx) && (
-                        <Badge
-                          variant="outline"
-                          className="mr-2 rounded-full bg-lime-400 border-lime-600 p-0 flex items-center justify-center flex-shrink-0"
-                          style={{ width: "14.4px", height: "14.4px" }}
-                        >
-                          <span className="text-[10.88px] font-bold text-lime-800">{getServeSide()}</span>
-                        </Badge>
-                      )}
-                      <div className="w-full overflow-hidden max-w-full">
-                        <p className="font-medium text-right truncate text-[10px] sm:text-[14px] md:text-[16px]">
-                          {teamB.players[actualIdx].name}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })
-            : // Fixed players mode - always show Team A on left
-              teamA.players.map((player, idx) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              teamA.players.map((player: any, idx: any) => {
                 // Учитываем смену игроков
                 const actualIdx = swappedTeamA ? (idx === 0 ? 1 : 0) : idx
                 return (
@@ -623,7 +586,61 @@ export function ScoreBoard({ match, updateMatch }) {
                     </div>
                   </div>
                 )
-              })}
+              })
+              : // Команда B на левой стороне
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              teamB.players.map((player: any, idx: any) => {
+                // Учитываем смену игроков
+                const actualIdx = swappedTeamB ? (idx === 0 ? 1 : 0) : idx
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-center justify-end w-full ${isServing("teamB", actualIdx) ? "bg-lime-100 rounded-md" : ""}`}
+                  >
+                    {isServing("teamB", actualIdx) && (
+                      <Badge
+                        variant="outline"
+                        className="mr-2 rounded-full bg-lime-400 border-lime-600 p-0 flex items-center justify-center flex-shrink-0"
+                        style={{ width: "14.4px", height: "14.4px" }}
+                      >
+                        <span className="text-[10.88px] font-bold text-lime-800">{getServeSide()}</span>
+                      </Badge>
+                    )}
+                    <div className="w-full overflow-hidden max-w-full">
+                      <p className="font-medium text-right truncate text-[10px] sm:text-[14px] md:text-[16px]">
+                        {teamB.players[actualIdx].name}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })
+            : // Fixed players mode - always show Team A on left
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            teamA.players.map((player: any, idx: any) => {
+              // Учитываем смену игроков
+              const actualIdx = swappedTeamA ? (idx === 0 ? 1 : 0) : idx
+              return (
+                <div
+                  key={idx}
+                  className={`flex items-center justify-end w-full ${isServing("teamA", actualIdx) ? "bg-lime-100 rounded-md" : ""}`}
+                >
+                  {isServing("teamA", actualIdx) && (
+                    <Badge
+                      variant="outline"
+                      className="mr-2 rounded-full bg-lime-400 border-lime-600 p-0 flex items-center justify-center flex-shrink-0"
+                      style={{ width: "14.4px", height: "14.4px" }}
+                    >
+                      <span className="text-[10.88px] font-bold text-lime-800">{getServeSide()}</span>
+                    </Badge>
+                  )}
+                  <div className="w-full overflow-hidden max-w-full">
+                    <p className="font-medium text-right truncate text-[10px] sm:text-[14px] md:text-[16px]">
+                      {teamA.players[actualIdx].name}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
         </div>
         <div className="text-left space-y-1 pl-3">
           {fixedSides && <div className="text-sm text-muted-foreground mb-1 text-left">Права сторона</div>}
@@ -635,59 +652,35 @@ export function ScoreBoard({ match, updateMatch }) {
           {fixedSides
             ? match.courtSides?.teamA === "right"
               ? // Команда A на правой стороне
-                teamA.players.map((player, idx) => {
-                  // Учитываем смену игроков
-                  const actualIdx = swappedTeamA ? (idx === 0 ? 1 : 0) : idx
-                  return (
-                    <div
-                      key={idx}
-                      className={`flex items-center w-full ${isServing("teamA", actualIdx) ? "bg-lime-100 rounded-md" : ""}`}
-                    >
-                      <div className="w-full overflow-hidden max-w-full">
-                        <p className="font-medium text-left truncate text-[10px] sm:text-[14px] md:text-[16px]">
-                          {teamA.players[actualIdx].name}
-                        </p>
-                      </div>
-                      {isServing("teamA", actualIdx) && (
-                        <Badge
-                          variant="outline"
-                          className="ml-2 rounded-full bg-lime-400 border-lime-600 p-0 flex items-center justify-center flex-shrink-0"
-                          style={{ width: "14.4px", height: "14.4px" }}
-                        >
-                          <span className="text-[10.88px] font-bold text-lime-800">{getServeSide()}</span>
-                        </Badge>
-                      )}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              teamA.players.map((player: any, idx: any) => {
+                // Учитываем смену игроков
+                const actualIdx = swappedTeamA ? (idx === 0 ? 1 : 0) : idx
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-center w-full ${isServing("teamA", actualIdx) ? "bg-lime-100 rounded-md" : ""}`}
+                  >
+                    <div className="w-full overflow-hidden max-w-full">
+                      <p className="font-medium text-left truncate text-[10px] sm:text-[14px] md:text-[16px]">
+                        {teamA.players[actualIdx].name}
+                      </p>
                     </div>
-                  )
-                })
+                    {isServing("teamA", actualIdx) && (
+                      <Badge
+                        variant="outline"
+                        className="ml-2 rounded-full bg-lime-400 border-lime-600 p-0 flex items-center justify-center flex-shrink-0"
+                        style={{ width: "14.4px", height: "14.4px" }}
+                      >
+                        <span className="text-[10.88px] font-bold text-lime-800">{getServeSide()}</span>
+                      </Badge>
+                    )}
+                  </div>
+                )
+              })
               : // Команда B на правой стороне
-                teamB.players.map((player, idx) => {
-                  // Учитываем смену игроков
-                  const actualIdx = swappedTeamB ? (idx === 0 ? 1 : 0) : idx
-                  return (
-                    <div
-                      key={idx}
-                      className={`flex items-center w-full ${isServing("teamB", actualIdx) ? "bg-lime-100 rounded-md" : ""}`}
-                    >
-                      <div className="w-full overflow-hidden max-w-full">
-                        <p className="font-medium text-left truncate text-[10px] sm:text-[14px] md:text-[16px]">
-                          {teamB.players[actualIdx].name}
-                        </p>
-                      </div>
-                      {isServing("teamB", actualIdx) && (
-                        <Badge
-                          variant="outline"
-                          className="ml-2 rounded-full bg-lime-400 border-lime-600 p-0 flex items-center justify-center flex-shrink-0"
-                          style={{ width: "14.4px", height: "14.4px" }}
-                        >
-                          <span className="text-[10.88px] font-bold text-lime-800">{getServeSide()}</span>
-                        </Badge>
-                      )}
-                    </div>
-                  )
-                })
-            : // Fixed players mode - always show Team B on right
-              teamB.players.map((player, idx) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              teamB.players.map((player: any, idx: any) => {
                 // Учитываем смену игроков
                 const actualIdx = swappedTeamB ? (idx === 0 ? 1 : 0) : idx
                 return (
@@ -711,7 +704,34 @@ export function ScoreBoard({ match, updateMatch }) {
                     )}
                   </div>
                 )
-              })}
+              })
+            : // Fixed players mode - always show Team B on right
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            teamB.players.map((player: any, idx: any) => {
+              // Учитываем смену игроков
+              const actualIdx = swappedTeamB ? (idx === 0 ? 1 : 0) : idx
+              return (
+                <div
+                  key={idx}
+                  className={`flex items-center w-full ${isServing("teamB", actualIdx) ? "bg-lime-100 rounded-md" : ""}`}
+                >
+                  <div className="w-full overflow-hidden max-w-full">
+                    <p className="font-medium text-left truncate text-[10px] sm:text-[14px] md:text-[16px]">
+                      {teamB.players[actualIdx].name}
+                    </p>
+                  </div>
+                  {isServing("teamB", actualIdx) && (
+                    <Badge
+                      variant="outline"
+                      className="ml-2 rounded-full bg-lime-400 border-lime-600 p-0 flex items-center justify-center flex-shrink-0"
+                      style={{ width: "14.4px", height: "14.4px" }}
+                    >
+                      <span className="text-[10.88px] font-bold text-lime-800">{getServeSide()}</span>
+                    </Badge>
+                  )}
+                </div>
+              )
+            })}
         </div>
       </div>
 
@@ -721,13 +741,12 @@ export function ScoreBoard({ match, updateMatch }) {
             <div className="text-center flex flex-col items-center gap-2">
               <button
                 disabled={isProcessingClick}
-                className={`text-6xl font-bold px-8 py-4 rounded-md transition-all transform active:scale-95 active:translate-y-1 active:shadow-inner shadow-md scale-110 ${
-                  isProcessingClick && processingTeam === (fixedSides ? (displayMatch.courtSides?.teamA === "left" ? "teamA" : "teamB") : "teamA")
-                    ? "bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse opacity-75" 
-                    : currentSet.isTiebreak
+                className={`text-6xl font-bold px-8 py-4 rounded-md transition-all transform active:scale-95 active:translate-y-1 active:shadow-inner shadow-md scale-110 ${isProcessingClick && processingTeam === (fixedSides ? (displayMatch.courtSides?.teamA === "left" ? "teamA" : "teamB") : "teamA")
+                  ? "bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse opacity-75"
+                  : currentSet.isTiebreak
                     ? "bg-gradient-to-br from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 active:from-red-200 active:to-red-300"
                     : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 active:from-blue-200 active:to-blue-300"
-                }`}
+                  }`}
                 onClick={() =>
                   handleScoreClick(fixedSides ? (displayMatch.courtSides?.teamA === "left" ? "teamA" : "teamB") : "teamA")
                 }
@@ -751,13 +770,12 @@ export function ScoreBoard({ match, updateMatch }) {
             <div className="text-center flex flex-col items-center gap-2">
               <button
                 disabled={isProcessingClick}
-                className={`text-6xl font-bold px-8 py-4 rounded-md transition-all transform active:scale-95 active:translate-y-1 active:shadow-inner shadow-md scale-110 ${
-                  isProcessingClick && processingTeam === (fixedSides ? (displayMatch.courtSides?.teamA === "right" ? "teamA" : "teamB") : "teamB")
-                    ? "bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse opacity-75" 
-                    : currentSet.isTiebreak
+                className={`text-6xl font-bold px-8 py-4 rounded-md transition-all transform active:scale-95 active:translate-y-1 active:shadow-inner shadow-md scale-110 ${isProcessingClick && processingTeam === (fixedSides ? (displayMatch.courtSides?.teamA === "right" ? "teamA" : "teamB") : "teamB")
+                  ? "bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse opacity-75"
+                  : currentSet.isTiebreak
                     ? "bg-gradient-to-br from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 active:from-red-200 active:to-red-300"
                     : "bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 active:from-blue-200 active:to-blue-300"
-                }`}
+                  }`}
                 onClick={() =>
                   handleScoreClick(fixedSides ? (displayMatch.courtSides?.teamA === "right" ? "teamA" : "teamB") : "teamB")
                 }
@@ -864,9 +882,10 @@ export function ScoreBoard({ match, updateMatch }) {
             <div></div>
             <div className="text-center">
               <div className="font-medium -mt-1 mb-0">{t("match.teamA")}</div>
-              <div className="flex flex-col -space-y-0.5">
-                {teamA.players.map((player, idx) => (
-                  <div key={idx} className="text-xs text-gray-500 truncate">
+              <div className="flex h-full w-full flex-col justify-around py-1">
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {teamA.players.map((player: any, idx: any) => (
+                  <div key={idx} className="flex h-1/2 w-full items-center text-xs text-gray-500 truncate">
                     {player.name}
                   </div>
                 ))}
@@ -874,9 +893,10 @@ export function ScoreBoard({ match, updateMatch }) {
             </div>
             <div className="text-center">
               <div className="font-medium -mt-1 mb-0">{t("match.teamB")}</div>
-              <div className="flex flex-col -space-y-0.5">
-                {teamB.players.map((player, idx) => (
-                  <div key={idx} className="text-xs text-gray-500 truncate">
+              <div className="flex h-full w-full flex-col justify-around py-1">
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {teamB.players.map((player: any, idx: any) => (
+                  <div key={idx} className="flex h-1/2 w-full items-center text-xs text-gray-500 truncate">
                     {player.name}
                   </div>
                 ))}

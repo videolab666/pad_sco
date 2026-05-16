@@ -33,7 +33,7 @@ export default function CourtFinishPage({ params }: { params: Promise<{ number: 
 
   return (
     <div className="flex items-center justify-center min-h-screen">
-      <Alert variant={success ? "success" : "destructive"} className="max-w-md mx-auto">
+      <Alert variant={success ? "default" : "destructive"} className="max-w-md mx-auto">
         <AlertTitle>
           {success ? t("common.courtStatus.matchFinished") : t("common.courtStatus.finishMatchError")}
         </AlertTitle>

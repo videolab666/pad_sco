@@ -147,14 +147,15 @@ export default function NewMatchPage() {
 
   const [windbreak, setWindbreak] = useState(false)
   const [matchRound, setMatchRound] = useState<string | null>(null)
-  const [players, setPlayers] = useState([])
+  const [players, setPlayers] = useState<any[]>([])
   const [newPlayerName, setNewPlayerName] = useState("")
   const [loading, setLoading] = useState(true)
   const [isAddingPlayer, setIsAddingPlayer] = useState(false)
   const [showAlert, setShowAlert] = useState(false)
   const [alertMessage, setAlertMessage] = useState("")
   const [alertType, setAlertType] = useState("success") // success, error, warning
-  const playersRef = useRef([]) // Reference to keep track of players without re-renders
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const playersRef = useRef<any[]>([]) // Reference to keep track of players without re-renders
 
   // Игроки для команд
   const [teamAPlayer1, setTeamAPlayer1] = useState("")
@@ -214,7 +215,8 @@ export default function NewMatchPage() {
     loadPlayers()
 
     // Set up event listener for storage changes (for cross-tab synchronization)
-    const handleStorageChange = (e) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleStorageChange = (e: any) => {
       if (e.key === "padel-tennis-players") {
         try {
           const updatedPlayers = JSON.parse(e.newValue || "[]")
@@ -245,7 +247,7 @@ export default function NewMatchPage() {
   }, [sets])
 
   // Показать уведомление
-  const showNotification = (message, type = "success") => {
+  const showNotification = (message: string, type = "success") => {
     setAlertMessage(message)
     setAlertType(type)
     setShowAlert(true)
@@ -368,7 +370,7 @@ export default function NewMatchPage() {
     if (courtNumber !== null) {
       const isAvailable = await isCourtAvailable(courtNumber)
       if (!isAvailable) {
-        showNotification(t("newMatch.courtOccupied", { court: courtNumber }), "error")
+        showNotification(t("newMatch.courtOccupied") + " " + courtNumber, "error")
         return
       }
     }
@@ -415,7 +417,7 @@ export default function NewMatchPage() {
       sets: sets,
       finalSetTiebreak: matchSettings.finalSetTiebreak,
       finalSetTiebreakLength: matchSettings.finalSetTiebreakLength,
-      tiebreakType: matchSettings.tiebreakType,
+      tiebreakFormat: matchSettings.tiebreakFormat,
     })
 
     const match = {
@@ -428,37 +430,37 @@ export default function NewMatchPage() {
       teamA: {
         players: courtParam
           ? [
-              { id: teamAPlayer1 || 'teamA-p1', name: teamAPlayer1 ? (players.find((p) => p.id === teamAPlayer1)?.name || teamAPlayer1) : 'Team1 - Player1' },
-              ...(matchFormat === "doubles"
-                ? [
-                    { id: teamAPlayer2 || 'teamA-p2', name: teamAPlayer2 ? (players.find((p) => p.id === teamAPlayer2)?.name || teamAPlayer2) : 'Team1 - Player2' },
-                  ]
-                : []),
-            ]
+            { id: teamAPlayer1 || 'teamA-p1', name: teamAPlayer1 ? (players.find((p) => p.id === teamAPlayer1)?.name || teamAPlayer1) : 'Team1 - Player1' },
+            ...(matchFormat === "doubles"
+              ? [
+                { id: teamAPlayer2 || 'teamA-p2', name: teamAPlayer2 ? (players.find((p) => p.id === teamAPlayer2)?.name || teamAPlayer2) : 'Team1 - Player2' },
+              ]
+              : []),
+          ]
           : [
-              { id: teamAPlayer1, name: players.find((p) => p.id === teamAPlayer1)?.name || teamAPlayer1 },
-              ...(teamAPlayer2
-                ? [{ id: teamAPlayer2, name: players.find((p) => p.id === teamAPlayer2)?.name || teamAPlayer2 }]
-                : []),
-            ],
+            { id: teamAPlayer1, name: players.find((p) => p.id === teamAPlayer1)?.name || teamAPlayer1 },
+            ...(teamAPlayer2
+              ? [{ id: teamAPlayer2, name: players.find((p) => p.id === teamAPlayer2)?.name || teamAPlayer2 }]
+              : []),
+          ],
         isServing: servingTeam === "teamA",
       },
       teamB: {
         players: courtParam
           ? [
-              { id: teamBPlayer1 || 'teamB-p1', name: teamBPlayer1 ? (players.find((p) => p.id === teamBPlayer1)?.name || teamBPlayer1) : 'Team2 - Player1' },
-              ...(matchFormat === "doubles"
-                ? [
-                    { id: teamBPlayer2 || 'teamB-p2', name: teamBPlayer2 ? (players.find((p) => p.id === teamBPlayer2)?.name || teamBPlayer2) : 'Team2 - Player2' },
-                  ]
-                : []),
-            ]
+            { id: teamBPlayer1 || 'teamB-p1', name: teamBPlayer1 ? (players.find((p) => p.id === teamBPlayer1)?.name || teamBPlayer1) : 'Team2 - Player1' },
+            ...(matchFormat === "doubles"
+              ? [
+                { id: teamBPlayer2 || 'teamB-p2', name: teamBPlayer2 ? (players.find((p) => p.id === teamBPlayer2)?.name || teamBPlayer2) : 'Team2 - Player2' },
+              ]
+              : []),
+          ]
           : [
-              { id: teamBPlayer1, name: players.find((p) => p.id === teamBPlayer1)?.name || teamBPlayer1 },
-              ...(teamBPlayer2
-                ? [{ id: teamBPlayer2, name: players.find((p) => p.id === teamBPlayer2)?.name || teamBPlayer2 }]
-                : []),
-            ],
+            { id: teamBPlayer1, name: players.find((p) => p.id === teamBPlayer1)?.name || teamBPlayer1 },
+            ...(teamBPlayer2
+              ? [{ id: teamBPlayer2, name: players.find((p) => p.id === teamBPlayer2)?.name || teamBPlayer2 }]
+              : []),
+          ],
         isServing: servingTeam === "teamB",
       },
       score: {
@@ -493,10 +495,10 @@ export default function NewMatchPage() {
       superSetRules:
         sets === "super"
           ? {
-              target: 8,
-              tiebreakAt: 8,
-              extendedTarget: 9, // For 7-7 scenario
-            }
+            target: 8,
+            tiebreakAt: 8,
+            extendedTarget: 9, // For 7-7 scenario
+          }
           : null,
     }
 
@@ -513,13 +515,12 @@ export default function NewMatchPage() {
       </style>
       {showAlert && (
         <Alert
-          className={`fixed top-4 right-4 w-auto z-50 ${
-            alertType === "success"
-              ? "bg-green-50 border-green-200"
-              : alertType === "error"
-                ? "bg-red-50 border-red-200"
-                : "bg-amber-50 border-amber-200"
-          }`}
+          className={`fixed top-4 right-4 w-auto z-50 ${alertType === "success"
+            ? "bg-green-50 border-green-200"
+            : alertType === "error"
+              ? "bg-red-50 border-red-200"
+              : "bg-amber-50 border-amber-200"
+            }`}
         >
           <AlertTitle>
             {alertType === "success"
@@ -539,7 +540,7 @@ export default function NewMatchPage() {
       )}
 
       <div className="flex justify-between items-center mb-4">
-        { !courtParam && (
+        {!courtParam && (
           <Button variant="ghost" onClick={() => router.push("/")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             {t("common.back")}
@@ -551,11 +552,10 @@ export default function NewMatchPage() {
       <OfflineNotice />
 
       <Card
-        className={`${
-          matchType === "tennis"
-            ? "bg-gradient-to-r from-[#95ff81] to-[#58964c]"
-            : "bg-gradient-to-r from-[#01a0e3] to-[#0056a9]"
-        } transition-colors duration-500`}
+        className={`${matchType === "tennis"
+          ? "bg-gradient-to-r from-[#95ff81] to-[#58964c]"
+          : "bg-gradient-to-r from-[#01a0e3] to-[#0056a9]"
+          } transition-colors duration-500`}
       >
         <CardHeader className="text-white px-3">
           <CardTitle className="text-center text-white">{t("newMatch.title")}</CardTitle>
@@ -703,20 +703,20 @@ export default function NewMatchPage() {
               </Select>
 
               {scoringSystem === "classic" && (
-              <div className="mt-4 space-y-2">
-                <Label>Golden Point</Label>
-                <Select value={goldenPointFormat} onValueChange={setGoldenPointFormat}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Off</SelectItem>
-                    <SelectItem value="first-deuce">Pro - first deuce</SelectItem>
-                    <SelectItem value="second-deuce">Amateur - second deuce</SelectItem>
-                    <SelectItem value="third-deuce">Star - third deuce</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                <div className="mt-4 space-y-2">
+                  <Label>Golden Point</Label>
+                  <Select value={goldenPointFormat} onValueChange={setGoldenPointFormat}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Off</SelectItem>
+                      <SelectItem value="first-deuce">Pro - first deuce</SelectItem>
+                      <SelectItem value="second-deuce">Amateur - second deuce</SelectItem>
+                      <SelectItem value="third-deuce">Star - third deuce</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
             </div>
 
@@ -867,14 +867,14 @@ export default function NewMatchPage() {
               <Label className="text-base font-medium">{t("newMatch.additional")}</Label>
               <div className="space-y-2 mt-3">
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="golden-game" checked={goldenGame} onCheckedChange={setGoldenGame} />
+                  <Checkbox id="golden-game" checked={goldenGame} onCheckedChange={(c) => setGoldenGame(c === true)} />
                   <Label htmlFor="golden-game" className="text-sm">
                     {t("newMatch.goldenGame")}
                   </Label>
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="windbreak" checked={windbreak} onCheckedChange={setWindbreak} />
+                  <Checkbox id="windbreak" checked={windbreak} onCheckedChange={(c) => setWindbreak(c === true)} />
                   <Label htmlFor="windbreak" className="text-sm">
                     {t("newMatch.windbreak")}
                   </Label>
@@ -1059,11 +1059,10 @@ export default function NewMatchPage() {
                       <RadioGroupItem value="no-court" id="no-court" className="scale-75 sm:scale-100" />
                       <Label
                         htmlFor="no-court"
-                        className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${
-                          courtNumber === null
-                            ? "bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 font-medium shadow-md"
-                            : "hover:bg-gray-100"
-                        }`}
+                        className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${courtNumber === null
+                          ? "bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 font-medium shadow-md"
+                          : "hover:bg-gray-100"
+                          }`}
                       >
                         {t("newMatch.noCourt")}
                       </Label>
@@ -1082,13 +1081,12 @@ export default function NewMatchPage() {
                             />
                             <Label
                               htmlFor={`court-${num}`}
-                              className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${
-                                courtNumber === num
-                                  ? "bg-gradient-to-r from-green-100 to-green-200 text-green-800 font-medium shadow-md"
-                                  : isCourtOccupiedFn(num)
-                                    ? "text-muted-foreground line-through"
-                                    : "hover:bg-gray-100"
-                              }`}
+                              className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${courtNumber === num
+                                ? "bg-gradient-to-r from-green-100 to-green-200 text-green-800 font-medium shadow-md"
+                                : isCourtOccupiedFn(num)
+                                  ? "text-muted-foreground line-through"
+                                  : "hover:bg-gray-100"
+                                }`}
                             >
                               {t("newMatch.court")} {num}
                             </Label>
@@ -1108,13 +1106,12 @@ export default function NewMatchPage() {
                             />
                             <Label
                               htmlFor={`court-${num}`}
-                              className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${
-                                courtNumber === num
-                                  ? "bg-gradient-to-r from-green-100 to-green-200 text-green-800 font-medium shadow-md"
-                                  : isCourtOccupiedFn(num)
-                                    ? "text-muted-foreground line-through"
-                                    : "hover:bg-gray-100"
-                              }`}
+                              className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${courtNumber === num
+                                ? "bg-gradient-to-r from-green-100 to-green-200 text-green-800 font-medium shadow-md"
+                                : isCourtOccupiedFn(num)
+                                  ? "text-muted-foreground line-through"
+                                  : "hover:bg-gray-100"
+                                }`}
                             >
                               {t("newMatch.court")} {num}
                             </Label>

@@ -34,13 +34,15 @@ const loadVmixSettings = () => {
 }
 
 // Функция для форматирования цвета в URL
-const formatColorForUrl = (color) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const formatColorForUrl = (color: any) => {
   if (!color) return ""
   return color.replace("#", "")
 }
 
 // Функция для генерации URL с настройками
-const generateVmixUrl = (matchId, settings) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const generateVmixUrl = (matchId: any, settings: any) => {
   const baseUrl = window.location.origin
   const url = new URL(`${baseUrl}/vmix/${matchId}`)
 
@@ -118,7 +120,8 @@ const generateVmixUrl = (matchId, settings) => {
 }
 
 // Функция для генерации URL корта с настройками
-const generateCourtVmixUrl = (courtNumber, settings) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const generateCourtVmixUrl = (courtNumber: any, settings: any) => {
   const baseUrl = window.location.origin
   const url = new URL(`${baseUrl}/court-vmix/${courtNumber}`)
 

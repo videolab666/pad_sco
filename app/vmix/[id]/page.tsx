@@ -16,7 +16,7 @@ type MatchParams = {
 }
 
 // Функция для безопасного парсинга JSON
-const safeParseJSON = (data) => {
+const safeParseJSON = (data: string) => {
   try {
     return JSON.parse(data)
   } catch (e) {
@@ -25,7 +25,7 @@ const safeParseJSON = (data) => {
 }
 
 // Функция для безопасного получения данных из localStorage с поддержкой декомпрессии
-const safeGetLocalStorageItem = (key) => {
+const safeGetLocalStorageItem = (key: string) => {
   try {
     const item = localStorage.getItem(key)
     if (!item) return null
@@ -56,7 +56,7 @@ const safeGetLocalStorageItem = (key) => {
 }
 
 // Функция для преобразования параметра цвета из URL
-const parseColorParam = (param, defaultColor) => {
+const parseColorParam = (param: string | null, defaultColor: string) => {
   if (!param) return defaultColor
   // Если параметр не содержит #, добавляем его
   return param.startsWith("#") ? param : `#${param}`
@@ -66,14 +66,14 @@ const parseColorParam = (param, defaultColor) => {
 // → removed, now imported from @/lib/scoring-logic
 
 // Получаем страну игрока - эта функция не должна использовать переменную match
-const getPlayerCountry = (team, playerIndex, matchData) => {
+const getPlayerCountry = (team: string, playerIndex: number, matchData: any) => {
   if (!matchData) return null
   const player = matchData[team]?.players[playerIndex]
   return player?.country || null
 }
 
 // Изменяем функцию getPlayerCountry, чтобы она возвращала пробел вместо "---"
-const getPlayerCountryDisplay = (team, playerIndex, matchData) => {
+const getPlayerCountryDisplay = (team: string, playerIndex: number, matchData: any) => {
   return getPlayerCountry(team, playerIndex, matchData) || " "
 }
 
@@ -82,13 +82,13 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
   const id = resolvedParams.id
   const router = useRouter()
   const { t } = useLanguage()
-  const [match, setMatch] = useState(null)
+  const [match, setMatch] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const searchParams = useSearchParams()
   const [jsonOutput, setJsonOutput] = useState("")
   const [debugInfo, setDebugInfo] = useState("")
-  const [prevImportantPoint, setPrevImportantPoint] = useState({ type: null, team: null })
+  const [prevImportantPoint, setPrevImportantPoint] = useState<any>({ type: null, team: null })
   const [indicatorState, setIndicatorState] = useState("hidden") // "entering", "visible", "exiting", "hidden"
 
   // Параметры отображения из URL
@@ -336,7 +336,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
         // Если не нашли в localStorage, пробуем получить через getMatch
         if (!matchData) {
           logEvent("info", `vMix страница: матч не найден в localStorage, пробуем getMatch`, "vmix-page", {
-            matchId: params.id,
+            matchId: id,
           })
           try {
             matchData = await getMatch(id)
@@ -347,7 +347,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
           } catch (getMatchError) {
             logEvent("error", `vMix страница: ошибка при вызове getMatch`, "vmix-page", {
               error: getMatchError,
-              matchId: params.id,
+              matchId: id,
             })
           }
         }
@@ -383,30 +383,30 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
             const vmixData = {
               id: matchData.id,
               teamA: {
-                name: matchData.teamA.players.map((p) => p.name).join(" / "),
+                name: matchData.teamA.players.map((p: any) => p.name).join(" / "),
                 score: matchData.score.teamA,
                 currentGameScore: matchData.score.currentSet
                   ? matchData.score.currentSet.isTiebreak
                     ? matchData.score.currentSet.currentGame.teamA
                     : getTennisPointName(matchData.score.currentSet.currentGame.teamA)
                   : "0",
-                sets: matchData.score.sets ? matchData.score.sets.map((set) => set.teamA) : [],
+                sets: matchData.score.sets ? matchData.score.sets.map((set: any) => set.teamA) : [],
                 currentSet: matchData.score.currentSet ? matchData.score.currentSet.teamA : 0,
                 serving: matchData.currentServer && matchData.currentServer.team === "teamA",
-                countries: matchData.teamA.players.map((p) => p.country || "").filter(Boolean),
+                countries: matchData.teamA.players.map((p: any) => p.country || "").filter(Boolean),
               },
               teamB: {
-                name: matchData.teamB.players.map((p) => p.name).join(" / "),
+                name: matchData.teamB.players.map((p: any) => p.name).join(" / "),
                 score: matchData.score.teamB,
                 currentGameScore: matchData.score.currentSet
                   ? matchData.score.currentSet.isTiebreak
                     ? matchData.score.currentSet.currentGame.teamB
                     : getTennisPointName(matchData.score.currentSet.currentGame.teamB)
                   : "0",
-                sets: matchData.score.sets ? matchData.score.sets.map((set) => set.teamB) : [],
+                sets: matchData.score.sets ? matchData.score.sets.map((set: any) => set.teamB) : [],
                 currentSet: matchData.score.currentSet ? matchData.score.currentSet.teamB : 0,
                 serving: matchData.currentServer && matchData.currentServer.team === "teamB",
-                countries: matchData.teamB.players.map((p) => p.country || "").filter(Boolean),
+                countries: matchData.teamB.players.map((p: any) => p.country || "").filter(Boolean),
               },
               isTiebreak: matchData.score.currentSet ? matchData.score.currentSet.isTiebreak : false,
               isCompleted: matchData.isCompleted || false,
@@ -435,7 +435,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
     loadMatch()
 
     // Подписываемся на обновления матча в реальном времени
-    const unsubscribe = subscribeToMatchUpdates(id, (updatedMatch) => {
+    const unsubscribe = subscribeToMatchUpdates(id, (updatedMatch: any) => {
       if (updatedMatch) {
         console.log("Match update received:", JSON.stringify(updatedMatch, null, 2))
         setMatch(updatedMatch)
@@ -467,30 +467,30 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
           const vmixData = {
             id: updatedMatch.id,
             teamA: {
-              name: updatedMatch.teamA.players.map((p) => p.name).join(" / "),
+              name: updatedMatch.teamA.players.map((p: any) => p.name).join(" / "),
               score: updatedMatch.score.teamA,
               currentGameScore: updatedMatch.score.currentSet
                 ? updatedMatch.score.currentSet.isTiebreak
                   ? updatedMatch.score.currentSet.currentGame.teamA
                   : getTennisPointName(updatedMatch.score.currentSet.currentGame.teamA)
                 : "0",
-              sets: updatedMatch.score.sets ? updatedMatch.score.sets.map((set) => set.teamA) : [],
+              sets: updatedMatch.score.sets ? updatedMatch.score.sets.map((set: any) => set.teamA) : [],
               currentSet: updatedMatch.score.currentSet ? updatedMatch.score.currentSet.teamA : 0,
               serving: updatedMatch.currentServer && updatedMatch.currentServer.team === "teamA",
-              countries: updatedMatch.teamA.players.map((p) => p.country || "").filter(Boolean),
+              countries: updatedMatch.teamA.players.map((p: any) => p.country || "").filter(Boolean),
             },
             teamB: {
-              name: updatedMatch.teamB.players.map((p) => p.name).join(" / "),
+              name: updatedMatch.teamB.players.map((p: any) => p.name).join(" / "),
               score: updatedMatch.score.teamB,
               currentGameScore: updatedMatch.score.currentSet
                 ? updatedMatch.score.currentSet.isTiebreak
                   ? updatedMatch.score.currentSet.currentGame.teamB
                   : getTennisPointName(updatedMatch.score.currentSet.currentGame.teamB)
                 : "0",
-              sets: updatedMatch.score.sets ? updatedMatch.score.sets.map((set) => set.teamB) : [],
+              sets: updatedMatch.score.sets ? updatedMatch.score.sets.map((set: any) => set.teamB) : [],
               currentSet: updatedMatch.score.currentSet ? updatedMatch.score.currentSet.teamB : 0,
               serving: updatedMatch.currentServer && updatedMatch.currentServer.team === "teamB",
-              countries: updatedMatch.teamB.players.map((p) => p.country || "").filter(Boolean),
+              countries: updatedMatch.teamB.players.map((p: any) => p.country || "").filter(Boolean),
             },
             isTiebreak: updatedMatch.score.currentSet ? updatedMatch.score.currentSet.isTiebreak : false,
             isCompleted: updatedMatch.isCompleted || false,
@@ -502,13 +502,13 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
 
         setError("")
         logEvent("debug", "vMix страница: получено обновление матча", "vmix-page", {
-          matchId: params.id,
+          matchId: id,
           scoreA: updatedMatch.score.teamA,
           scoreB: updatedMatch.score.teamB,
         })
       } else {
         setError("Матч не найден или был удален")
-        logEvent("warn", "vMix страница: матч не найден при обновлении", "vmix-page", { matchId: params.id })
+        logEvent("warn", "vMix страница: матч не найден при обновлении", "vmix-page", { matchId: id })
       }
     })
 
@@ -561,7 +561,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
   }, [match, prevImportantPoint.type]) // Зависим только от match и prevImportantPoint.type
 
   // Получаем текущий счет в виде строки (0, 15, 30, 40, Ad)
-  const getCurrentGameScore = (team) => {
+  const getCurrentGameScore = (team: string) => {
     if (!match || !match.score || !match.score.currentSet) return ""
 
     const currentSet = match.score.currentSet
@@ -574,13 +574,13 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
   }
 
   // Определяем, кто подает
-  const isServing = (team, playerIndex) => {
+  const isServing = (team: string, playerIndex: number) => {
     if (!match || !match.currentServer) return false
     return match.currentServer.team === team && match.currentServer.playerIndex === playerIndex
   }
 
   // Форматируем счет сета с верхним индексом для тай-брейка
-  const formatSetScore = (score, tiebreakScore = null) => {
+  const formatSetScore = (score: string | number, tiebreakScore: string | number | null = null) => {
     return (
       <span>
         {score}
@@ -591,7 +591,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
 
   // Стили в зависимости от темы и параметров
   const getStyles = () => {
-    const fontSizeMap = {
+    const fontSizeMap: Record<string, any> = {
       small: {
         container: "text-sm",
         score: "text-2xl", // Увеличено в 2 раза (было text-xl)
@@ -614,9 +614,9 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
       },
     }
 
-    const sizes = fontSizeMap[fontSize] || fontSizeMap.normal
+    const sizes = fontSizeMap[fontSize as string] || fontSizeMap.normal
 
-    const themeStyles = {
+    const themeStyles: Record<string, any> = {
       default: {
         bg: `rgba(0, 0, 0, ${bgOpacity})`,
         text: textColor,
@@ -639,7 +639,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
       },
     }
 
-    const currentTheme = themeStyles[theme] || themeStyles.default
+    const currentTheme = themeStyles[theme as string] || themeStyles.default
 
     return {
       container: `${sizes.container}`,
@@ -654,7 +654,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
   const styles = getStyles()
 
   // Получаем стиль градиента для фона
-  const getGradientStyle = (useGradient, fromColor, toColor) => {
+  const getGradientStyle = (useGradient: boolean, fromColor: string, toColor: string) => {
     if (!useGradient) return {}
     return {
       background: `linear-gradient(to bottom, ${fromColor}, ${toColor})`,
@@ -736,8 +736,8 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
   const getTiebreakScores = () => {
     if (!match.score.sets || match.score.sets.length === 0) return {}
 
-    const tiebreakScores = {}
-    match.score.sets.forEach((set, index) => {
+    const tiebreakScores: Record<number, any> = {}
+    match.score.sets.forEach((set: any, index: number) => {
       if (set.tiebreak) {
         tiebreakScores[index] = {
           teamA: set.tiebreak.teamA,
@@ -989,7 +989,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
             {/* Счет сетов для первого игрока */}
             {showSets && match.score.sets && (
               <>
-                {match.score.sets.map((set, idx) => (
+                {match.score.sets.map((set: any, idx: number) => (
                   <div
                     key={idx}
                     style={{
@@ -1217,7 +1217,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
             {/* Счет сетов для второго игрока */}
             {showSets && match.score.sets && (
               <>
-                {match.score.sets.map((set, idx) => (
+                {match.score.sets.map((set: any, idx: number) => (
                   <div
                     key={idx}
                     style={{

@@ -19,14 +19,14 @@ type FullscreenScoreboardParams = {
 }
 
 // Функция для преобразования параметра цвета из URL
-const parseColorParam = (param, defaultColor) => {
+const parseColorParam = (param: string | null, defaultColor: string) => {
   if (!param) return defaultColor
   // Если параметр не содержит #, добавляем его
   return param.startsWith("#") ? param : `#${param}`
 }
 
 // Получаем страну игрока
-const getPlayerCountryDisplay = (team, playerIndex, matchData) => {
+const getPlayerCountryDisplay = (team: 'teamA' | 'teamB', playerIndex: number, matchData: any) => {
   if (!matchData) return " "
   const player = matchData[team]?.players[playerIndex]
   return player?.country || " "
@@ -225,7 +225,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   }
 
   // Функция для применения настроек
-  const applySettings = (settings) => {
+  const applySettings = (settings: any) => {
     if (!settings) return
 
     // Применяем основные настройки
@@ -367,14 +367,14 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       // Входим в полноэкранный режим
-      if (containerRef.current?.requestFullscreen) {
-        containerRef.current
+      if ((containerRef.current as any)?.requestFullscreen) {
+        (containerRef.current as any)
           .requestFullscreen()
           .then(() => {
             setIsFullscreen(true)
           })
-          .catch((err) => {
-            console.error(`${translations[language].common.error}: ${err.message}`)
+          .catch((err: any) => {
+            console.error(`${(translations[language] as any).common.error}: ${err.message}`)
           })
       }
     } else {
@@ -385,8 +385,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           .then(() => {
             setIsFullscreen(false)
           })
-          .catch((err) => {
-            console.error(`${translations[language].common.error}: ${err.message}`)
+          .catch((err: any) => {
+            console.error(`${(translations[language] as any).common.error}: ${err.message}`)
           })
       }
     }
@@ -413,7 +413,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
       if (autoFullscreen === "true" && containerRef.current && !document.fullscreenElement) {
         // Небольшая задержка для уверенности, что компонент полностью отрендерился
         const timer = setTimeout(() => {
-          containerRef.current.requestFullscreen().catch((err) => {
+          (containerRef.current as any).requestFullscreen().catch((err: any) => {
             console.error("Ошибка при переходе в полноэкранный режим:", err)
             logEvent("error", "Ошибка при автоматическом переходе в полноэкранный режим", "fullscreen-scoreboard", err)
           })
@@ -429,9 +429,9 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
     try {
       if (isNaN(courtNumber) || courtNumber < 1 || courtNumber > 10) {
         setError(
-          translations[language].common.error +
+          (translations[language] as any).common.error +
           ": " +
-          (translations[language].scoreboard.invalidCourt || "Invalid court number"),
+          ((translations[language] as any).scoreboard.invalidCourt || "Invalid court number"),
         )
         setLoading(false)
         logEvent("error", "Fullscreen Scoreboard: invalid court number", "fullscreen-scoreboard")
@@ -466,17 +466,17 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
         return matchData
       } else {
         setError(
-          translations[language].scoreboard.noActiveMatches?.replace("{number}", courtNumber) ||
+          (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", courtNumber) ||
           `No active matches on court ${courtNumber}`,
         )
         logEvent("warn", `Fullscreen Scoreboard: no active matches on court ${courtNumber}`, "fullscreen-scoreboard")
         return null
       }
-    } catch (err) {
+    } catch (err: any) {
       setError(
-        translations[language].common.error +
+        (translations[language] as any).common.error +
         ": " +
-        (translations[language].scoreboard.loadError || "Error loading match"),
+        ((translations[language] as any).scoreboard.loadError || "Error loading match"),
       )
       logEvent("error", "Ошибка загрузки матча для Fullscreen Scoreboard", "fullscreen-scoreboard", err)
       return null
@@ -487,8 +487,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
   // Загрузка матча и настройка подписки на обновления
   useEffect(() => {
-    let unsubscribe = null
-    let checkInterval = null
+    let unsubscribe: any = null
+    let checkInterval: NodeJS.Timeout | null = null
 
     const setupSubscription = async () => {
       // Загружаем матч
@@ -497,7 +497,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
       if (!matchData) return
 
       // Настраиваем подписку на обновления матча
-      unsubscribe = subscribeToMatchUpdates(matchData.id, async (updatedMatch) => {
+      unsubscribe = subscribeToMatchUpdates(matchData.id, async (updatedMatch: any) => {
         if (updatedMatch) {
           // Загружаем состояние синхронизации
           let hasPendingOperations = false;
@@ -514,7 +514,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           }
 
           console.log("Match update received:", JSON.stringify(updatedMatch, null, 2))
-          setMatch((prev) => {
+          setMatch((prev: any) => {
             if (
               prev &&
               typeof prev.revision === "number" &&
@@ -532,7 +532,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
             // Prevent rollback of completion status
             setIsCompletedMatch(true);
             // Optionally, merge isCompleted into match object for UI
-            setMatch((prev) => prev ? { ...prev, isCompleted: true } : updatedMatch);
+            setMatch((prev: any) => prev ? { ...prev, isCompleted: true } : updatedMatch);
             logEvent("warn", "Realtime update tried to reset isCompleted to false, preserving local completed state", "fullscreen-scoreboard", {
               matchId: updatedMatch.id,
             });
@@ -579,7 +579,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           setError("")
 
           // Настраиваем новую подписку
-          unsubscribe = subscribeToMatchUpdates(newMatchData.id, async (updatedMatch) => {
+          unsubscribe = subscribeToMatchUpdates(newMatchData.id, async (updatedMatch: any) => {
             if (updatedMatch) {
               // Загружаем состояние синхронизации
               let hasPendingOperations = false;
@@ -595,7 +595,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
                 return;
               }
 
-              setMatch((prev) => {
+              setMatch((prev: any) => {
                 if (
                   prev &&
                   typeof prev.revision === "number" &&
@@ -626,7 +626,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   }, [courtNumber, language, lastMatchId, isCompletedMatch])
 
   // Получаем текущий счет в виде строки (0, 15, 30, 40, Ad)
-  const getCurrentGameScore = (team) => {
+  const getCurrentGameScore = (team: 'teamA' | 'teamB') => {
     if (!match || !match.score || !match.score.currentSet) return ""
 
     const currentSet = match.score.currentSet
@@ -639,13 +639,13 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   }
 
   // Определяем, кто подает
-  const isServing = (team, playerIndex) => {
+  const isServing = (team: 'teamA' | 'teamB', playerIndex: number) => {
     if (!match || !match.currentServer) return false
     return match.currentServer.team === team && match.currentServer.playerIndex === playerIndex
   }
 
   // Форматируем счет сета с верхним индексом для тай-брейка
-  const formatSetScore = (score, tiebreakScore = null) => {
+  const formatSetScore = (score: any, tiebreakScore: any = null) => {
     if (tiebreakScore === null) return <span>{score}</span>
 
     return (
@@ -662,8 +662,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   const getTiebreakScores = () => {
     if (!match || !match.score || !match.score.sets || match.score.sets.length === 0) return {}
 
-    const tiebreakScores = {}
-    match.score.sets.forEach((set, index) => {
+    const tiebreakScores: Record<number, any> = {}
+    match.score.sets.forEach((set: any, index: number) => {
       // Проверяем наличие тай-брейка в данных сета
       if (set.tiebreak) {
         tiebreakScores[index] = {
@@ -685,7 +685,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
     if (!match || !match.score) return null
 
     if (match.isCompleted) {
-      return translations[language].scoreboard.matchCompleted || "MATCH IS OVER"
+      return (translations[language] as any).scoreboard.matchCompleted || "MATCH IS OVER"
     }
 
     const { type } = getImportantPoint(match)
@@ -693,7 +693,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   }
 
   // Получаем стиль градиента для фона
-  const getGradientStyle = (useGradient, fromColor, toColor) => {
+  const getGradientStyle = (useGradient: boolean, fromColor: string, toColor: string) => {
     if (!useGradient) return {}
     return {
       background: `linear-gradient(to bottom, ${fromColor}, ${toColor})`,
@@ -704,8 +704,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   const getMatchWinner = () => {
     if (!match || !match.isCompleted || !match.score || !match.score.sets) return null
 
-    const setsWonA = match.score.sets.filter((set) => set.teamA > set.teamB).length
-    const setsWonB = match.score.sets.filter((set) => set.teamB > set.teamA).length
+    const setsWonA = match.score.sets.filter((set: any) => set.teamA > set.teamB).length
+    const setsWonB = match.score.sets.filter((set: any) => set.teamB > set.teamA).length
 
     if (setsWonA > setsWonB) return "teamA"
     if (setsWonB > setsWonA) return "teamB"
@@ -736,7 +736,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
     translationsToCheck.forEach((key) => {
       const parts = key.split(".")
-      let result = translations[language]
+      let result: any = translations[language]
       let exists = true
 
       for (const part of parts) {
@@ -1089,7 +1089,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
                       : { background: namesBgColor }),
                 }}
               >
-                {match.teamA.players.map((player, idx) => (
+                {match.teamA.players.map((player: any, idx: number) => (
                   <div key={idx} className="player-name-container">
                     <div className="player-name pl-6" title={player.name}>
                       {player.name}
@@ -1112,7 +1112,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
                       : { background: countryBgColor }),
                 }}
               >
-                {match.teamA.players.map((player, idx) => (
+                {match.teamA.players.map((player: any, idx: number) => (
                   <div
                     key={idx}
                     style={{ height: `${100 / match.teamA.players.length}%`, display: "flex", alignItems: "center" }}
@@ -1135,7 +1135,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
                       : { background: serveBgColor }),
                 }}
               >
-                {match.teamA.players.map((player, idx) => (
+                {match.teamA.players.map((player: any, idx: number) => (
                   <div
                     key={idx}
                     className="server-indicator"
@@ -1149,7 +1149,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
             {showSets &&
               match.score.sets &&
-              match.score.sets.map((set, idx) => (
+              match.score.sets.map((set: any, idx: number) => (
                 <div
                   key={idx}
                   className="cell set-cell"
@@ -1222,7 +1222,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
                       : { background: namesBgColor }),
                 }}
               >
-                {match.teamB.players.map((player, idx) => (
+                {match.teamB.players.map((player: any, idx: number) => (
                   <div key={idx} className="player-name-container">
                     <div className="player-name pl-6" title={player.name}>
                       {player.name}
@@ -1245,7 +1245,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
                       : { background: countryBgColor }),
                 }}
               >
-                {match.teamB.players.map((player, idx) => (
+                {match.teamB.players.map((player: any, idx: number) => (
                   <div
                     key={idx}
                     style={{ height: `${100 / match.teamB.players.length}%`, display: "flex", alignItems: "center" }}
@@ -1268,7 +1268,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
                       : { background: serveBgColor }),
                 }}
               >
-                {match.teamB.players.map((player, idx) => (
+                {match.teamB.players.map((player: any, idx: number) => (
                   <div
                     key={idx}
                     className="server-indicator"
@@ -1282,7 +1282,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
             {showSets &&
               match.score.sets &&
-              match.score.sets.map((set, idx) => (
+              match.score.sets.map((set: any, idx: number) => (
                 <div
                   key={idx}
                   className="cell set-cell"
@@ -1358,7 +1358,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 // (No changes needed here for F key logic)
 const getTranslation = (path: string, fallback: string, lang: Language): string => {
   const parts = path.split(".")
-  let result = translations[lang]
+  let result: any = translations[lang]
 
   for (const part of parts) {
     if (!result || !result[part]) {

@@ -17,7 +17,7 @@ type CourtParams = {
 }
 
 // Функция для безопасного парсинга JSON
-const safeParseJSON = (data) => {
+const safeParseJSON = (data: string) => {
   try {
     return JSON.parse(data)
   } catch (e) {
@@ -26,7 +26,7 @@ const safeParseJSON = (data) => {
 }
 
 // Функция для безопасного получения данных из localStorage с поддержкой декомпрессии
-const safeGetLocalStorageItem = (key) => {
+const safeGetLocalStorageItem = (key: string) => {
   try {
     const item = localStorage.getItem(key)
     if (!item) return null
@@ -57,7 +57,7 @@ const safeGetLocalStorageItem = (key) => {
 }
 
 // Функция для преобразования параметра цвета из URL
-const parseColorParam = (param, defaultColor) => {
+const parseColorParam = (param: string | null, defaultColor: string) => {
   if (!param) return defaultColor
   // Если параметр не содержит #, добавляем его
   return param.startsWith("#") ? param : `#${param}`
@@ -67,7 +67,7 @@ const parseColorParam = (param, defaultColor) => {
 // → removed, now imported from @/lib/scoring-logic
 
 // Функция для определения break point
-const isBreakPoint = (match) => {
+const isBreakPoint = (match: any) => {
   if (!match || !match.score || !match.score.currentSet || !match.currentServer) {
     return false
   }
@@ -89,7 +89,7 @@ const isBreakPoint = (match) => {
 }
 
 // Функция для подсчета количества брейк-поинтов в текущем гейме
-const getBreakPointCount = (match) => {
+const getBreakPointCount = (match: any) => {
   if (!match || !match.score || !match.score.currentSet || !match.currentServer) {
     return { current: 0, total: 0 }
   }
@@ -109,30 +109,30 @@ const getBreakPointCount = (match) => {
 }
 
 // Получаем страну игрока - эта функция не должна использовать переменную match
-const getPlayerCountry = (team, playerIndex, matchData) => {
+const getPlayerCountry = (team: string, playerIndex: number, matchData: any) => {
   if (!matchData) return null
   const player = matchData[team]?.players[playerIndex]
   return player?.country || null
 }
 
 // Изменяем функцию getPlayerCountry, чтобы она возвращала пробел вместо "---"
-const getPlayerCountryDisplay = (team, playerIndex, matchData) => {
+const getPlayerCountryDisplay = (team: string, playerIndex: number, matchData: any) => {
   return getPlayerCountry(team, playerIndex, matchData) || " "
 }
 
 export default function CourtVmixPage({ params }: CourtParams) {
   const resolvedParams = React.use(params)
   const courtNumber = Number.parseInt(resolvedParams.number)
-  const [match, setMatch] = useState(null)
+  const [match, setMatch] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const searchParams = useSearchParams()
   const [jsonOutput, setJsonOutput] = useState("")
   const [debugInfo, setDebugInfo] = useState("")
-  const [prevImportantPoint, setPrevImportantPoint] = useState({ type: null, team: null })
+  const [prevImportantPoint, setPrevImportantPoint] = useState({ type: null as string | null, team: null as string | null })
   const [indicatorState, setIndicatorState] = useState("hidden") // "entering", "visible", "exiting", "hidden"
   const [breakPointState, setBreakPointState] = useState("hidden") // "entering", "visible", "exiting", "hidden"
-  const [prevBreakPoint, setPrevBreakPoint] = useState({ team: null, count: { current: 0, total: 0 } })
+  const [prevBreakPoint, setPrevBreakPoint] = useState({ team: null as string | false | null, count: { current: 0, total: 0 } })
 
   // Параметры отображения из URL
   const theme = searchParams.get("theme") || "default"
@@ -376,30 +376,30 @@ export default function CourtVmixPage({ params }: CourtParams) {
             id: matchData.id,
             courtNumber: courtNumber,
             teamA: {
-              name: matchData.teamA.players.map((p) => p.name).join(" / "),
+              name: matchData.teamA.players.map((p: any) => p.name).join(" / "),
               score: matchData.score.teamA,
               currentGameScore: matchData?.score?.currentSet
                 ? matchData.score.currentSet.isTiebreak
                   ? matchData.score.currentSet.currentGame.teamA
                   : getTennisPointName(matchData.score.currentSet.currentGame.teamA)
                 : "0",
-              sets: matchData.score.sets ? matchData.score.sets.map((set) => set.teamA) : [],
+              sets: matchData.score.sets ? matchData.score.sets.map((set: any) => set.teamA) : [],
               currentSet: matchData.score.currentSet ? matchData.score.currentSet.teamA : 0,
               serving: matchData.currentServer && matchData.currentServer.team === "teamA",
-              countries: matchData.teamA.players.map((p) => p.country || "").filter(Boolean),
+              countries: matchData.teamA.players.map((p: any) => p.country || "").filter(Boolean),
             },
             teamB: {
-              name: matchData.teamB.players.map((p) => p.name).join(" / "),
+              name: matchData.teamB.players.map((p: any) => p.name).join(" / "),
               score: matchData.score.teamB,
               currentGameScore: matchData?.score?.currentSet
                 ? matchData.score.currentSet.isTiebreak
                   ? matchData.score.currentSet.currentGame.teamB
                   : getTennisPointName(matchData.score.currentSet.currentGame.teamB)
                 : "0",
-              sets: matchData.score.sets ? matchData.score.sets.map((set) => set.teamB) : [],
+              sets: matchData.score.sets ? matchData.score.sets.map((set: any) => set.teamB) : [],
               currentSet: matchData.score.currentSet ? matchData.score.currentSet.teamB : 0,
               serving: matchData.currentServer && matchData.currentServer.team === "teamB",
-              countries: matchData.teamB.players.map((p) => p.country || "").filter(Boolean),
+              countries: matchData.teamB.players.map((p: any) => p.country || "").filter(Boolean),
             },
             isTiebreak: matchData.score.currentSet ? matchData.score.currentSet.isTiebreak : false,
             isCompleted: matchData.isCompleted || false,
@@ -475,30 +475,30 @@ export default function CourtVmixPage({ params }: CourtParams) {
               id: currentMatchData.id,
               courtNumber: courtNumber,
               teamA: {
-                name: currentMatchData.teamA.players.map((p) => p.name).join(" / "),
+                name: currentMatchData.teamA.players.map((p: any) => p.name).join(" / "),
                 score: currentMatchData.score.teamA,
                 currentGameScore: currentMatchData.score.currentSet
                   ? currentMatchData.score.currentSet.isTiebreak
                     ? currentMatchData.score.currentSet.currentGame.teamA
                     : getTennisPointName(currentMatchData.score.currentSet.currentGame.teamA)
                   : "0",
-                sets: currentMatchData.score.sets ? currentMatchData.score.sets.map((set) => set.teamA) : [],
+                sets: currentMatchData.score.sets ? currentMatchData.score.sets.map((set: any) => set.teamA) : [],
                 currentSet: currentMatchData.score.currentSet ? currentMatchData.score.currentSet.teamA : 0,
                 serving: currentMatchData.currentServer && currentMatchData.currentServer.team === "teamA",
-                countries: currentMatchData.teamA.players.map((p) => p.country || "").filter(Boolean),
+                countries: currentMatchData.teamA.players.map((p: any) => p.country || "").filter(Boolean),
               },
               teamB: {
-                name: currentMatchData.teamB.players.map((p) => p.name).join(" / "),
+                name: currentMatchData.teamB.players.map((p: any) => p.name).join(" / "),
                 score: currentMatchData.score.teamB,
                 currentGameScore: currentMatchData.score.currentSet
                   ? currentMatchData.score.currentSet.isTiebreak
                     ? currentMatchData.score.currentSet.currentGame.teamB
                     : getTennisPointName(currentMatchData.score.currentSet.currentGame.teamB)
                   : "0",
-                sets: currentMatchData.score.sets ? currentMatchData.score.sets.map((set) => set.teamB) : [],
+                sets: currentMatchData.score.sets ? currentMatchData.score.sets.map((set: any) => set.teamB) : [],
                 currentSet: currentMatchData.score.currentSet ? currentMatchData.score.currentSet.teamB : 0,
                 serving: currentMatchData.currentServer && currentMatchData.currentServer.team === "teamB",
-                countries: currentMatchData.teamB.players.map((p) => p.country || "").filter(Boolean),
+                countries: currentMatchData.teamB.players.map((p: any) => p.country || "").filter(Boolean),
               },
               isTiebreak: currentMatchData.score.currentSet ? currentMatchData.score.currentSet.isTiebreak : false,
               isCompleted: currentMatchData.isCompleted || false,
@@ -519,13 +519,13 @@ export default function CourtVmixPage({ params }: CourtParams) {
 
   // Подписываемся на обновления текущего матча, если он есть
   useEffect(() => {
-    let matchUnsubscribe = null
+    let matchUnsubscribe: any = null
 
     if (match && match.id) {
-      matchUnsubscribe = subscribeToMatchUpdates(match.id, (updatedMatch) => {
+      matchUnsubscribe = subscribeToMatchUpdates(match.id, (updatedMatch: any) => {
         if (updatedMatch) {
           // Используем функциональное обновление состояния для гарантии актуальности
-          setMatch((prevMatch) => {
+          setMatch((prevMatch: any) => {
             // Если ID матча изменился или это первое обновление, просто возвращаем новый матч
             if (!prevMatch || prevMatch.id !== updatedMatch.id) {
               return updatedMatch
@@ -577,30 +577,30 @@ export default function CourtVmixPage({ params }: CourtParams) {
               id: updatedMatch.id,
               courtNumber: courtNumber,
               teamA: {
-                name: updatedMatch.teamA.players.map((p) => p.name).join(" / "),
+                name: updatedMatch.teamA.players.map((p: any) => p.name).join(" / "),
                 score: updatedMatch.score.teamA,
                 currentGameScore: updatedMatch.score.currentSet
                   ? updatedMatch.score.currentSet.isTiebreak
                     ? updatedMatch.score.currentSet.currentGame.teamA
                     : getTennisPointName(updatedMatch.score.currentSet.currentGame.teamA)
                   : "0",
-                sets: updatedMatch.score.sets ? updatedMatch.score.sets.map((set) => set.teamA) : [],
+                sets: updatedMatch.score.sets ? updatedMatch.score.sets.map((set: any) => set.teamA) : [],
                 currentSet: updatedMatch.score.currentSet ? updatedMatch.score.currentSet.teamA : 0,
                 serving: updatedMatch.currentServer && updatedMatch.currentServer.team === "teamA",
-                countries: updatedMatch.teamA.players.map((p) => p.country || "").filter(Boolean),
+                countries: updatedMatch.teamA.players.map((p: any) => p.country || "").filter(Boolean),
               },
               teamB: {
-                name: updatedMatch.teamB.players.map((p) => p.name).join(" / "),
+                name: updatedMatch.teamB.players.map((p: any) => p.name).join(" / "),
                 score: updatedMatch.score.teamB,
                 currentGameScore: updatedMatch.score.currentSet
                   ? updatedMatch.score.currentSet.isTiebreak
                     ? updatedMatch.score.currentSet.currentGame.teamB
                     : getTennisPointName(updatedMatch.score.currentSet.currentGame.teamB)
                   : "0",
-                sets: updatedMatch.score.sets ? updatedMatch.score.sets.map((set) => set.teamB) : [],
+                sets: updatedMatch.score.sets ? updatedMatch.score.sets.map((set: any) => set.teamB) : [],
                 currentSet: updatedMatch.score.currentSet ? updatedMatch.score.currentSet.teamB : 0,
                 serving: updatedMatch.currentServer && updatedMatch.currentServer.team === "teamB",
-                countries: updatedMatch.teamB.players.map((p) => p.country || "").filter(Boolean),
+                countries: updatedMatch.teamB.players.map((p: any) => p.country || "").filter(Boolean),
               },
               isTiebreak: updatedMatch.score.currentSet ? updatedMatch.score.currentSet.isTiebreak : false,
               isCompleted: updatedMatch.isCompleted || false,
@@ -706,7 +706,7 @@ export default function CourtVmixPage({ params }: CourtParams) {
   }, [match, prevBreakPoint.team])
 
   // Получаем текущий счет в виде строки (0, 15, 30, 40, Ad)
-  const getCurrentGameScore = (team) => {
+  const getCurrentGameScore = (team: string) => {
     if (!match || !match.score || !match.score.currentSet) return ""
 
     const currentSet = match.score.currentSet
@@ -719,13 +719,13 @@ export default function CourtVmixPage({ params }: CourtParams) {
   }
 
   // Определяем, кто подает
-  const isServing = (team, playerIndex) => {
+  const isServing = (team: string, playerIndex: number) => {
     if (!match || !match.currentServer) return false
     return match.currentServer.team === team && match.currentServer.playerIndex === playerIndex
   }
 
   // Форматируем счет сета с верхним индексом для тай-брейка
-  const formatSetScore = (score, tiebreakScore = null) => {
+  const formatSetScore = (score: string | number, tiebreakScore: string | number | null = null) => {
     if (!tiebreakScore) {
       return <span>{score}</span>
     }
@@ -740,60 +740,27 @@ export default function CourtVmixPage({ params }: CourtParams) {
 
   // Стили в зависимости от темы и параметров
   const getStyles = () => {
-    const fontSizeMap = {
-      small: {
-        container: "text-sm",
-        score: "text-2xl", // Увеличено в 2 раза (было text-xl)
-        point: "text-xl", // Увеличено в 2 раза (было text-lg)
-      },
-      normal: {
-        container: "text-base",
-        score: "text-4xl", // Увеличено в 2 раза (было text-2xl)
-        point: "text-2xl", // Увеличено в 2 раза (было text-xl)
-      },
-      large: {
-        container: "text-lg",
-        score: "text-6xl", // Увеличено в 2 раза (было text-3xl)
-        point: "text-4xl", // Увеличено в 2 раза (было text-2xl)
-      },
-      xlarge: {
-        container: "text-xl",
-        score: "text-8xl", // Увеличено в 2 раза (было text-4xl)
-        point: "text-6xl", // Увеличено в 2 раза (было text-3xl)
-      },
+    const defaultStyles: Record<string, any> = {
+      default: { bg: "#0284c7", text: "#ffffff", accent: "#fbbf24" }, // sky-600
+      light: { bg: "#f0f9ff", text: "#0c4a6e", accent: "#0284c7" }, // sky-50
+      dark: { bg: "#082f49", text: "#e0f2fe", accent: "#38bdf8" }, // sky-900
+      transparent: { bg: "transparent", text: textColor ? `#${textColor}` : "#ffffff", accent: accentColor ? `#${accentColor}` : "#fbbf24" },
     }
 
-    const sizes = fontSizeMap[fontSize] || fontSizeMap.normal
-
-    const themeStyles = {
-      default: {
-        bg: `rgba(0, 0, 0, ${bgOpacity})`,
-        text: textColor,
-        accent: accentColor,
-      },
-      light: {
-        bg: `rgba(255, 255, 255, ${bgOpacity})`,
-        text: "#000000",
-        accent: "#2563eb",
-      },
-      dark: {
-        bg: `rgba(0, 0, 0, ${bgOpacity})`,
-        text: "#ffffff",
-        accent: "#f59e0b",
-      },
-      transparent: {
-        bg: "transparent",
-        text: textColor,
-        accent: accentColor,
-      },
+    const sizes: Record<string, any> = {
+      small: { container: "400px", score: "8rem", point: "6rem" },
+      normal: { container: "600px", score: "12rem", point: "8rem" },
+      large: { container: "800px", score: "16rem", point: "12rem" },
+      xlarge: { container: "1000px", score: "20rem", point: "15rem" },
     }
 
-    const currentTheme = themeStyles[theme] || themeStyles.default
+    const currentTheme = defaultStyles[theme as string] || defaultStyles.default
+    const currentSize = sizes[fontSize as string] || sizes.normal
 
     return {
-      container: `${sizes.container}`,
-      score: `${sizes.score} font-bold`,
-      point: `${sizes.point} font-bold`,
+      container: `${currentSize.container}`,
+      score: `${currentSize.score} font-bold`,
+      point: `${currentSize.point} font-bold`,
       bg: currentTheme.bg,
       text: currentTheme.text,
       accent: currentTheme.accent,
@@ -803,7 +770,7 @@ export default function CourtVmixPage({ params }: CourtParams) {
   const styles = getStyles()
 
   // Получаем стиль градиента для фона
-  const getGradientStyle = (useGradient, fromColor, toColor) => {
+  const getGradientStyle = (useGradient: boolean, fromColor: string, toColor: string) => {
     if (!useGradient) return {}
     return {
       background: `linear-gradient(to bottom, ${fromColor}, ${toColor})`,
@@ -885,8 +852,8 @@ export default function CourtVmixPage({ params }: CourtParams) {
   const getTiebreakScores = () => {
     if (!match.score.sets || match.score.sets.length === 0) return {}
 
-    const tiebreakScores = {}
-    match.score.sets.forEach((set, index) => {
+    const tiebreakScores: Record<number, any> = {}
+    match.score.sets.forEach((set: any, index: number) => {
       if (set.tiebreak) {
         tiebreakScores[index] = {
           teamA: set.tiebreak.teamA,
@@ -1192,7 +1159,7 @@ export default function CourtVmixPage({ params }: CourtParams) {
             {/* Счет сетов для первого игрока */}
             {showSets && match.score.sets && (
               <>
-                {match.score.sets.map((set, idx) => (
+                {match.score.sets.map((set: any, idx: number) => (
                   <div
                     key={`teamA-set-${idx}-${set.teamA}-${tiebreakScores[idx]?.teamA || ""}`}
                     style={{
@@ -1430,7 +1397,7 @@ export default function CourtVmixPage({ params }: CourtParams) {
             {/* Счет сетов для второго игрока */}
             {showSets && match.score.sets && (
               <>
-                {match.score.sets.map((set, idx) => (
+                {match.score.sets.map((set: any, idx: number) => (
                   <div
                     key={`teamB-set-${idx}-${set.teamB}-${tiebreakScores[idx]?.teamB || ""}`}
                     style={{

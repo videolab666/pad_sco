@@ -16,7 +16,8 @@ import { DatabaseChecker } from "@/components/database-checker"
 
 export default function DebugPage() {
   const router = useRouter()
-  const [testResults, setTestResults] = useState(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [testResults, setTestResults] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const runConnectionTest = async () => {
@@ -58,9 +59,9 @@ export default function DebugPage() {
 
       setTestResults(results)
       logEvent("info", `Тест соединения завершен: ${isAvailable ? "успешно" : "неудачно"}`, "DebugPage", results)
-    } catch (error) {
+    } catch (error: any) {
       logEvent("error", "Ошибка при выполнении теста соединения", "DebugPage", error)
-      setTestResults({ error: error.message, stack: error.stack })
+      setTestResults({ error: error?.message, stack: error?.stack })
     } finally {
       setIsLoading(false)
     }

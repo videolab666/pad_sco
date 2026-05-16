@@ -48,7 +48,7 @@ export function CourtsList() {
   }, [])
 
   // Проверка, занят ли корт
-  const isCourtOccupied = (courtNumber) => {
+  const isCourtOccupied = (courtNumber: number) => {
     return occupiedCourts.includes(courtNumber)
   }
 
@@ -78,87 +78,88 @@ export function CourtsList() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             {Array.from({ length: MAX_COURTS }, (_, i) => i + 1).map((courtNumber) => {
-  const occupied = isCourtOccupied(courtNumber)
-  return (
-    <div
-      key={courtNumber}
-      className={`p-3 rounded-lg border ${
-        occupied
-          ? "bg-gradient-to-br from-[#ffeeee] to-[#ffe6e6] border-[#ffd6d6]"
-          : "bg-gradient-to-br from-[#fdfefb] to-[#f7f8f4] border-[#eceee9]"
-      }`}
-    >
-      <div className="flex flex-col items-center gap-2">
-        <div className="text-lg font-medium text-blue-900">
-          {t("courtsList.court")} {courtNumber}
-        </div>
-        <Badge
-          variant={occupied ? "success" : "outline"}
-          className={`shadow-md ${occupied ? "bg-green-600" : "bg-blue-700 text-white"}`}
-        >
-          {occupied ? t("courtsList.occupied") : t("courtsList.available")}
-        </Badge>
+              const occupied = isCourtOccupied(courtNumber)
+              return (
+                <div
+                  key={courtNumber}
+                  className={`p-3 rounded-lg border ${occupied
+                      ? "bg-gradient-to-br from-[#ffeeee] to-[#ffe6e6] border-[#ffd6d6]"
+                      : "bg-gradient-to-br from-[#fdfefb] to-[#f7f8f4] border-[#eceee9]"
+                    }`}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="text-lg font-medium text-blue-900">
+                      {t("courtsList.court")} {courtNumber}
+                    </div>
+                    <Badge
+                      variant={(occupied ? "default" : "outline") as any}
+                      className={`shadow-md ${occupied ? "bg-green-600" : "bg-blue-700 text-white"}`}
+                    >
+                      {occupied ? t("courtsList.occupied") : t("courtsList.available")}
+                    </Badge>
 
-        <div className="flex flex-col gap-1 w-full mt-1">
-          <VmixButton
-            courtNumber={courtNumber}
-            directLink={true}
-            size="sm"
-            className="w-full text-xs bg-[#f6f9fe] hover:bg-blue-100 text-blue-900 border-blue-200 shadow-md"
-            iconClassName="mr-1"
-          />
-          <VmixButton
-            courtNumber={courtNumber}
-            directLink={false}
-            size="sm"
-            className="w-full text-xs bg-[#f6f9fe] hover:bg-blue-100 text-blue-900 border-blue-200 shadow-md"
-            iconClassName="mr-1"
-          />
-          <FullscreenButton
-            courtNumber={courtNumber}
-            size="sm"
-            className="w-full text-xs bg-[#f6f9fe] hover:bg-blue-100 text-blue-900 border-blue-200 shadow-md"
-            iconClassName="mr-1"
-          />
-          <Button
-            variant="outline"
-            onClick={() => window.open(`/api/court/${courtNumber}`, "_blank")}
-            className="w-full text-xs bg-[#f6f9fe] hover:bg-blue-100 text-blue-900 border-blue-200 shadow-md"
-            size="sm"
-          >
-            <ExternalLink className="mr-1 h-3 w-3" />
-            {t("courtsList.jsonData")}
-          </Button>
-          {/* Завершить матч и статическая ссылка */}
-          {occupied && (
-            <>
-              <Button
-                size="sm"
-                className="w-full text-xs bg-red-600 hover:bg-red-700 text-white mt-1"
-                onClick={async () => {
-                  // Импортировать здесь, чтобы избежать циклических зависимостей
-                  const mod = await import("@/lib/court-utils")
-                  await mod.freeUpCourt(courtNumber)
-                  handleRefresh()
-                }}
-              >
-                {t("common.courtStatus.finishMatchButton")}
-              </Button>
-              <a
-                href={`/court-finish/${courtNumber}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full text-xs block text-center underline text-blue-700 mt-1"
-              >
-                {t("common.courtStatus.finishMatchLink")}
-              </a>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-})}
+                    <div className="flex flex-col gap-1 w-full mt-1">
+                      <VmixButton
+                        matchId=""
+                        courtNumber={courtNumber}
+                        directLink={true}
+                        size="sm"
+                        className="w-full text-xs bg-[#f6f9fe] hover:bg-blue-100 text-blue-900 border-blue-200 shadow-md"
+                        iconClassName="mr-1"
+                      />
+                      <VmixButton
+                        matchId=""
+                        courtNumber={courtNumber}
+                        directLink={false}
+                        size="sm"
+                        className="w-full text-xs bg-[#f6f9fe] hover:bg-blue-100 text-blue-900 border-blue-200 shadow-md"
+                        iconClassName="mr-1"
+                      />
+                      <FullscreenButton
+                        courtNumber={courtNumber}
+                        size="sm"
+                        className="w-full text-xs bg-[#f6f9fe] hover:bg-blue-100 text-blue-900 border-blue-200 shadow-md"
+                        iconClassName="mr-1"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(`/api/court/${courtNumber}`, "_blank")}
+                        className="w-full text-xs bg-[#f6f9fe] hover:bg-blue-100 text-blue-900 border-blue-200 shadow-md"
+                        size="sm"
+                      >
+                        <ExternalLink className="mr-1 h-3 w-3" />
+                        {t("courtsList.jsonData")}
+                      </Button>
+                      {/* Завершить матч и статическая ссылка */}
+                      {occupied && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="w-full text-xs bg-red-600 hover:bg-red-700 text-white mt-1"
+                            onClick={async () => {
+                              // Импортировать здесь, чтобы избежать циклических зависимостей
+                              const mod = await import("@/lib/court-utils")
+                              await mod.freeUpCourt(courtNumber)
+                              handleRefresh()
+                            }}
+                          >
+                            {t("common.courtStatus.finishMatchButton")}
+                          </Button>
+                          <a
+                            href={`/court-finish/${courtNumber}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full text-xs block text-center underline text-blue-700 mt-1"
+                          >
+                            {t("common.courtStatus.finishMatchLink")}
+                          </a>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </CardContent>

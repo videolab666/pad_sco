@@ -6,7 +6,8 @@ import { getTennisPointName } from "./tennis-utils"
 export const MAX_COURTS = 10
 
 // Функция для форматирования данных матча для vMix
-export const formatVmixData = (match) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const formatVmixData = (match: any) => {
   if (!match) return {}
 
   const teamA = match.teamA
@@ -16,7 +17,8 @@ export const formatVmixData = (match) => {
   return [
     {
       match_id: match.id,
-      teamA_name: teamA.players.map((p) => p.name).join(" / "),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      teamA_name: teamA.players.map((p: any) => p.name).join(" / "),
       teamA_score: match.score.teamA,
       teamA_game_score: currentSet
         ? currentSet.isTiebreak
@@ -25,7 +27,8 @@ export const formatVmixData = (match) => {
         : "0",
       teamA_current_set: currentSet ? currentSet.teamA : 0,
       teamA_serving: match.currentServer && match.currentServer.team === "teamA" ? "Да" : "Нет",
-      teamB_name: teamB.players.map((p) => p.name).join(" / "),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      teamB_name: teamB.players.map((p: any) => p.name).join(" / "),
       teamB_score: match.score.teamB,
       teamB_game_score: currentSet
         ? currentSet.isTiebreak
@@ -44,7 +47,8 @@ export const formatVmixData = (match) => {
 }
 
 // Получение матча по номеру корта
-export const getMatchByCourtNumber = async (courtNumber) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const getMatchByCourtNumber = async (courtNumber: any) => {
   try {
     logEvent("info", `Получение матча по номеру корта: ${courtNumber}`, "getMatchByCourtNumber")
 
@@ -199,7 +203,8 @@ export const getMatchByCourtNumber = async (courtNumber) => {
       })
 
       return match
-    } catch (fetchError) {
+    } catch (err) {
+      const fetchError = err as Error
       if (fetchError.name === "AbortError") {
         logEvent("error", "Таймаут при получении матча по номеру корта", "getMatchByCourtNumber", { courtNumber })
       } else {
@@ -210,7 +215,8 @@ export const getMatchByCourtNumber = async (courtNumber) => {
       }
       return null
     }
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", `Ошибка при получении матча по номеру корта: ${error.message}`, "getMatchByCourtNumber", {
       error: {
         name: error.name,
@@ -262,11 +268,13 @@ export const getOccupiedCourts = async () => {
       }
 
       // Преобразуем данные
-      const occupiedCourts = data.map((match) => match.court_number)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const occupiedCourts = data.map((match: any) => match.court_number)
 
       logEvent("info", `Получено ${occupiedCourts.length} занятых кортов`, "getOccupiedCourts")
       return occupiedCourts
-    } catch (fetchError) {
+    } catch (err) {
+      const fetchError = err as Error
       if (fetchError.name === "AbortError") {
         logEvent("error", "Таймаут при получении списка занятых кортов", "getOccupiedCourts")
       } else {
@@ -276,7 +284,8 @@ export const getOccupiedCourts = async () => {
       }
       return []
     }
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", `Ошибка при получении списка занятых кортов: ${error.message}`, "getOccupiedCourts", {
       error: {
         name: error.name,
@@ -307,15 +316,18 @@ export const getFreeCourts = async (totalCourts = 10) => {
       if (typeof window !== "undefined") {
         try {
           const matches = JSON.parse(localStorage.getItem("tennis_padel_matches") || "[]")
-          const activeMatches = matches.filter((match) => !match.isCompleted && match.courtNumber)
-          occupiedCourts = activeMatches.map((match) => match.courtNumber)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const activeMatches = matches.filter((match: any) => !match.isCompleted && match.courtNumber)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          occupiedCourts = activeMatches.map((match: any) => match.courtNumber)
         } catch (localError) {
           logEvent("error", "Ошибка при получении локальных данных о кортах", "getFreeCourts", { error: localError })
         }
       }
     }
 
-    const occupiedCourtNumbers = occupiedCourts.map((court) => court)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const occupiedCourtNumbers = occupiedCourts.map((court: any) => court)
 
     // Создаем массив всех кортов
     const allCourts = Array.from({ length: totalCourts }, (_, i) => i + 1)
@@ -325,7 +337,8 @@ export const getFreeCourts = async (totalCourts = 10) => {
 
     logEvent("info", `Получено ${freeCourts.length} свободных кортов`, "getFreeCourts")
     return freeCourts
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", `Ошибка при получении списка свободных кортов: ${error.message}`, "getFreeCourts", {
       error: {
         name: error.name,
@@ -341,7 +354,8 @@ export const getFreeCourts = async (totalCourts = 10) => {
 }
 
 // Проверка доступности корта
-export const isCourtAvailable = async (courtNumber) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const isCourtAvailable = async (courtNumber: any) => {
   try {
     const occupiedCourts = await getOccupiedCourts()
     return !occupiedCourts.includes(courtNumber)
@@ -352,7 +366,8 @@ export const isCourtAvailable = async (courtNumber) => {
     if (typeof window !== "undefined") {
       try {
         const matches = JSON.parse(localStorage.getItem("tennis_padel_matches") || "[]")
-        const isOccupied = matches.some((match) => !match.isCompleted && match.courtNumber === courtNumber)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const isOccupied = matches.some((match: any) => !match.isCompleted && match.courtNumber === courtNumber)
         return !isOccupied
       } catch (localError) {
         console.error("Ошибка при проверке локальных данных:", localError)
@@ -365,7 +380,8 @@ export const isCourtAvailable = async (courtNumber) => {
 }
 
 // Назначение матча на корт
-export const assignMatchToCourt = async (matchId, courtNumber) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const assignMatchToCourt = async (matchId: any, courtNumber: any) => {
   try {
     logEvent("info", `Назначение матча ${matchId} на корт ${courtNumber}`, "assignMatchToCourt")
 
@@ -410,7 +426,8 @@ export const assignMatchToCourt = async (matchId, courtNumber) => {
 
       logEvent("info", `Матч ${matchId} успешно назначен на корт ${courtNumber}`, "assignMatchToCourt")
       return true
-    } catch (fetchError) {
+    } catch (err) {
+      const fetchError = err as Error
       if (fetchError.name === "AbortError") {
         logEvent("error", "Таймаут при назначении матча на корт", "assignMatchToCourt")
       } else {
@@ -422,7 +439,8 @@ export const assignMatchToCourt = async (matchId, courtNumber) => {
       }
       return false
     }
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", `Ошибка при назначении матча на корт: ${error.message}`, "assignMatchToCourt", {
       error: {
         name: error.name,
@@ -437,7 +455,8 @@ export const assignMatchToCourt = async (matchId, courtNumber) => {
 }
 
 // Освобождение корта
-export const freeUpCourt = async (courtNumber) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const freeUpCourt = async (courtNumber: any) => {
   try {
     logEvent("info", `Освобождение корта ${courtNumber}`, "freeUpCourt")
 
@@ -479,7 +498,8 @@ export const freeUpCourt = async (courtNumber) => {
 
       logEvent("info", `Корт ${courtNumber} успешно освобожден`, "freeUpCourt")
       return true
-    } catch (fetchError) {
+    } catch (err) {
+      const fetchError = err as Error
       if (fetchError.name === "AbortError") {
         logEvent("error", "Таймаут при освобождении корта", "freeUpCourt")
       } else {
@@ -491,7 +511,8 @@ export const freeUpCourt = async (courtNumber) => {
       }
       return false
     }
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error
     logEvent("error", `Ошибка при освобождении корта: ${error.message}`, "freeUpCourt", {
       error: {
         name: error.name,

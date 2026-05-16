@@ -19,7 +19,7 @@ const createServerSupabaseClient = () => {
         // Оптимизация: уменьшаем таймаут для более быстрого обнаружения ошибок
         global: {
             fetch: (url, options) => {
-                return fetch(url, { ...options, timeout: 10000 }); // 10 секунд таймаут
+                return fetch(url, options);
             },
         },
     });
@@ -27,6 +27,7 @@ const createServerSupabaseClient = () => {
 exports.createServerSupabaseClient = createServerSupabaseClient;
 // Создаем клиент Supabase для использования на стороне клиента
 // Используем синглтон для предотвращения создания множества экземпляров
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let clientSupabaseInstance = null;
 const createClientSupabaseClient = () => {
     if (clientSupabaseInstance)
@@ -105,7 +106,8 @@ const isSupabaseAvailable = async () => {
             }
             return true;
         }
-        catch (fetchError) {
+        catch (err) {
+            const fetchError = err;
             if (fetchError.name === "AbortError") {
                 (0, error_logger_1.logEvent)("error", "Таймаут при проверке доступности Supabase", "isSupabaseAvailable");
             }
@@ -117,7 +119,8 @@ const isSupabaseAvailable = async () => {
             return false;
         }
     }
-    catch (error) {
+    catch (err) {
+        const error = err;
         (0, error_logger_1.logEvent)("error", "Исключение при проверке доступности Supabase", "isSupabaseAvailable", {
             error: {
                 name: error.name,
@@ -173,7 +176,8 @@ const checkTablesExist = async () => {
                 },
             };
         }
-        catch (fetchError) {
+        catch (err) {
+            const fetchError = err;
             if (fetchError.name === "AbortError") {
                 (0, error_logger_1.logEvent)("error", "Таймаут при проверке существования таблиц", "checkTablesExist");
             }
@@ -185,7 +189,8 @@ const checkTablesExist = async () => {
             return { exists: false, error: fetchError.message };
         }
     }
-    catch (error) {
+    catch (err) {
+        const error = err;
         (0, error_logger_1.logEvent)("error", "Ошибка при проверке существования таблиц", "checkTablesExist", error);
         return { exists: false, error: error.message };
     }
@@ -221,7 +226,8 @@ const checkTablesContent = async () => {
                 },
             };
         }
-        catch (fetchError) {
+        catch (err) {
+            const fetchError = err;
             if (fetchError.name === "AbortError") {
                 (0, error_logger_1.logEvent)("error", "Таймаут при проверке содержимого таблиц", "checkTablesContent");
             }
@@ -233,7 +239,8 @@ const checkTablesContent = async () => {
             return { success: false, error: fetchError.message };
         }
     }
-    catch (error) {
+    catch (err) {
+        const error = err;
         return { success: false, error: error.message };
     }
 };
@@ -288,7 +295,8 @@ const getSupabaseConnectionInfo = async () => {
                 },
             };
         }
-        catch (fetchError) {
+        catch (err) {
+            const fetchError = err;
             if (fetchError.name === "AbortError") {
                 return {
                     available: false,
@@ -312,7 +320,8 @@ const getSupabaseConnectionInfo = async () => {
             }
         }
     }
-    catch (error) {
+    catch (err) {
+        const error = err;
         return {
             available: false,
             error: error.message,
@@ -466,9 +475,10 @@ const initializeDatabase = async () => {
                     }
                 }
             }
-            catch (fetchError) {
+            catch (err) {
+                const fetchError = err;
                 if (fetchError.name === "AbortError") {
-                    (0, error_logger_1.logEvent)("error", "Тайма��т при выполнении SQL", "initializeDatabase", { statement });
+                    (0, error_logger_1.logEvent)("error", "Таймаут при выполнении SQL", "initializeDatabase", { statement });
                 }
                 else {
                     (0, error_logger_1.logEvent)("error", `Ошибка при запросе к Supabase: ${fetchError.message}`, "initializeDatabase", {
@@ -491,7 +501,8 @@ const initializeDatabase = async () => {
         (0, error_logger_1.logEvent)("info", "База данных успешно инициализирована", "initializeDatabase");
         return { success: true };
     }
-    catch (error) {
+    catch (err) {
+        const error = err;
         (0, error_logger_1.logEvent)("error", "Исключение при инициализации базы данных", "initializeDatabase", error);
         return { success: false, error: error.message };
     }
@@ -529,7 +540,8 @@ const executeSql = async (sql) => {
             }
             return { success: true, data };
         }
-        catch (fetchError) {
+        catch (err) {
+            const fetchError = err;
             if (fetchError.name === "AbortError") {
                 return { success: false, error: "Таймаут при выполнении SQL-запроса" };
             }
@@ -538,7 +550,8 @@ const executeSql = async (sql) => {
             }
         }
     }
-    catch (error) {
+    catch (err) {
+        const error = err;
         return { success: false, error: error.message };
     }
 };
@@ -585,7 +598,8 @@ const checkAndEnableRealtime = async () => {
             }
             return { success: true };
         }
-        catch (fetchError) {
+        catch (err) {
+            const fetchError = err;
             if (fetchError.name === "AbortError") {
                 return { success: false, error: "Таймаут при проверке Realtime" };
             }
@@ -594,7 +608,8 @@ const checkAndEnableRealtime = async () => {
             }
         }
     }
-    catch (error) {
+    catch (err) {
+        const error = err;
         return { success: false, error: error.message };
     }
 };

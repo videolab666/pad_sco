@@ -8,6 +8,7 @@ import { SupabaseStatus } from "@/components/supabase-status"
 import { DatabaseInitializer } from "@/components/database-initializer"
 import { isSupabaseAvailable, getSupabaseConnectionInfo } from "@/lib/supabase"
 import { logEvent } from "@/lib/error-logger"
+import { tSync } from "@/lib/log-i18n"
 import { ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -26,7 +27,7 @@ export default function DebugPage() {
     setTestResults(null)
 
     try {
-      logEvent("info", "Запуск теста соединения с Supabase", "DebugPage")
+      logEvent("info", tSync("logMessages.startConnectionTest"), "DebugPage")
 
       const startTime = Date.now()
       const isAvailable = await isSupabaseAvailable()
@@ -55,9 +56,9 @@ export default function DebugPage() {
       }
 
       setTestResults(results)
-      logEvent("info", `Тест соединения завершен: ${isAvailable ? "успешно" : "неудачно"}`, "DebugPage", results)
+      logEvent("info", isAvailable ? tSync("logMessages.connectionTestCompleted") : tSync("logMessages.connectionTestFailed"), "DebugPage", results)
     } catch (error: any) {
-      logEvent("error", "Ошибка при выполнении теста соединения", "DebugPage", error)
+      logEvent("error", tSync("logMessages.errorConnectionTest"), "DebugPage", error)
       setTestResults({ error: error?.message, stack: error?.stack })
     } finally {
       setIsLoading(false)

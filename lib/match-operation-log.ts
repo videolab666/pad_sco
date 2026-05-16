@@ -6,6 +6,7 @@
 // sync status, so the app can recover after a reload, crash or offline period.
 import { v4 as uuidv4 } from "uuid"
 import { logEvent } from "./error-logger"
+import { tSync } from "./log-i18n"
 import {
   SYNC_SCHEMA_VERSION,
   type MatchOperation,
@@ -40,7 +41,7 @@ export function isStorageAvailable(): boolean {
     storageAvailable = false
     if (!storageWarned) {
       storageWarned = true
-      logEvent("warn", "localStorage недоступен — синхронизация работает в ограниченном режиме", "match-operation-log")
+      logEvent("warn", tSync("logMessages.localStorageUnavailable"), "match-operation-log")
     }
   }
   return storageAvailable
@@ -107,12 +108,12 @@ export function loadSyncRecord(matchId: string, fallbackSnapshot: any = null): M
     if (!raw) return freshRecord(matchId, fallbackSnapshot)
     const parsed = JSON.parse(raw)
     if (!isValidRecord(parsed)) {
-      logEvent("warn", `Журнал операций повреждён или устарел: ${matchId}`, "match-operation-log")
+      logEvent("warn", tSync("logMessages.operationLogCorrupted", { id: matchId }), "match-operation-log")
       return freshRecord(matchId, fallbackSnapshot)
     }
     return parsed
   } catch (error) {
-    logEvent("warn", `Не удалось прочитать журнал операций: ${matchId}`, "match-operation-log", error)
+    logEvent("warn", tSync("logMessages.operationLogReadError", { id: matchId }), "match-operation-log", error)
     return freshRecord(matchId, fallbackSnapshot)
   }
 }
@@ -126,7 +127,7 @@ export function saveSyncRecord(record: MatchSyncRecord): void {
     localStorage.setItem(OPLOG_PREFIX + record.matchId, JSON.stringify(record))
   } catch (error) {
     // Quota exhaustion — surface it explicitly instead of pretending sync works.
-    logEvent("error", `Не удалось сохранить журнал операций (квота?): ${record.matchId}`, "match-operation-log", error)
+    logEvent("error", tSync("logMessages.operationLogSaveError", { id: record.matchId }), "match-operation-log", error)
     record.syncStatus = "limited"
   }
 }
@@ -269,7 +270,7 @@ export function listMatchesWithPendingOperations(): string[] {
         if (rec.queue.length > 0) ids.add(matchId)
       }
     } catch (error) {
-      logEvent("warn", "Не удалось перечислить журналы операций", "match-operation-log", error)
+      logEvent("warn", tSync("logMessages.operationLogListError"), "match-operation-log", error)
     }
   }
   return [...ids]

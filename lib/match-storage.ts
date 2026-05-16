@@ -2,6 +2,7 @@
 import { compressToUTF16, decompressFromUTF16 } from "lz-string"
 import { createClientSupabaseClient, checkAndEnableRealtime } from "./supabase"
 import { logEvent } from "./error-logger"
+import { tSync } from "./log-i18n"
 import { v4 as uuidv4 } from "uuid"
 import { syncMatchToServer, initSyncRecovery, reconcileServerSnapshot } from "./match-sync"
 import { clearSyncRecord } from "./match-operation-log"
@@ -47,7 +48,7 @@ const safeGetItem = (key: string, defaultValue: any = null) => {
         return JSON.parse(decompressed)
       }
     } catch (decompressError) {
-      logEvent("warn", `Ошибка при распаковке данных из localStorage: ${key}`, "safeGetItem", decompressError)
+      logEvent("warn", tSync("logMessages.errorDecompress", { key }), "safeGetItem", decompressError)
     }
 
     // Если не удалось распаковать или данные не валидны,
@@ -57,10 +58,10 @@ const safeGetItem = (key: string, defaultValue: any = null) => {
     }
 
     // Если все проверки не прошли, возвращаем значение по умолчанию
-    logEvent("warn", `Данные в localStorage повреждены: ${key}`, "safeGetItem")
+    logEvent("warn", tSync("logMessages.dataCorrupted", { key }), "safeGetItem")
     return defaultValue
   } catch (error) {
-    logEvent("error", `Ошибка при получении данных из localStorage: ${key}`, "safeGetItem", error)
+    logEvent("error", tSync("logMessages.errorGetLocal", { key }), "safeGetItem", error)
     return defaultValue
   }
 }
@@ -79,7 +80,7 @@ const safeSetItem = (key: string, value: any) => {
     localStorage.setItem(key, compressed)
     return true
   } catch (error) {
-    logEvent("error", `Ошибка при сохранении данных в localStorage: ${key}`, "safeSetItem", error)
+    logEvent("error", tSync("logMessages.errorSetLocal", { key }), "safeSetItem", error)
     return false
   }
 }
@@ -157,7 +158,7 @@ export const getMatches = async () => {
   if (typeof window === "undefined") return []
 
   try {
-    logEvent("info", "Получение списка матчей", "getMatches")
+    logEvent("info", tSync("logMessages.gettingMatches"), "getMatches")
 
     // Проверяем доступность Supabase
     const supabaseAvailable = await isSupabaseAvailable()
@@ -167,7 +168,7 @@ export const getMatches = async () => {
       const tablesStatus = await checkTablesExist()
 
       if (tablesStatus.exists) {
-        logEvent("debug", "Supabase доступен, получаем матчи из базы данных", "getMatches")
+        logEvent("debug", tSync("logMessages.supabaseAvailableGetting"), "getMatches")
         const supabase = createClientSupabaseClient()
 
         // Оптимизация: выбираем только нужные поля и увеличиваем лимит до 50 матчей
@@ -179,12 +180,12 @@ export const getMatches = async () => {
           .limit(50) // Увеличиваем лимит с 20 до 50
 
         if (error) {
-          logEvent("error", `Ошибка при получении матчей из Supabase: ${error.message}`, "getMatches", {
+          logEvent("error", tSync("logMessages.errorMatchFromSupabase", { error: error.message }), "getMatches", {
             error,
             status,
           })
         } else if (data && data.length > 0) {
-          logEvent("info", `Получено ${data.length} матчей из Supabase`, "getMatches")
+          logEvent("info", tSync("logMessages.restoredFromLocal", { count: data.length }), "getMatches")
 
           // Преобразуем данные из Supabase в нужный формат с проверкой на undefined
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -223,13 +224,13 @@ export const getMatches = async () => {
 
           return matches
         } else {
-          logEvent("info", "Матчи в Supabase не найдены", "getMatches")
+          logEvent("info", tSync("logMessages.matchesNotFoundInSupabase"), "getMatches")
         }
       } else {
-        logEvent("warn", "Таблицы в Supabase не существуют, используем локальное хранилище", "getMatches")
+        logEvent("warn", tSync("logMessages.tablesNotExistUseLocal"), "getMatches")
       }
     } else {
-      logEvent("warn", "Supabase недоступен, используем локальное хранилище", "getMatches")
+      logEvent("warn", tSync("logMessages.supabaseUnavailableUseLocal"), "getMatches")
     }
 
     // Если Supabase недоступен или нет матчей, используем локальное хранилище
@@ -242,15 +243,15 @@ export const getMatches = async () => {
       if (allMatches.length > 0) {
         // Сохраняем найденные матчи в основное хранилище для будущего использования
         safeSetItem("tennis_padel_matches", allMatches)
-        logEvent("info", `Восстановлено ${allMatches.length} матчей из localStorage`, "getMatches")
+        logEvent("info", tSync("logMessages.restoredFromLocal", { count: allMatches.length }), "getMatches")
         return allMatches
       }
     }
 
-    logEvent("info", `Получено ${matches.length} матчей из localStorage`, "getMatches")
+    logEvent("info", tSync("logMessages.gotFromLocal", { count: matches.length }), "getMatches")
     return matches || []
   } catch (error) {
-    logEvent("error", "Ошибка при получении матчей", "getMatches", error)
+    logEvent("error", tSync("logMessages.errorGettingMatches"), "getMatches", error)
     return []
   }
 }
@@ -327,7 +328,7 @@ const findAllMatchesInLocalStorage = () => {
             }
           }
         } catch (e) {
-          logEvent("warn", `Ошибка при обработке ключа ${key}`, "findAllMatchesInLocalStorage", e)
+          logEvent("warn", tSync("logMessages.errorProcessingKey", { key }), "findAllMatchesInLocalStorage", e)
         }
       }
     }
@@ -337,7 +338,7 @@ const findAllMatchesInLocalStorage = () => {
 
     return foundMatches
   } catch (error) {
-    logEvent("error", "Ошибка при поиске матчей в localStorage", "findAllMatchesInLocalStorage", error)
+    logEvent("error", tSync("logMessages.errorSearchLocal"), "findAllMatchesInLocalStorage", error)
     return []
   }
 }
@@ -347,14 +348,14 @@ export const getMatch = async (idOrCode: string) => {
   if (typeof window === "undefined") return null
 
   try {
-    logEvent("info", `Получение матча по ID/коду: ${idOrCode}`, "getMatch")
+    logEvent("info", tSync("logMessages.gettingMatchById", { id: idOrCode }), "getMatch")
 
     // Проверяем кэш
     if (matchCache.has(idOrCode)) {
       const { data, timestamp } = matchCache.get(idOrCode)
       // Если кэш не устарел
       if (Date.now() - timestamp < CACHE_TTL) {
-        logEvent("debug", `Матч ${idOrCode} получен из кэша`, "getMatch")
+        logEvent("debug", tSync("logMessages.matchFromCache", { id: idOrCode }), "getMatch")
         return data
       }
     }
@@ -367,7 +368,7 @@ export const getMatch = async (idOrCode: string) => {
       const tablesStatus = await checkTablesExist()
 
       if (tablesStatus.exists) {
-        logEvent("debug", "Supabase доступен, получаем матч из базы данных", "getMatch")
+        logEvent("debug", tSync("logMessages.supabaseAvailableGettingMatch"), "getMatch")
         const supabase = createClientSupabaseClient()
 
         // Проверяем, похоже ли idOrCode на UUID
@@ -378,13 +379,13 @@ export const getMatch = async (idOrCode: string) => {
           const { data, error, status } = await supabase.from("matches").select("*").eq("id", idOrCode).single()
 
           if (error) {
-            logEvent("error", `Ошибка при получении матча из Supabase: ${error.message}`, "getMatch", {
+            logEvent("error", tSync("logMessages.errorMatchFromSupabase", { error: error.message }), "getMatch", {
               error,
               status,
               matchIdOrCode: idOrCode,
             })
           } else if (data) {
-            logEvent("info", "Матч успешно получен из Supabase", "getMatch", { matchIdOrCode: idOrCode })
+            logEvent("info", tSync("logMessages.matchGotFromSupabase"), "getMatch", { matchIdOrCode: idOrCode })
             // Преобразуем данные из Supabase
             const match = transformMatchFromSupabase(data)
 
@@ -403,7 +404,7 @@ export const getMatch = async (idOrCode: string) => {
             // Убедимся, что структура матча полная
             if (!match.score.sets) {
               match.score.sets = []
-              logEvent("warn", "Инициализирован пустой массив sets для матча из Supabase", "getMatch", {
+              logEvent("warn", tSync("logMessages.initEmptySetsSupabase"), "getMatch", {
                 matchIdOrCode: idOrCode,
               })
             }
@@ -449,11 +450,11 @@ export const getMatch = async (idOrCode: string) => {
                     }
                   })
 
-                  logEvent("info", "Информация о странах игроков успешно загружена", "getMatch", {
+                  logEvent("info", tSync("logMessages.playerCountriesLoaded"), "getMatch", {
                     matchIdOrCode: idOrCode,
                   })
                 } else {
-                  logEvent("warn", "Не удалось загрузить информацию о странах игроков", "getMatch", {
+                  logEvent("warn", tSync("logMessages.playerCountriesLoadFailed"), "getMatch", {
                     matchIdOrCode: idOrCode,
                     error: playersError,
                   })
@@ -466,7 +467,7 @@ export const getMatch = async (idOrCode: string) => {
                 }
               }
             } catch (countryError) {
-              logEvent("error", "Ошибка при загрузке информации о странах игроков", "getMatch", {
+               logEvent("error", tSync("logMessages.playerCountriesError"), "getMatch", {
                 error: countryError,
                 matchIdOrCode: idOrCode,
               })
@@ -486,16 +487,16 @@ export const getMatch = async (idOrCode: string) => {
 
             return match
           } else {
-            logEvent("warn", "Матч не найден в Supabase", "getMatch", { matchIdOrCode: idOrCode })
+            logEvent("warn", tSync("logMessages.matchNotFoundSupabase"), "getMatch", { matchIdOrCode: idOrCode })
           }
         }
         // Если это не UUID, то это цифровой код, и мы не можем искать по нему в Supabase
         // Продолжаем поиск в локальном хранилище
       } else {
-        logEvent("warn", "Таблицы в Supabase не существуют, используем локальное хранилище", "getMatch")
+        logEvent("warn", tSync("logMessages.tablesNotExistUseLocal"), "getMatch")
       }
     } else {
-      logEvent("warn", "Supabase недоступен, используем локальное хранилище", "getMatch")
+      logEvent("warn", tSync("logMessages.supabaseUnavailableUseLocal"), "getMatch")
     }
 
     // Если Supabase недоступен или матч не найден, используем локальное хранилище
@@ -504,11 +505,11 @@ export const getMatch = async (idOrCode: string) => {
     const match = safeGetItem(singleMatchKey, null)
 
     if (match) {
-      logEvent("info", "Матч найден в локальном хранилище", "getMatch", { matchIdOrCode: idOrCode, source: "direct" })
+      logEvent("info", tSync("logMessages.matchFoundLocal"), "getMatch", { matchIdOrCode: idOrCode, source: "direct" })
       // Убедимся, что структура матча полная
       if (!match.score.sets) {
         match.score.sets = []
-        logEvent("warn", "Инициализирован пустой массив sets для матча из localStorage", "getMatch", {
+        logEvent("warn", tSync("logMessages.initEmptySetsLocal"), "getMatch", {
           matchIdOrCode: idOrCode,
         })
       }
@@ -534,14 +535,14 @@ export const getMatch = async (idOrCode: string) => {
     const foundMatch = matches.find((m: any) => m.id === idOrCode || m.code === idOrCode) || null
 
     if (foundMatch) {
-      logEvent("info", "Матч найден в общем списке локального хранилища", "getMatch", {
+      logEvent("info", tSync("logMessages.matchFoundInList"), "getMatch", {
         matchIdOrCode: idOrCode,
         source: "list",
       })
       // Убедимся, что структура матча полная
       if (!foundMatch.score.sets) {
         foundMatch.score.sets = []
-        logEvent("warn", "Инициализирован пустой массив sets для матча из списка", "getMatch", {
+        logEvent("warn", tSync("logMessages.initEmptySetsList"), "getMatch", {
           matchIdOrCode: idOrCode,
         })
       }
@@ -558,7 +559,7 @@ export const getMatch = async (idOrCode: string) => {
         matchCache.set(foundMatch.code, { data: foundMatch, timestamp: Date.now() })
       }
     } else {
-      logEvent("warn", "Матч не найден ни в Supabase, ни в локальном хранилище", "getMatch", {
+      logEvent("warn", tSync("logMessages.matchNotFoundAnywhere"), "getMatch", {
         matchIdOrCode: idOrCode,
       })
     }
@@ -566,7 +567,7 @@ export const getMatch = async (idOrCode: string) => {
     return foundMatch
   } catch (err) {
     const error = err as Error
-    logEvent("error", `Ошибка при получении матча: ${error.message}`, "getMatch", {
+    logEvent("error", tSync("logMessages.errorGettingMatch", { error: error.message }), "getMatch", {
       error: {
         name: error.name,
         message: error.message,
@@ -586,7 +587,7 @@ const cleanupStorage = () => {
 
     // Если матчей больше максимального количества, удаляем самые старые
     if (matches.length > MAX_MATCHES) {
-      logEvent("info", `Очистка локального хранилища: ${matches.length} матчей, лимит ${MAX_MATCHES}`, "cleanupStorage")
+      logEvent("info", tSync("logMessages.cleaningStorage", { count: matches.length, limit: MAX_MATCHES }), "cleanupStorage")
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       matches.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -605,13 +606,13 @@ const cleanupStorage = () => {
         if (match.code) {
           localStorage.removeItem(`match_${match.code}`)
         }
-        logEvent("debug", `Удален старый матч из localStorage: ${match.id}`, "cleanupStorage")
+        logEvent("debug", tSync("logMessages.deletedOldMatch", { id: match.id }), "cleanupStorage")
       })
     }
 
     return true
   } catch (error) {
-    logEvent("error", "Ошибка при очистке хранилища", "cleanupStorage", error)
+    logEvent("error", tSync("logMessages.errorCleaningStorage"), "cleanupStorage", error)
     return false
   }
 }
@@ -631,7 +632,7 @@ export const createMatch = async (match: any) => {
   if (typeof window === "undefined") return null
 
   try {
-    logEvent("info", "Создание нового матча", "createMatch", { matchId: match.id, type: match.type })
+    logEvent("info", tSync("logMessages.creatingMatch"), "createMatch", { matchId: match.id, type: match.type })
 
     // Инициализируем пустую историю
     match.history = []
@@ -639,7 +640,7 @@ export const createMatch = async (match: any) => {
     // Убедимся, что структура матча полная
     if (!match.score.sets) {
       match.score.sets = []
-      logEvent("debug", "Инициализирован пустой массив sets для нового матча", "createMatch")
+      logEvent("debug", tSync("logMessages.initEmptySetsNew"), "createMatch")
     }
 
     // Создаем новый матч с UUID для Supabase и цифровым кодом для пользователей
@@ -673,13 +674,13 @@ export const createMatch = async (match: any) => {
         // Проверяем и включаем Realtime
         await checkAndEnableRealtime()
 
-        logEvent("debug", "Supabase доступен, сохраняем матч в базу данных", "createMatch")
+        logEvent("debug", tSync("logMessages.supabaseAvailableSaving"), "createMatch")
         const supabase = createClientSupabaseClient()
         const transformedMatch = transformMatchForSupabase(newMatch)
         const { error, status, statusText } = await supabase.from("matches").insert(transformedMatch)
 
         if (error) {
-          logEvent("error", `Ошибка при сохранении матча в Supabase: ${error.message}`, "createMatch", {
+          logEvent("error", tSync("logMessages.errorSavingSupabase", { error: error.message }), "createMatch", {
             error,
             status,
             statusText,
@@ -689,7 +690,7 @@ export const createMatch = async (match: any) => {
           // Явный вывод ошибки в консоль для быстрой отладки
           console.error("Ошибка Supabase:", error, { status, statusText, transformedMatch });
         } else {
-          logEvent("info", "Матч успешно сохранен в Supabase", "createMatch", {
+          logEvent("info", tSync("logMessages.matchSavedSupabase"), "createMatch", {
             matchId: newMatch.id,
             matchCode: newMatch.code,
           })
@@ -699,10 +700,10 @@ export const createMatch = async (match: any) => {
           matchCache.set(newMatch.code, { data: newMatch, timestamp: Date.now() })
         }
       } else {
-        logEvent("warn", "Таблицы в Supabase не существуют, сохраняем только в локальное хранилище", "createMatch")
+        logEvent("warn", tSync("logMessages.tablesNotExistSaveLocal"), "createMatch")
       }
     } else {
-      logEvent("warn", "Supabase недоступен, сохраняем только в локальное хранилище", "createMatch")
+      logEvent("warn", tSync("logMessages.supabaseUnavailableSaveLocal"), "createMatch")
     }
 
     // Всегда сохраняем в локальное хранилище как резервную копию
@@ -745,7 +746,7 @@ export const createMatch = async (match: any) => {
     // Уведомляем другие вкладки об изменении
     window.dispatchEvent(new Event("storage"))
 
-    logEvent("info", "Матч успешно сохранен в локальное хранилище", "createMatch", {
+    logEvent("info", tSync("logMessages.matchSavedLocal"), "createMatch", {
       matchId: newMatch.id,
       matchCode: newMatch.code,
     })
@@ -754,7 +755,7 @@ export const createMatch = async (match: any) => {
     return newMatch.code
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err))
-    logEvent("error", `Ошибка при создании матча: ${error.message}`, "createMatch", {
+    logEvent("error", tSync("logMessages.errorCreatingMatch", { error: error.message }), "createMatch", {
       error: {
         name: error.name,
         message: error.message,
@@ -963,12 +964,12 @@ export const deleteMatch = async (idOrCode: string) => {
   if (typeof window === "undefined") return false
 
   try {
-    logEvent("info", `Удаление матча: ${idOrCode}`, "deleteMatch")
+    logEvent("info", tSync("logMessages.deletingMatch", { id: idOrCode }), "deleteMatch")
 
     // Получаем полную информацию о матче, чтобы иметь и ID, и код
     const match = await getMatch(idOrCode)
     if (!match) {
-      logEvent("warn", `Матч не найден для удаления: ${idOrCode}`, "deleteMatch")
+      logEvent("warn", tSync("logMessages.matchNotFoundForDelete", { id: idOrCode }), "deleteMatch")
       return false
     }
 
@@ -986,27 +987,27 @@ export const deleteMatch = async (idOrCode: string) => {
       const tablesStatus = await checkTablesExist()
 
       if (tablesStatus.exists) {
-        logEvent("debug", "Supabase доступен, удаляем матч из базы данных", "deleteMatch")
+        logEvent("debug", tSync("logMessages.supabaseAvailableDeleting"), "deleteMatch")
         const supabase = createClientSupabaseClient()
         const { error } = await supabase.from("matches").delete().eq("id", match.id)
 
         if (error) {
-          logEvent("error", `Ошибка при удалении матча из Supabase: ${error.message}`, "deleteMatch", {
+          logEvent("error", tSync("logMessages.errorDeletingSupabase", { error: error.message }), "deleteMatch", {
             error,
             matchId: match.id,
             matchCode: match.code,
           })
         } else {
-          logEvent("info", "Матч успешно удален из Supabase", "deleteMatch", {
+          logEvent("info", tSync("logMessages.matchDeletedSupabase"), "deleteMatch", {
             matchId: match.id,
             matchCode: match.code,
           })
         }
       } else {
-        logEvent("warn", "Таблицы в Supabase не существуют, удаляем только из локального хранилища", "deleteMatch")
+        logEvent("warn", tSync("logMessages.tablesNotExistDeleteLocal"), "deleteMatch")
       }
     } else {
-      logEvent("warn", "Supabase недоступен, удаляем только из локального хранилища", "deleteMatch")
+      logEvent("warn", tSync("logMessages.supabaseUnavailableDeleteLocal"), "deleteMatch")
     }
 
     // Удаляем отдельные записи матча из локального хранилища
@@ -1028,14 +1029,14 @@ export const deleteMatch = async (idOrCode: string) => {
     // Уведомляем другие вкладки об изменении
     window.dispatchEvent(new Event("storage"))
 
-    logEvent("info", "Матч успешно удален из локального хранилища", "deleteMatch", {
+    logEvent("info", tSync("logMessages.matchDeletedLocal"), "deleteMatch", {
       matchId: match.id,
       matchCode: match.code,
     })
     return true
   } catch (err) {
     const error = err as Error
-    logEvent("error", `Ошибка при удалении матча: ${error.message}`, "deleteMatch", {
+    logEvent("error", tSync("logMessages.errorDeletingMatch", { error: error.message }), "deleteMatch", {
       error: {
         name: error.name,
         message: error.message,
@@ -1067,7 +1068,7 @@ export const subscribeToMatchUpdates = (idOrCode: string, callback: any) => {
         // Сначала получаем полную информацию о матче, чтобы иметь ID для подписки
         const match = await getMatch(idOrCode)
         if (!match) {
-          logEvent("warn", `Матч не найден для подписки: ${idOrCode}`, "subscribeToMatchUpdates")
+          logEvent("warn", tSync("logMessages.matchNotFoundForSubscribe", { id: idOrCode }), "subscribeToMatchUpdates")
           setupLocalSubscription()
           return
         }
@@ -1089,7 +1090,7 @@ export const subscribeToMatchUpdates = (idOrCode: string, callback: any) => {
             },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             async (payload: any) => {
-              logEvent("debug", `Получено событие Supabase для матча ${matchId}`, "subscribeToMatchUpdates", payload)
+              logEvent("debug", tSync("logMessages.supabaseEventReceived", { id: matchId }), "subscribeToMatchUpdates", payload)
 
               if (payload.eventType === "DELETE") {
                 // Если матч был удален
@@ -1118,20 +1119,20 @@ export const subscribeToMatchUpdates = (idOrCode: string, callback: any) => {
           )
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .subscribe((status: any) => {
-            logEvent("info", `Статус подписки на матч ${matchId}: ${status}`, "subscribeToMatchUpdates")
+            logEvent("info", tSync("logMessages.subscribeStatus", { id: matchId, status }), "subscribeToMatchUpdates")
           })
 
         // Сохраняем функцию отписки
         unsubscribe = () => {
-          logEvent("info", `Отписка от обновлений матча ${matchId}`, "subscribeToMatchUpdates")
+          logEvent("info", tSync("logMessages.unsubscribeMatch", { id: matchId }), "subscribeToMatchUpdates")
           supabase.removeChannel(channel)
         }
       } else {
-        logEvent("warn", "Таблицы в Supabase не существуют, используем локальную подписку", "subscribeToMatchUpdates")
+        logEvent("warn", tSync("logMessages.tablesNotExistLocalSubscribe"), "subscribeToMatchUpdates")
         setupLocalSubscription()
       }
     } else {
-      logEvent("warn", "Supabase недоступен, используем локальную подписку", "subscribeToMatchUpdates")
+      logEvent("warn", tSync("logMessages.supabaseUnavailableLocalSubscribe"), "subscribeToMatchUpdates")
       setupLocalSubscription()
     }
   })
@@ -1211,12 +1212,12 @@ export const subscribeToMatchesListUpdates = (callback: any) => {
       } else {
         logEvent(
           "warn",
-          "Таблицы в Supabase не существуют, используем локальную подписку",
+          tSync("logMessages.tablesNotExistLocalSubscribe"),
           "subscribeToMatchesListUpdates",
         )
       }
     } else {
-      logEvent("warn", "Supabase недоступен, используем локальную подписку", "subscribeToMatchesListUpdates")
+      logEvent("warn", tSync("logMessages.supabaseUnavailableLocalSubscribe"), "subscribeToMatchesListUpdates")
     }
 
     // Если Supabase недоступен или таблицы не существуют, настраиваем локальную подписку через событие storage
@@ -1263,7 +1264,7 @@ export const exportMatchToJson = async (idOrCode: string) => {
     return JSON.stringify(exportMatch)
   } catch (err) {
     const error = err as Error
-    logEvent("error", `Ошибка при экспорте матча: ${error.message}`, "exportMatchToJson", error)
+    logEvent("error", tSync("logMessages.errorExportingMatch", { error: error.message }), "exportMatchToJson", error)
     return null
   }
 }
@@ -1300,7 +1301,7 @@ export const importMatchFromJson = async (jsonData: string) => {
     return match.code || match.id
   } catch (err) {
     const error = err as Error
-    logEvent("error", `Ошибка при импорте матча: ${error.message}`, "importMatchFromJson", error)
+    logEvent("error", tSync("logMessages.errorImportingMatch", { error: error.message }), "importMatchFromJson", error)
     return false
   }
 }
@@ -1311,13 +1312,13 @@ export async function getAllMatches() {
   if (typeof window === "undefined") return []
 
   try {
-    logEvent("info", "Получение всех матчей для истории", "getAllMatches")
+    logEvent("info", tSync("logMessages.gettingAllMatches"), "getAllMatches")
 
     // Сначала пробуем получить матчи через основную функцию getMatches
     const matches = await getMatches()
 
     if (matches && matches.length > 0) {
-      logEvent("info", `Получено ${matches.length} матчей через getMatches`, "getAllMatches")
+      logEvent("info", tSync("logMessages.gotFromLocal", { count: matches.length }), "getAllMatches")
 
       // Преобразуем формат данных для совместимости с компонентом истории
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1349,18 +1350,18 @@ export async function getAllMatches() {
         try {
           const parsedMatches = JSON.parse(savedMatches)
           if (Array.isArray(parsedMatches) && parsedMatches.length > 0) {
-            logEvent("info", `Получено ${parsedMatches.length} матчей из localStorage по ключу ${key}`, "getAllMatches")
+            logEvent("info", tSync("logMessages.gotFromLocal", { count: parsedMatches.length }), "getAllMatches")
             return parsedMatches
           }
         } catch (e) {
-          logEvent("warn", `Ошибка при парсинге матчей из localStorage по ключу ${key}`, "getAllMatches", e)
+          logEvent("warn", tSync("logMessages.errorProcessingKey", { key }), "getAllMatches", e)
         }
       }
     }
 
     // Если ничего не нашли, проверяем все ключи в localStorage на наличие матчей
     if (typeof localStorage !== "undefined") {
-      logEvent("debug", "Поиск матчей по всем ключам localStorage", "getAllMatches")
+      logEvent("debug", tSync("logMessages.errorSearchLocal"), "getAllMatches")
 
       // Создаем временный массив для хранения найденных матчей
       const foundMatches = []
@@ -1426,22 +1427,22 @@ export async function getAllMatches() {
               }
             }
           } catch (e) {
-            logEvent("warn", `Ошибка при обработке ключа ${key}`, "getAllMatches", e)
+            logEvent("warn", tSync("logMessages.errorProcessingKey", { key }), "getAllMatches", e)
           }
         }
       }
 
       if (foundMatches.length > 0) {
-        logEvent("info", `Найдено ${foundMatches.length} матчей при сканировании localStorage`, "getAllMatches")
+        logEvent("info", tSync("logMessages.restoredFromLocal", { count: foundMatches.length }), "getAllMatches")
         return foundMatches
       }
     }
 
     // Если ничего не нашли, возвращаем пустой массив
-    logEvent("warn", "Не удалось найти матчи в localStorage", "getAllMatches")
+    logEvent("warn", tSync("logMessages.errorSearchLocal"), "getAllMatches")
     return []
   } catch (error) {
-    logEvent("error", "Ошибка при получении всех матчей", "getAllMatches", error)
+    logEvent("error", tSync("logMessages.errorGettingMatches"), "getAllMatches", error)
     return []
   }
 }
@@ -1454,17 +1455,17 @@ export const isSupabaseAvailable = async () => {
       return supabaseAvailabilityCache.available
     }
 
-    logEvent("info", "Проверка доступности Supabase", "isSupabaseAvailable")
+    logEvent("info", tSync("logMessages.checkingAvailability"), "isSupabaseAvailable")
 
     const supabase = createClientSupabaseClient()
     if (!supabase) {
-      logEvent("error", "Клиент Supabase не создан", "isSupabaseAvailable")
+      logEvent("error", tSync("logMessages.errorCreatingClient"), "isSupabaseAvailable")
       supabaseAvailabilityCache = { available: false, timestamp: Date.now() }
       return false
     }
 
     // Проверяем соединение с Supabase, используя простой запрос
-    logEvent("debug", "Выполнение тестового запроса к Supabase", "isSupabaseAvailable")
+    logEvent("debug", tSync("logMessages.runningTestQuery"), "isSupabaseAvailable")
     const startTime = Date.now()
 
     // Используем простой запрос к системной информации
@@ -1476,7 +1477,7 @@ export const isSupabaseAvailable = async () => {
     // Если получили ошибку о том, что таблица не существует - это нормально,
     // главное что соединение работает
     if (error && !error.message.includes("does not exist")) {
-      logEvent("error", `Ошибка при проверке доступности Supabase: ${error.message}`, "isSupabaseAvailable", {
+      logEvent("error", tSync("logMessages.errorCheckingAvailability", { error: error.message }), "isSupabaseAvailable", {
         error,
         responseTime,
       })
@@ -1484,7 +1485,7 @@ export const isSupabaseAvailable = async () => {
       return false
     }
 
-    logEvent("info", "Supabase доступен", "isSupabaseAvailable", {
+    logEvent("info", tSync("logMessages.supabaseAvailable"), "isSupabaseAvailable", {
       responseTime,
       error: error?.message,
     })
@@ -1492,7 +1493,7 @@ export const isSupabaseAvailable = async () => {
     return true
   } catch (err) {
     const error = err as Error
-    logEvent("error", "Исключение при проверке доступности Supabase", "isSupabaseAvailable", {
+    logEvent("error", tSync("logMessages.exceptionCheckingAvailability"), "isSupabaseAvailable", {
       error: {
         name: error.name,
         message: error.message,
@@ -1536,12 +1537,12 @@ export const checkTablesExist = async () => {
     const playersExists = !playersError || (playersError && !playersError.message.includes("does not exist"))
 
     if (!matchesExists || !playersExists) {
-      logEvent("warn", "Таблицы в базе данных не существуют (проверка через прямые запросы)", "checkTablesExist", {
+      logEvent("warn", tSync("logMessages.tablesNotExistDirect"), "checkTablesExist", {
         matchesError,
         playersError,
       })
     } else {
-      logEvent("info", "Таблицы в базе данных существуют", "checkTablesExist", {
+      logEvent("info", tSync("logMessages.tablesExist"), "checkTablesExist", {
         matchesCount: matchesData?.length || 0,
         playersCount: playersData?.length || 0,
       })
@@ -1561,7 +1562,7 @@ export const checkTablesExist = async () => {
     return result
   } catch (err) {
     const error = err as Error
-    logEvent("error", "Ошибка при проверке существования таблиц", "checkTablesExist", error)
+    logEvent("error", tSync("logMessages.errorCheckTables"), "checkTablesExist", error)
     return { exists: false, error: error.message }
   }
 }

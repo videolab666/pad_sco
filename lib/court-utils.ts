@@ -2,6 +2,7 @@ import { createClientSupabaseClient } from "./supabase"
 import { logEvent } from "./error-logger"
 import { getMatch } from "./match-storage"
 import { getTennisPointName } from "./tennis-utils"
+import { tSync } from "./log-i18n"
 
 export const MAX_COURTS = 10
 
@@ -50,19 +51,19 @@ export const formatVmixData = (match: any) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const getMatchByCourtNumber = async (courtNumber: any) => {
   try {
-    logEvent("info", `Получение матча по номеру корта: ${courtNumber}`, "getMatchByCourtNumber")
+    logEvent("info", tSync("logMessages.gettingMatchByCourt", { court: courtNumber }), "getMatchByCourtNumber")
 
     // Проверяем, что номер корта - число
     const courtNum = Number.parseInt(courtNumber)
     if (isNaN(courtNum)) {
-      logEvent("error", "Некорректный номер корта", "getMatchByCourtNumber", { courtNumber })
+      logEvent("error", tSync("logMessages.invalidCourtNumber"), "getMatchByCourtNumber", { courtNumber })
       return null
     }
 
     // Создаем клиент Supabase
     const supabase = createClientSupabaseClient()
     if (!supabase) {
-      logEvent("error", "Не удалось создать клиент Supabase", "getMatchByCourtNumber")
+      logEvent("error", tSync("logMessages.failedCreateClient"), "getMatchByCourtNumber")
       return null
     }
 
@@ -85,7 +86,7 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
       clearTimeout(timeoutId)
 
       if (error) {
-        logEvent("error", `Ошибка при получении матча из Supabase: ${error.message}`, "getMatchByCourtNumber", {
+        logEvent("error", tSync("logMessages.errorMatchFromSupabase", { error: error.message }), "getMatchByCourtNumber", {
           error,
           courtNumber,
         })
@@ -94,7 +95,7 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
 
       // Если активный матч не найден, пытаемся получить последний завершенный матч
       if (!data) {
-        logEvent("info", `Активный матч на корте ${courtNumber} не найден, ищем завершенный`, "getMatchByCourtNumber")
+        logEvent("info", tSync("logMessages.activeMatchNotFoundSeekCompleted", { court: courtNumber }), "getMatchByCourtNumber")
 
         const controller2 = new AbortController()
         const timeoutId2 = setTimeout(() => controller2.abort(), 5000) // 5 секунд таймаут
@@ -114,7 +115,7 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
         if (completedError) {
           logEvent(
             "error",
-            `Ошибка при получении завершенного матча: ${completedError.message}`,
+            tSync("logMessages.errorCompletedMatch", { error: completedError.message }),
             "getMatchByCourtNumber",
             {
               error: completedError,
@@ -125,7 +126,7 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
         }
 
         if (!completedData) {
-          logEvent("warn", "Матч не найден в Supabase (ни активный, ни завершенный)", "getMatchByCourtNumber", {
+          logEvent("warn", tSync("logMessages.matchNotFoundActiveOrCompleted"), "getMatchByCourtNumber", {
             courtNumber,
           })
           return null
@@ -154,13 +155,13 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
         // Убедимся, что структура матча полная
         if (!completedMatch.score.sets) {
           completedMatch.score.sets = []
-          logEvent("warn", "Инициализирован пустой массив sets для завершенного матча", "getMatchByCourtNumber", {
+          logEvent("warn", tSync("logMessages.initEmptySetsCompleted"), "getMatchByCourtNumber", {
             matchId: completedData.id,
             courtNumber,
           })
         }
 
-        logEvent("info", "Получен завершенный матч по номеру корта", "getMatchByCourtNumber", {
+        logEvent("info", tSync("logMessages.gotCompletedMatchByCourt"), "getMatchByCourtNumber", {
           matchId: completedData.id,
           courtNumber,
         })
@@ -191,13 +192,13 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
       // Убедимся, что структура матча полная
       if (!match.score.sets) {
         match.score.sets = []
-        logEvent("warn", "Инициализирован пустой массив sets для матча из Supabase", "getMatchByCourtNumber", {
+        logEvent("warn", tSync("logMessages.initEmptySetsSupabase"), "getMatchByCourtNumber", {
           matchId: data.id,
           courtNumber,
         })
       }
 
-      logEvent("info", "Матч успешно получен по номеру корта", "getMatchByCourtNumber", {
+      logEvent("info", tSync("logMessages.gotMatchByCourt"), "getMatchByCourtNumber", {
         matchId: data.id,
         courtNumber,
       })
@@ -206,9 +207,9 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
     } catch (err) {
       const fetchError = err as Error
       if (fetchError.name === "AbortError") {
-        logEvent("error", "Таймаут при получении матча по номеру корта", "getMatchByCourtNumber", { courtNumber })
+        logEvent("error", tSync("logMessages.timeoutGetMatchByCourt"), "getMatchByCourtNumber", { courtNumber })
       } else {
-        logEvent("error", `Ошибка при запросе к Supabase: ${fetchError.message}`, "getMatchByCourtNumber", {
+        logEvent("error", tSync("logMessages.supabaseQueryError", { error: fetchError.message }), "getMatchByCourtNumber", {
           error: fetchError,
           courtNumber,
         })
@@ -217,7 +218,7 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
     }
   } catch (err) {
     const error = err as Error
-    logEvent("error", `Ошибка при получении матча по номеру корта: ${error.message}`, "getMatchByCourtNumber", {
+    logEvent("error", tSync("logMessages.errorGetMatchByCourt", { error: error.message }), "getMatchByCourtNumber", {
       error: {
         name: error.name,
         message: error.message,
@@ -232,12 +233,12 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
 // Получение списка занятых кортов
 export const getOccupiedCourts = async () => {
   try {
-    logEvent("info", "Получение списка занятых кортов", "getOccupiedCourts")
+    logEvent("info", tSync("logMessages.gettingOccupiedCourts"), "getOccupiedCourts")
 
     // Создаем клиент Supabase
     const supabase = createClientSupabaseClient()
     if (!supabase) {
-      logEvent("error", "Не удалось создать клиент Supabase", "getOccupiedCourts")
+      logEvent("error", tSync("logMessages.failedCreateClient"), "getOccupiedCourts")
       return []
     }
 
@@ -256,14 +257,14 @@ export const getOccupiedCourts = async () => {
       clearTimeout(timeoutId)
 
       if (error) {
-        logEvent("error", `Ошибка при получении списка занятых кортов: ${error.message}`, "getOccupiedCourts", {
+        logEvent("error", tSync("logMessages.errorOccupiedCourts", { error: error.message }), "getOccupiedCourts", {
           error,
         })
         return []
       }
 
       if (!data || data.length === 0) {
-        logEvent("info", "Нет активных матчей на кортах", "getOccupiedCourts")
+        logEvent("info", tSync("logMessages.noActiveMatchesOnCourts"), "getOccupiedCourts")
         return []
       }
 
@@ -271,14 +272,14 @@ export const getOccupiedCourts = async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const occupiedCourts = data.map((match: any) => match.court_number)
 
-      logEvent("info", `Получено ${occupiedCourts.length} занятых кортов`, "getOccupiedCourts")
+      logEvent("info", tSync("logMessages.gotOccupiedCourts", { count: occupiedCourts.length }), "getOccupiedCourts")
       return occupiedCourts
     } catch (err) {
       const fetchError = err as Error
       if (fetchError.name === "AbortError") {
-        logEvent("error", "Таймаут при получении списка занятых кортов", "getOccupiedCourts")
+        logEvent("error", tSync("logMessages.timeoutOccupiedCourts"), "getOccupiedCourts")
       } else {
-        logEvent("error", `Ошибка при запросе к Supabase: ${fetchError.message}`, "getOccupiedCourts", {
+        logEvent("error", tSync("logMessages.supabaseQueryError", { error: fetchError.message }), "getOccupiedCourts", {
           error: fetchError,
         })
       }
@@ -286,7 +287,7 @@ export const getOccupiedCourts = async () => {
     }
   } catch (err) {
     const error = err as Error
-    logEvent("error", `Ошибка при получении списка занятых кортов: ${error.message}`, "getOccupiedCourts", {
+    logEvent("error", tSync("logMessages.errorOccupiedCourts", { error: error.message }), "getOccupiedCourts", {
       error: {
         name: error.name,
         message: error.message,
@@ -307,7 +308,7 @@ export const getFreeCourts = async (totalCourts = 10) => {
     try {
       occupiedCourts = await getOccupiedCourts()
     } catch (error) {
-      logEvent("warn", "Не удалось получить занятые корты из Supabase, используем локальные данные", "getFreeCourts", {
+      logEvent("warn", tSync("logMessages.failedOccupiedUseLocal"), "getFreeCourts", {
         error,
       })
 
@@ -321,7 +322,7 @@ export const getFreeCourts = async (totalCourts = 10) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           occupiedCourts = activeMatches.map((match: any) => match.courtNumber)
         } catch (localError) {
-          logEvent("error", "Ошибка при получении локальных данных о кортах", "getFreeCourts", { error: localError })
+          logEvent("error", tSync("logMessages.errorLocalCourts"), "getFreeCourts", { error: localError })
         }
       }
     }
@@ -335,11 +336,11 @@ export const getFreeCourts = async (totalCourts = 10) => {
     // Фильтруем свободные корты
     const freeCourts = allCourts.filter((courtNumber) => !occupiedCourtNumbers.includes(courtNumber))
 
-    logEvent("info", `Получено ${freeCourts.length} свободных кортов`, "getFreeCourts")
+    logEvent("info", tSync("logMessages.gotFreeCourts", { count: freeCourts.length }), "getFreeCourts")
     return freeCourts
   } catch (err) {
     const error = err as Error
-    logEvent("error", `Ошибка при получении списка свободных кортов: ${error.message}`, "getFreeCourts", {
+    logEvent("error", tSync("logMessages.errorFreeCourts", { error: error.message }), "getFreeCourts", {
       error: {
         name: error.name,
         message: error.message,
@@ -383,12 +384,12 @@ export const isCourtAvailable = async (courtNumber: any) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const assignMatchToCourt = async (matchId: any, courtNumber: any) => {
   try {
-    logEvent("info", `Назначение матча ${matchId} на корт ${courtNumber}`, "assignMatchToCourt")
+    logEvent("info", tSync("logMessages.assigningMatchToCourt", { matchId, court: courtNumber }), "assignMatchToCourt")
 
     // Получаем текущий матч
     const match = await getMatch(matchId)
     if (!match) {
-      logEvent("error", "Матч не найден", "assignMatchToCourt", { matchId })
+      logEvent("error", tSync("logMessages.matchNotFound"), "assignMatchToCourt", { matchId })
       return false
     }
 
@@ -398,7 +399,7 @@ export const assignMatchToCourt = async (matchId: any, courtNumber: any) => {
     // Сохраняем обновленный матч
     const supabase = createClientSupabaseClient()
     if (!supabase) {
-      logEvent("error", "Не удалось создать клиент Supabase", "assignMatchToCourt")
+      logEvent("error", tSync("logMessages.failedCreateClient"), "assignMatchToCourt")
       return false
     }
 
@@ -416,7 +417,7 @@ export const assignMatchToCourt = async (matchId: any, courtNumber: any) => {
       clearTimeout(timeoutId)
 
       if (error) {
-        logEvent("error", `Ошибка при назначении матча на корт: ${error.message}`, "assignMatchToCourt", {
+        logEvent("error", tSync("logMessages.errorAssigningCourt", { error: error.message }), "assignMatchToCourt", {
           error,
           matchId,
           courtNumber,
@@ -424,14 +425,14 @@ export const assignMatchToCourt = async (matchId: any, courtNumber: any) => {
         return false
       }
 
-      logEvent("info", `Матч ${matchId} успешно назначен на корт ${courtNumber}`, "assignMatchToCourt")
+      logEvent("info", tSync("logMessages.matchAssignedToCourt", { matchId, court: courtNumber }), "assignMatchToCourt")
       return true
     } catch (err) {
       const fetchError = err as Error
       if (fetchError.name === "AbortError") {
-        logEvent("error", "Таймаут при назначении матча на корт", "assignMatchToCourt")
+        logEvent("error", tSync("logMessages.timeoutAssigningCourt"), "assignMatchToCourt")
       } else {
-        logEvent("error", `Ошибка при запросе к Supabase: ${fetchError.message}`, "assignMatchToCourt", {
+        logEvent("error", tSync("logMessages.supabaseQueryError", { error: fetchError.message }), "assignMatchToCourt", {
           error: fetchError,
           matchId,
           courtNumber,
@@ -441,7 +442,7 @@ export const assignMatchToCourt = async (matchId: any, courtNumber: any) => {
     }
   } catch (err) {
     const error = err as Error
-    logEvent("error", `Ошибка при назначении матча на корт: ${error.message}`, "assignMatchToCourt", {
+    logEvent("error", tSync("logMessages.errorAssigningCourt", { error: error.message }), "assignMatchToCourt", {
       error: {
         name: error.name,
         message: error.message,
@@ -458,19 +459,19 @@ export const assignMatchToCourt = async (matchId: any, courtNumber: any) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const freeUpCourt = async (courtNumber: any) => {
   try {
-    logEvent("info", `Освобождение корта ${courtNumber}`, "freeUpCourt")
+    logEvent("info", tSync("logMessages.freeingCourt", { court: courtNumber }), "freeUpCourt")
 
     // Получаем матч на этом корте
     const match = await getMatchByCourtNumber(courtNumber)
     if (!match) {
-      logEvent("warn", "Матч на корте не найден", "freeUpCourt", { courtNumber })
+      logEvent("warn", tSync("logMessages.matchOnCourtNotFound"), "freeUpCourt", { courtNumber })
       return false
     }
 
     // Обновляем матч, убирая номер корта
     const supabase = createClientSupabaseClient()
     if (!supabase) {
-      logEvent("error", "Не удалось создать клиент Supabase", "freeUpCourt")
+      logEvent("error", tSync("logMessages.failedCreateClient"), "freeUpCourt")
       return false
     }
 
@@ -488,7 +489,7 @@ export const freeUpCourt = async (courtNumber: any) => {
       clearTimeout(timeoutId)
 
       if (error) {
-        logEvent("error", `Ошибка при освобождении корта: ${error.message}`, "freeUpCourt", {
+        logEvent("error", tSync("logMessages.errorFreeingCourt", { error: error.message }), "freeUpCourt", {
           error,
           courtNumber,
           matchId: match.id,
@@ -496,14 +497,14 @@ export const freeUpCourt = async (courtNumber: any) => {
         return false
       }
 
-      logEvent("info", `Корт ${courtNumber} успешно освобожден`, "freeUpCourt")
+      logEvent("info", tSync("logMessages.courtFreed", { court: courtNumber }), "freeUpCourt")
       return true
     } catch (err) {
       const fetchError = err as Error
       if (fetchError.name === "AbortError") {
-        logEvent("error", "Таймаут при освобождении корта", "freeUpCourt")
+        logEvent("error", tSync("logMessages.timeoutFreeingCourt"), "freeUpCourt")
       } else {
-        logEvent("error", `Ошибка при запросе к Supabase: ${fetchError.message}`, "freeUpCourt", {
+        logEvent("error", tSync("logMessages.supabaseQueryError", { error: fetchError.message }), "freeUpCourt", {
           error: fetchError,
           courtNumber,
           matchId: match.id,
@@ -513,7 +514,7 @@ export const freeUpCourt = async (courtNumber: any) => {
     }
   } catch (err) {
     const error = err as Error
-    logEvent("error", `Ошибка при освобождении корта: ${error.message}`, "freeUpCourt", {
+    logEvent("error", tSync("logMessages.errorFreeingCourt", { error: error.message }), "freeUpCourt", {
       error: {
         name: error.name,
         message: error.message,

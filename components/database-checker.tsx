@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Loader2, Database, AlertCircle, CheckCircle } from "lucide-react"
 import { checkTablesExist, checkTablesContent } from "@/lib/supabase"
 import { logEvent } from "@/lib/error-logger"
+import { tSync } from "@/lib/log-i18n"
 import { useLanguage } from "@/contexts/language-context"
 
 export function DatabaseChecker() {
@@ -22,15 +23,15 @@ export function DatabaseChecker() {
     try {
       const status = await checkTablesExist()
       setTablesStatus(status)
-      logEvent("info", "Проверка существования таблиц", "DatabaseChecker", status)
+      logEvent("info", tSync("logMessages.checkingTablesExist"), "DatabaseChecker", status)
 
       if (status.exists) {
         const content = await checkTablesContent()
         setTablesContent(content)
-        logEvent("info", "Проверка содержимого таблиц", "DatabaseChecker", content)
+        logEvent("info", tSync("logMessages.checkingTablesContent"), "DatabaseChecker", content)
       }
     } catch (error: any) {
-      logEvent("error", "Ошибка при проверке базы данных", "DatabaseChecker", error)
+      logEvent("error", tSync("logMessages.errorCheckTables"), "DatabaseChecker", error)
     } finally {
       setIsChecking(false)
     }

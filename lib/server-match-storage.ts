@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "./supabase"
 import { logEvent } from "./error-logger"
+import { tSync } from "./log-i18n"
 
 // Обновим функцию transformMatchFromSupabase, добавив поле courtNumber
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,7 +28,7 @@ const transformMatchFromSupabase = (match: any) => {
 // Получение конкретного матча по ID (серверная версия)
 export const getMatchFromServer = async (id: string) => {
   try {
-    logEvent("info", `Получение матча по ID (сервер): ${id}`, "getMatchFromServer")
+    logEvent("info", tSync("logMessages.gettingMatchServer", { id }), "getMatchFromServer")
 
     // Серверный клиент с service-role ключом (без cookie/auth-helpers).
     const supabase = createServerSupabaseClient()
@@ -36,7 +37,7 @@ export const getMatchFromServer = async (id: string) => {
     const { data, error, status } = await supabase.from("matches").select("*").eq("id", id).single()
 
     if (error) {
-      logEvent("error", `Ошибка при получении матча из Supabase: ${error.message}`, "getMatchFromServer", {
+      logEvent("error", tSync("logMessages.errorMatchFromSupabase", { error: error.message }), "getMatchFromServer", {
         error,
         status,
         matchId: id,
@@ -45,11 +46,11 @@ export const getMatchFromServer = async (id: string) => {
     }
 
     if (!data) {
-      logEvent("warn", "Матч не найден в Supabase", "getMatchFromServer", { matchId: id })
+      logEvent("warn", tSync("logMessages.matchNotFoundSupabase"), "getMatchFromServer", { matchId: id })
       return null
     }
 
-    logEvent("info", "Матч успешно получен из Supabase (сервер)", "getMatchFromServer", { matchId: id })
+    logEvent("info", tSync("logMessages.matchGotServer"), "getMatchFromServer", { matchId: id })
 
     // Преобразуем данные из Supabase
     const match = transformMatchFromSupabase(data)
@@ -57,7 +58,7 @@ export const getMatchFromServer = async (id: string) => {
     // Убедимся, что структура матча полная
     if (!match.score.sets) {
       match.score.sets = []
-      logEvent("warn", "Инициализирован пустой массив sets для матча из Supabase", "getMatchFromServer", {
+      logEvent("warn", tSync("logMessages.initEmptySetsSupabase"), "getMatchFromServer", {
         matchId: id,
       })
     }
@@ -65,7 +66,7 @@ export const getMatchFromServer = async (id: string) => {
     return match
   } catch (err) {
     const error = err as Error
-    logEvent("error", `Ошибка при получении матча (сервер): ${error.message}`, "getMatchFromServer", {
+    logEvent("error", tSync("logMessages.errorGettingMatch", { error: error.message }), "getMatchFromServer", {
       error: {
         name: error.name,
         message: error.message,
@@ -80,7 +81,7 @@ export const getMatchFromServer = async (id: string) => {
 // Изменим функцию getMatchFromServerByCourtNumber, чтобы она возвращала и завершенные матчи
 export const getMatchFromServerByCourtNumber = async (courtNumber: number) => {
   try {
-    logEvent("info", `Получение матча по номеру корта (сервер): ${courtNumber}`, "getMatchFromServerByCourtNumber")
+    logEvent("info", tSync("logMessages.gettingMatchByCourtServer", { court: courtNumber }), "getMatchFromServerByCourtNumber")
 
     // Серверный клиент с service-role ключом (без cookie/auth-helpers).
     const supabase = createServerSupabaseClient()
@@ -118,7 +119,7 @@ export const getMatchFromServerByCourtNumber = async (courtNumber: number) => {
     }
 
     if (error) {
-      logEvent("error", `Ошибка при получении матча из Supabase: ${error.message}`, "getMatchFromServerByCourtNumber", {
+      logEvent("error", tSync("logMessages.errorMatchFromSupabase", { error: error.message }), "getMatchFromServerByCourtNumber", {
         error,
         status,
         courtNumber,
@@ -127,11 +128,11 @@ export const getMatchFromServerByCourtNumber = async (courtNumber: number) => {
     }
 
     if (!data) {
-      logEvent("warn", "Матч не найден в Supabase", "getMatchFromServerByCourtNumber", { courtNumber })
+      logEvent("warn", tSync("logMessages.matchNotFoundSupabase"), "getMatchFromServerByCourtNumber", { courtNumber })
       return null
     }
 
-    logEvent("info", "Матч успешно получен из Supabase (сервер)", "getMatchFromServerByCourtNumber", {
+    logEvent("info", tSync("logMessages.matchGotByCourtServer"), "getMatchFromServerByCourtNumber", {
       matchId: data.id,
       courtNumber,
       isCompleted: data.is_completed,
@@ -143,7 +144,7 @@ export const getMatchFromServerByCourtNumber = async (courtNumber: number) => {
     // Убедимся, что структура матча полная
     if (!match.score.sets) {
       match.score.sets = []
-      logEvent("warn", "Инициализирован пустой массив sets для матча из Supabase", "getMatchFromServerByCourtNumber", {
+      logEvent("warn", tSync("logMessages.initEmptySetsSupabase"), "getMatchFromServerByCourtNumber", {
         matchId: data.id,
         courtNumber,
       })
@@ -152,7 +153,7 @@ export const getMatchFromServerByCourtNumber = async (courtNumber: number) => {
     return match
   } catch (err) {
     const error = err as Error
-    logEvent("error", `Ошибка при получении матча (сервер): ${error.message}`, "getMatchFromServerByCourtNumber", {
+    logEvent("error", tSync("logMessages.errorGettingMatch", { error: error.message }), "getMatchFromServerByCourtNumber", {
       error: {
         name: error.name,
         message: error.message,

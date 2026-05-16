@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Loader2, Database, AlertCircle, CheckCircle } from "lucide-react"
 import { checkTablesExist, initializeDatabase, getCreateTablesSql, executeSql } from "@/lib/supabase"
 import { logEvent } from "@/lib/error-logger"
+import { tSync } from "@/lib/log-i18n"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useLanguage } from "@/contexts/language-context"
@@ -29,9 +30,9 @@ export function DatabaseInitializer() {
     try {
       const status = await checkTablesExist()
       setTablesStatus(status)
-      logEvent("info", "Проверка существования таблиц", "DatabaseInitializer", status)
+      logEvent("info", tSync("logMessages.checkingTablesExist"), "DatabaseInitializer", status)
     } catch (error) {
-      logEvent("error", "Ошибка при проверке таблиц", "DatabaseInitializer", error)
+      logEvent("error", tSync("logMessages.errorCheckTables"), "DatabaseInitializer", error)
     } finally {
       setIsChecking(false)
     }
@@ -48,13 +49,13 @@ export function DatabaseInitializer() {
     try {
       const result = await initializeDatabase()
       setInitResult(result)
-      logEvent("info", "Результат инициализации базы данных", "DatabaseInitializer", result)
+      logEvent("info", tSync("logMessages.initDbResult"), "DatabaseInitializer", result)
 
       if (result.success) {
         await checkTables()
       }
     } catch (error: any) {
-      logEvent("error", "Ошибка при инициализации базы данных", "DatabaseInitializer", error)
+      logEvent("error", tSync("logMessages.errorInitializingDb"), "DatabaseInitializer", error)
       setInitResult({ success: false, error: error.message })
     } finally {
       setIsInitializing(false)
@@ -70,13 +71,13 @@ export function DatabaseInitializer() {
     try {
       const result = await executeSql(customSql)
       setSqlResult(result)
-      logEvent("info", "Результат выполнения SQL", "DatabaseInitializer", result)
+      logEvent("info", tSync("logMessages.sqlExecuted"), "DatabaseInitializer", result)
 
       if (result.success) {
         await checkTables()
       }
     } catch (error: any) {
-      logEvent("error", "Ошибка при выполнении SQL", "DatabaseInitializer", error)
+      logEvent("error", tSync("logMessages.sqlQueryError"), "DatabaseInitializer", error)
       setSqlResult({ success: false, error: error.message })
     } finally {
       setIsExecutingSql(false)
@@ -108,13 +109,13 @@ CREATE TABLE IF NOT EXISTS matches (
 
       const result = await executeSql(sql)
       setSqlResult(result)
-      logEvent("info", "Результат создания таблицы matches", "DatabaseInitializer", result)
+      logEvent("info", tSync("logMessages.sqlCreateResult"), "DatabaseInitializer", result)
 
       if (result.success) {
         await checkTables()
       }
     } catch (error: any) {
-      logEvent("error", "Ошибка при создании таблицы matches", "DatabaseInitializer", error)
+      logEvent("error", tSync("logMessages.sqlQueryError"), "DatabaseInitializer", error)
       setSqlResult({ success: false, error: error.message })
     } finally {
       setIsExecutingSql(false)
@@ -136,13 +137,13 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
 
       const result = await executeSql(sql)
       setSqlResult(result)
-      logEvent("info", "Результат создания таблицы players", "DatabaseInitializer", result)
+      logEvent("info", tSync("logMessages.sqlCreatePlayersResult"), "DatabaseInitializer", result)
 
       if (result.success) {
         await checkTables()
       }
     } catch (error: any) {
-      logEvent("error", "Ошибка при создании таблицы players", "DatabaseInitializer", error)
+      logEvent("error", tSync("logMessages.sqlQueryError"), "DatabaseInitializer", error)
       setSqlResult({ success: false, error: error.message })
     } finally {
       setIsExecutingSql(false)

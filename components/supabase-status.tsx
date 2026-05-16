@@ -16,6 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { logEvent } from "@/lib/error-logger"
+import { tSync } from "@/lib/log-i18n"
 import { useLanguage } from "@/contexts/language-context"
 
 export function SupabaseStatus() {
@@ -41,12 +42,12 @@ export function SupabaseStatus() {
         // Логируем результат проверки
         logEvent(
           status ? "info" : "warn",
-          `Статус соединения с Supabase: ${status ? "доступен" : "недоступен"}`,
+          status ? tSync("logMessages.supabaseAvailable") : tSync("logMessages.supabaseUnavailableUseLocal"),
           "SupabaseStatus",
           info,
         )
       } catch (error) {
-        logEvent("error", "Ошибка при проверке статуса Supabase", "SupabaseStatus", error)
+        logEvent("error", tSync("logMessages.exceptionAvailability"), "SupabaseStatus", error)
         setIsConnected(false)
       } finally {
         setIsChecking(false)
@@ -74,12 +75,12 @@ export function SupabaseStatus() {
 
       logEvent(
         "info",
-        `Ручная проверка соединения с Supabase: ${status ? "доступен" : "недоступен"}`,
+        status ? tSync("logMessages.supabaseAvailable") : tSync("logMessages.supabaseUnavailableUseLocal"),
         "SupabaseStatus",
         info,
       )
     } catch (error) {
-      logEvent("error", "Ошибка при ручной проверке статуса Supabase", "SupabaseStatus", error)
+      logEvent("error", tSync("logMessages.exceptionAvailability"), "SupabaseStatus", error)
       setIsConnected(false)
     } finally {
       setIsChecking(false)

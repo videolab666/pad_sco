@@ -1,5 +1,6 @@
 import { createClientSupabaseClient } from "./supabase"
 import { logEvent } from "./error-logger"
+import { tSync } from "./log-i18n"
 import { v4 as uuidv4 } from "uuid"
 
 // Интерфейс для настроек vMix
@@ -23,13 +24,13 @@ export const getAllVmixSettings = async (): Promise<VmixSettings[]> => {
     const { data, error } = await supabase.from("vmix_settings").select("*").order("created_at", { ascending: false })
 
     if (error) {
-      logEvent("error", "Ошибка при получении настроек vMix", "getAllVmixSettings", error)
+      logEvent("error", tSync("logMessages.vmixGetError"), "getAllVmixSettings", error)
       throw error
     }
 
     return data || []
   } catch (error) {
-    logEvent("error", "Исключение при получении настроек vMix", "getAllVmixSettings", error)
+    logEvent("error", tSync("logMessages.vmixGetException"), "getAllVmixSettings", error)
     return []
   }
 }
@@ -45,13 +46,13 @@ export const getVmixSettingsById = async (id: string): Promise<VmixSettings | nu
     const { data, error } = await supabase.from("vmix_settings").select("*").eq("id", id).single()
 
     if (error) {
-      logEvent("error", `Ошибка при получении настроек vMix по ID: ${id}`, "getVmixSettingsById", error)
+      logEvent("error", tSync("logMessages.vmixGetByIdError", { id }), "getVmixSettingsById", error)
       throw error
     }
 
     return data
   } catch (error) {
-    logEvent("error", "Исключение при получении настроек vMix по ID", "getVmixSettingsById", error)
+    logEvent("error", tSync("logMessages.vmixGetByIdException"), "getVmixSettingsById", error)
     return null
   }
 }
@@ -74,13 +75,13 @@ export const getDefaultVmixSettings = async (): Promise<VmixSettings | null> => 
 
     if (error && error.code !== "PGRST116") {
       // PGRST116 - это код ошибки "Результат не найден", который мы можем игнорировать
-      logEvent("error", "Ошибка при получении настроек vMix по умолчанию", "getDefaultVmixSettings", error)
+      logEvent("error", tSync("logMessages.vmixGetDefaultError"), "getDefaultVmixSettings", error)
       throw error
     }
 
     return data || null
   } catch (error) {
-    logEvent("error", "Исключение при получении настроек vMix по умолчанию", "getDefaultVmixSettings", error)
+    logEvent("error", tSync("logMessages.vmixGetDefaultException"), "getDefaultVmixSettings", error)
     return null
   }
 }
@@ -101,7 +102,7 @@ export const saveVmixSettings = async (settings: VmixSettings): Promise<VmixSett
         .eq("is_default", true)
 
       if (resetError) {
-        logEvent("error", "Ошибка при сбросе флага 'по умолчанию'", "saveVmixSettings", resetError)
+        logEvent("error", tSync("logMessages.vmixResetDefaultError"), "saveVmixSettings", resetError)
         throw resetError
       }
     }
@@ -121,11 +122,11 @@ export const saveVmixSettings = async (settings: VmixSettings): Promise<VmixSett
         .single()
 
       if (error) {
-        logEvent("error", "Ошибка при создании настроек vMix", "saveVmixSettings", error)
+        logEvent("error", tSync("logMessages.vmixCreateError"), "saveVmixSettings", error)
         throw error
       }
 
-      logEvent("info", `Созданы новые настройки vMix: ${settings.name}`, "saveVmixSettings")
+      logEvent("info", tSync("logMessages.vmixCreated", { name: settings.name }), "saveVmixSettings")
       return data
     } else {
       // Обновляем существующую запись
@@ -141,15 +142,15 @@ export const saveVmixSettings = async (settings: VmixSettings): Promise<VmixSett
         .single()
 
       if (error) {
-        logEvent("error", `Ошибка при обновлении настроек vMix: ${settings.id}`, "saveVmixSettings", error)
+        logEvent("error", tSync("logMessages.vmixUpdateError", { id: settings.id }), "saveVmixSettings", error)
         throw error
       }
 
-      logEvent("info", `Обновлены настройки vMix: ${settings.name}`, "saveVmixSettings")
+      logEvent("info", tSync("logMessages.vmixUpdated", { name: settings.name }), "saveVmixSettings")
       return data
     }
   } catch (error) {
-    logEvent("error", "Исключение при сохранении настроек vMix", "saveVmixSettings", error)
+    logEvent("error", tSync("logMessages.vmixSaveException"), "saveVmixSettings", error)
     return null
   }
 }
@@ -171,7 +172,7 @@ export const deleteVmixSettings = async (id: string): Promise<boolean> => {
     const { error } = await supabase.from("vmix_settings").delete().eq("id", id)
 
     if (error) {
-      logEvent("error", `Ошибка при удалении настроек vMix: ${id}`, "deleteVmixSettings", error)
+      logEvent("error", tSync("logMessages.vmixDeleteError", { id }), "deleteVmixSettings", error)
       throw error
     }
 
@@ -188,10 +189,10 @@ export const deleteVmixSettings = async (id: string): Promise<boolean> => {
       }
     }
 
-    logEvent("info", `Удалены настройки vMix: ${id}`, "deleteVmixSettings")
+    logEvent("info", tSync("logMessages.vmixDeleted", { id }), "deleteVmixSettings")
     return true
   } catch (error) {
-    logEvent("error", "Исключение при удалении настроек vMix", "deleteVmixSettings", error)
+    logEvent("error", tSync("logMessages.vmixDeleteException"), "deleteVmixSettings", error)
     return false
   }
 }

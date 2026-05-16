@@ -68,7 +68,7 @@ if errorlevel 1 (
     goto :fail
 )
 
-call git merge "%branch%"
+call git merge --no-edit "%branch%"
 if errorlevel 1 (
     echo ERROR: merge conflict - aborting merge.
     call git merge --abort

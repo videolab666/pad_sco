@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { logEvent } from "./error-logger"
+import { tSync } from "./log-i18n"
 
 // Создаем клиент Supabase для использования на стороне сервера
 export const createServerSupabaseClient = () => {
@@ -7,14 +8,14 @@ export const createServerSupabaseClient = () => {
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseKey) {
-    logEvent("error", "Отсутствуют переменные окружения для Supabase на сервере", "createServerSupabaseClient", {
+    logEvent("error", tSync("logMessages.missingServerEnvVars"), "createServerSupabaseClient", {
       supabaseUrl: !!supabaseUrl,
       supabaseKey: !!supabaseKey,
     })
     throw new Error("Отсутствуют переменные окружения для Supabase")
   }
 
-  logEvent("info", "Создание серверного клиента Supabase", "createServerSupabaseClient", { url: supabaseUrl })
+  logEvent("info", tSync("logMessages.creatingServerClient"), "createServerSupabaseClient", { url: supabaseUrl })
   return createClient(supabaseUrl, supabaseKey, {
     // Оптимизация: уменьшаем таймаут для более быстрого обнаружения ошибок
     global: {
@@ -37,7 +38,7 @@ export const createClientSupabaseClient = () => {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    logEvent("error", "Отсутствуют переменные окружения для Supabase на клиенте", "createClientSupabaseClient", {
+    logEvent("error", tSync("logMessages.missingClientEnvVars"), "createClientSupabaseClient", {
       supabaseUrl: !!supabaseUrl,
       supabaseAnonKey: !!supabaseAnonKey,
       env: Object.keys(process.env).filter((key) => key.includes("SUPABASE") || key.includes("NEXT_PUBLIC")),
@@ -46,7 +47,7 @@ export const createClientSupabaseClient = () => {
   }
 
   try {
-    logEvent("info", "Создание клиентского клиента Supabase", "createClientSupabaseClient", { url: supabaseUrl })
+    logEvent("info", tSync("logMessages.creatingClientClient"), "createClientSupabaseClient", { url: supabaseUrl })
 
     // Создаем клиент с более надежными настройками
     clientSupabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
@@ -74,7 +75,7 @@ export const createClientSupabaseClient = () => {
     })
     return clientSupabaseInstance
   } catch (error) {
-    logEvent("error", "Ошибка при создании клиента Supabase", "createClientSupabaseClient", error)
+    logEvent("error", tSync("logMessages.errorCreatingClient"), "createClientSupabaseClient", error)
     return null
   }
 }
@@ -117,9 +118,9 @@ export const isSupabaseAvailable = async () => {
     } catch (err) {
       const fetchError = err as Error;
       if (fetchError.name === "AbortError") {
-        logEvent("error", "Таймаут при проверке доступности Supabase", "isSupabaseAvailable")
+        logEvent("error", tSync("logMessages.timeoutAvailability"), "isSupabaseAvailable")
       } else {
-        logEvent("error", `Ошибка при запросе к Supabase: ${fetchError.message}`, "isSupabaseAvailable", {
+        logEvent("error", tSync("logMessages.supabaseQueryError", { error: fetchError.message }), "isSupabaseAvailable", {
           error: fetchError,
         })
       }
@@ -127,7 +128,7 @@ export const isSupabaseAvailable = async () => {
     }
   } catch (err) {
     const error = err as Error;
-    logEvent("error", "Исключение при проверке доступности Supabase", "isSupabaseAvailable", {
+    logEvent("error", tSync("logMessages.exceptionAvailability"), "isSupabaseAvailable", {
       error: {
         name: error.name,
         message: error.message,
@@ -166,12 +167,12 @@ export const checkTablesExist = async () => {
       const playersExists = !playersError || (playersError && !playersError.message.includes("does not exist"))
 
       if (!matchesExists || !playersExists) {
-        logEvent("warn", "Таблицы в базе данных не существуют (проверка через прямые запросы)", "checkTablesExist", {
+        logEvent("warn", tSync("logMessages.tablesNotExistDirect"), "checkTablesExist", {
           matchesError,
           playersError,
         })
       } else {
-        logEvent("info", "Таблицы в базе данных существуют", "checkTablesExist", {
+        logEvent("info", tSync("logMessages.tablesExist"), "checkTablesExist", {
           matchesCount: matchesData?.length || 0,
           playersCount: playersData?.length || 0,
         })
@@ -189,9 +190,9 @@ export const checkTablesExist = async () => {
     } catch (err) {
       const fetchError = err as Error;
       if (fetchError.name === "AbortError") {
-        logEvent("error", "Таймаут при проверке существования таблиц", "checkTablesExist")
+        logEvent("error", tSync("logMessages.timeoutCheckTables"), "checkTablesExist")
       } else {
-        logEvent("error", `Ошибка при запросе к Supabase: ${fetchError.message}`, "checkTablesExist", {
+        logEvent("error", tSync("logMessages.supabaseQueryError", { error: fetchError.message }), "checkTablesExist", {
           error: fetchError,
         })
       }
@@ -199,7 +200,7 @@ export const checkTablesExist = async () => {
     }
   } catch (err) {
     const error = err as Error;
-    logEvent("error", "Ошибка при проверке существования таблиц", "checkTablesExist", error)
+    logEvent("error", tSync("logMessages.errorCheckTables"), "checkTablesExist", error)
     return { exists: false, error: error.message }
   }
 }
@@ -239,9 +240,9 @@ export const checkTablesContent = async () => {
     } catch (err) {
       const fetchError = err as Error;
       if (fetchError.name === "AbortError") {
-        logEvent("error", "Таймаут при проверке содержимого таблиц", "checkTablesContent")
+        logEvent("error", tSync("logMessages.timeoutCheckContent"), "checkTablesContent")
       } else {
-        logEvent("error", `Ошибка при запросе к Supabase: ${fetchError.message}`, "checkTablesContent", {
+        logEvent("error", tSync("logMessages.supabaseQueryError", { error: fetchError.message }), "checkTablesContent", {
           error: fetchError,
         })
       }
@@ -437,7 +438,7 @@ COMMIT;
 // Инициализация базы данных
 export const initializeDatabase = async () => {
   try {
-    logEvent("info", "Начало инициализации базы данных", "initializeDatabase")
+    logEvent("info", tSync("logMessages.dbInitStart"), "initializeDatabase")
 
     const supabase = createClientSupabaseClient()
     if (!supabase) {
@@ -448,7 +449,7 @@ export const initializeDatabase = async () => {
     const tablesStatus = await checkTablesExist()
 
     if (tablesStatus.exists) {
-      logEvent("info", "Таблицы уже существуют, инициализация не требуется", "initializeDatabase")
+      logEvent("info", tSync("logMessages.tablesAlreadyExist"), "initializeDatabase")
       return { success: true, message: "Таблицы уже существуют" }
     }
 
@@ -479,14 +480,14 @@ export const initializeDatabase = async () => {
             const { error: directError } = await supabase.from("_sql").select("*").eq("query", statement).single()
 
             if (directError && !directError.message.includes("does not exist")) {
-              logEvent("error", `Ошибка при выполнении SQL: ${directError.message}`, "initializeDatabase", {
+              logEvent("error", tSync("logMessages.errorExecutingSql", { error: directError.message }), "initializeDatabase", {
                 statement,
                 error: directError,
               })
               return { success: false, error: `Ошибка при выполнении SQL: ${directError.message}` }
             }
           } else {
-            logEvent("error", `Ошибка при инициализации базы данных: ${error.message}`, "initializeDatabase", {
+            logEvent("error", tSync("logMessages.errorInitializingDb", { error: error.message }), "initializeDatabase", {
               statement,
               error,
             })
@@ -496,9 +497,9 @@ export const initializeDatabase = async () => {
       } catch (err) {
         const fetchError = err as Error;
         if (fetchError.name === "AbortError") {
-          logEvent("error", "Таймаут при выполнении SQL", "initializeDatabase", { statement })
+          logEvent("error", tSync("logMessages.timeoutSql"), "initializeDatabase", { statement })
         } else {
-          logEvent("error", `Ошибка при запросе к Supabase: ${fetchError.message}`, "initializeDatabase", {
+          logEvent("error", tSync("logMessages.supabaseQueryError", { error: fetchError.message }), "initializeDatabase", {
             error: fetchError,
             statement,
           })
@@ -519,11 +520,11 @@ export const initializeDatabase = async () => {
       }
     }
 
-    logEvent("info", "База данных успешно инициализирована", "initializeDatabase")
+    logEvent("info", tSync("logMessages.dbInitSuccess"), "initializeDatabase")
     return { success: true }
   } catch (err) {
     const error = err as Error;
-    logEvent("error", "Исключение при инициализации базы данных", "initializeDatabase", error)
+    logEvent("error", tSync("logMessages.dbInitException"), "initializeDatabase", error)
     return { success: false, error: error.message }
   }
 }

@@ -3,6 +3,7 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { logEvent } from "./error-logger"
+import { tSync } from "./log-i18n"
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
@@ -40,7 +41,7 @@ export const getPlayers = async (): Promise<Player[]> => {
       const { data, error } = await supabase.from("players").select("*").order("name")
       if (error) {
         console.error("Error fetching players from Supabase:", error)
-        logEvent("error", "Error fetching players from Supabase", "player-storage", error)
+        logEvent("error", tSync("logMessages.errorFetchPlayers"), "player-storage", error)
       } else if (data && data.length > 0) {
         // Merge players from Supabase with local players
         const supabasePlayers: Player[] = data
@@ -61,7 +62,7 @@ export const getPlayers = async (): Promise<Player[]> => {
     return players
   } catch (error) {
     console.error("Error getting players:", error)
-    logEvent("error", "Error getting players", "player-storage", error)
+    logEvent("error", tSync("logMessages.errorGetPlayers"), "player-storage", error)
     return []
   }
 }
@@ -98,7 +99,7 @@ export const addPlayer = async (player: Player, options: AddPlayerOptions = {}):
         const { error } = await supabase.from("players").insert(player)
         if (error) {
           console.error("Error adding player to Supabase:", error)
-          logEvent("error", "Error adding player to Supabase", "player-storage", error)
+          logEvent("error", tSync("logMessages.errorAddPlayerSupabase"), "player-storage", error)
         }
       }
     }
@@ -112,7 +113,7 @@ export const addPlayer = async (player: Player, options: AddPlayerOptions = {}):
     }
   } catch (error) {
     console.error("Error adding player:", error)
-    logEvent("error", "Error adding player", "player-storage", error)
+    logEvent("error", tSync("logMessages.errorAddPlayer"), "player-storage", error)
 
     return {
       success: false,
@@ -161,7 +162,7 @@ export const updatePlayer = async (playerId: string, updatedPlayer: UpdatePlayer
 
       if (error) {
         console.error("Error updating player in Supabase:", error)
-        logEvent("error", "Error updating player in Supabase", "player-storage", error)
+        logEvent("error", tSync("logMessages.errorUpdatePlayerSupabase"), "player-storage", error)
       }
     }
 
@@ -174,7 +175,7 @@ export const updatePlayer = async (playerId: string, updatedPlayer: UpdatePlayer
     }
   } catch (error) {
     console.error("Error updating player:", error)
-    logEvent("error", "Error updating player", "player-storage", error)
+    logEvent("error", tSync("logMessages.errorUpdatePlayer"), "player-storage", error)
 
     return {
       success: false,
@@ -199,7 +200,7 @@ export const deletePlayer = async (playerId: string): Promise<{ success: boolean
 
       if (error) {
         console.error("Error deleting player from Supabase:", error)
-        logEvent("error", "Error deleting player from Supabase", "player-storage", error)
+        logEvent("error", tSync("logMessages.errorDeletePlayerSupabase"), "player-storage", error)
       }
     }
 
@@ -212,7 +213,7 @@ export const deletePlayer = async (playerId: string): Promise<{ success: boolean
     }
   } catch (error) {
     console.error("Error deleting player:", error)
-    logEvent("error", "Error deleting player", "player-storage", error)
+    logEvent("error", tSync("logMessages.errorDeletePlayer"), "player-storage", error)
 
     return {
       success: false,
@@ -237,7 +238,7 @@ export const deletePlayers = async (playerIds: string[]): Promise<boolean> => {
 
       if (error) {
         console.error("Error deleting players from Supabase:", error)
-        logEvent("error", "Error deleting players from Supabase", "player-storage", error)
+        logEvent("error", tSync("logMessages.errorDeletePlayersSupabase"), "player-storage", error)
         return false
       }
     }
@@ -248,7 +249,7 @@ export const deletePlayers = async (playerIds: string[]): Promise<boolean> => {
     return true
   } catch (error) {
     console.error("Error deleting players:", error)
-    logEvent("error", "Error deleting players", "player-storage", error)
+    logEvent("error", tSync("logMessages.errorDeletePlayers"), "player-storage", error)
     return false
   }
 }

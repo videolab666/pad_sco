@@ -10,6 +10,7 @@
 //  - detect conflicts and surface them instead of guessing.
 import { createClientSupabaseClient, isSupabaseAvailable, checkTablesExist } from "./supabase"
 import { logEvent } from "./error-logger"
+import { tSync } from "./log-i18n"
 import {
   enqueueOperation,
   loadSyncRecord,
@@ -207,7 +208,7 @@ export function syncMatchToServer(match: any, kind: MatchOperationKind = "snapsh
     notifyState(match.id)
     void drainMatch(match.id)
   } catch (error) {
-    logEvent("error", `Не удалось поставить операцию в очередь: ${match.id}`, "match-sync", error)
+    logEvent("error", tSync("logMessages.flushQueueError", { id: match.id }), "match-sync", error)
   }
 }
 
@@ -273,17 +274,17 @@ export async function drainMatch(matchId: string): Promise<void> {
 
     if (result.status === "ok") {
       markOperationsSynced(matchId, allIds, result.revision, result.snapshot)
-      logEvent("info", `Матч ${matchId} синхронизирован, revision=${result.revision}`, "match-sync")
+      logEvent("info", tSync("logMessages.matchSynced", { id: matchId, revision: result.revision }), "match-sync")
       notifyState(matchId)
     } else if (result.status === "conflict") {
       markConflict(matchId, result.reason, result.serverSnapshot)
-      logEvent("warn", `Конфликт синхронизации матча ${matchId}: ${result.reason}`, "match-sync")
+      logEvent("warn", tSync("logMessages.syncConflict", { id: matchId, reason: result.reason }), "match-sync")
       notifyState(matchId)
     } else {
       // Failure: dead-letter permanent errors, back off transient ones.
       if (result.permanent) {
         for (const id of allIds) markOperationFailed(matchId, id, result.error, 1)
-        logEvent("error", `Операция матча ${matchId} перемещена в dead-letter: ${result.error}`, "match-sync")
+        logEvent("error", tSync("logMessages.operationDeadLetter", { id: matchId, error: result.error }), "match-sync")
       } else {
         // A transient failure may mean we went offline — re-probe next time.
         envCache = null
@@ -293,7 +294,7 @@ export async function drainMatch(matchId: string): Promise<void> {
       notifyState(matchId)
     }
   } catch (error: any) {
-    logEvent("error", `Ошибка слива очереди матча ${matchId}`, "match-sync", error)
+    logEvent("error", tSync("logMessages.flushQueueError", { id: matchId }), "match-sync", error)
     envCache = null
     setSyncStatus(matchId, "error")
     notifyState(matchId)
@@ -346,7 +347,7 @@ async function applyRevisioned(
     if (error.message?.toLowerCase().includes("revision") && error.message?.toLowerCase().includes("does not exist")) {
       // Column missing — remember it and retry without the revision guard.
       revisionColumnMissing = true
-      logEvent("warn", "Колонка matches.revision отсутствует — режим last-writer-wins", "match-sync")
+      logEvent("warn", tSync("logMessages.revisionColumnMissing"), "match-sync")
       const retry = await supabase.from("matches").update(row).eq("id", snapshot.id)
       if (retry.error)
         return { status: "error", error: retry.error.message, permanent: isPermanentError(retry.error.message) }

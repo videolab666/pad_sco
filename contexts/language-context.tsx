@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { type Language, LANGUAGES, translations } from "@/lib/translations"
 import { createClientSupabaseClient } from "@/lib/supabase"
 import { logEvent } from "@/lib/error-logger"
+import { setGlobalLanguage } from "@/lib/log-i18n"
 
 type LanguageContextType = {
   language: Language
@@ -31,8 +32,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
           if (!error && data && data.language) {
             const dbLanguage = data.language as Language
             if (Object.keys(LANGUAGES).includes(dbLanguage)) {
-              setLanguageState(dbLanguage)
-              logEvent("info", "Loaded language preference from database", "loadLanguagePreference", {
+                setLanguageState(dbLanguage)
+                setGlobalLanguage(dbLanguage)
+                logEvent("info", "Loaded language preference from database", "loadLanguagePreference", {
                 language: dbLanguage,
               })
               setIsLoaded(true)
@@ -45,6 +47,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         const savedLanguage = localStorage.getItem("language") as Language
         if (savedLanguage && Object.keys(LANGUAGES).includes(savedLanguage)) {
           setLanguageState(savedLanguage)
+          setGlobalLanguage(savedLanguage)
           logEvent("info", "Loaded language preference from localStorage", "loadLanguagePreference", {
             language: savedLanguage,
           })
@@ -53,10 +56,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         setIsLoaded(true)
       } catch (error) {
         logEvent("error", "Error loading language preference", "loadLanguagePreference", { error })
-        // Fall back to localStorage in case of error
         const savedLanguage = localStorage.getItem("language") as Language
         if (savedLanguage && Object.keys(LANGUAGES).includes(savedLanguage)) {
           setLanguageState(savedLanguage)
+          setGlobalLanguage(savedLanguage)
         }
         setIsLoaded(true)
       }
@@ -74,6 +77,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang)
+    setGlobalLanguage(lang)
   }
 
   const t = (key: string, params?: Record<string, string | number>): string => {

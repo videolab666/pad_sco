@@ -690,6 +690,245 @@ export type TranslationKeys = {
     changeTournament: string
     startOver: string
   }
+  debugPage: {
+    backToHome: string
+    tabDatabase: string
+    tabConnection: string
+    tabErrorLogs: string
+    connectionDiagnostics: string
+    runConnectionTest: string
+    runningTest: string
+    testResults: string
+    checkingDatabase: string
+    tableExists: string
+    tableNotExists: string
+    matchesTable: string
+    playersTable: string
+    tablesContent: string
+    playersLabel: string
+    matchesLabel: string
+    playersEmpty: string
+    matchesEmpty: string
+    tablesNotCreated: string
+    tablesNotCreatedDesc: string
+    errorTitle: string
+    checkTablesError: string
+    checkDatabase: string
+    checkingDatabaseStatus: string
+    dbInitialization: string
+    checkingTablesStatus: string
+    tablesNotCreatedInit: string
+    tablesNotCreatedInitDesc: string
+    successTitle: string
+    errorTitleShort: string
+    dbInitializedSuccess: string
+    dbInitError: string
+    sqlExecutedSuccess: string
+    sqlExecutionError: string
+    sqlQuerySuccess: string
+    sqlQueryError: string
+    tabAutoInit: string
+    tabManualCreation: string
+    tabSqlScript: string
+    tabCustomSql: string
+    autoInitDescription: string
+    initializeDatabase: string
+    initializing: string
+    tablesAlreadyCreated: string
+    manualCreationDescription: string
+    createMatchesTable: string
+    createPlayersTable: string
+    creatingTable: string
+    matchesTableCreated: string
+    playersTableCreated: string
+    sqlScriptDescription: string
+    customSqlDescription: string
+    enterSqlPlaceholder: string
+    executeSql: string
+    executing: string
+    checkTablesStatus: string
+    errorLogTitle: string
+    refreshBtn: string
+    exportBtn: string
+    clearBtn: string
+    clearConfirm: string
+    filterAll: string
+    filterErrors: string
+    filterWarnings: string
+    filterInfo: string
+    filterDebug: string
+    loadingLog: string
+    noRecordsFound: string
+    logStorageNote: string
+  }
+  logMessages: {
+    missingServerEnvVars: string
+    creatingServerClient: string
+    missingClientEnvVars: string
+    creatingClientClient: string
+    errorCreatingClient: string
+    timeoutAvailability: string
+    supabaseQueryError: string
+    exceptionAvailability: string
+    tablesNotExistDirect: string
+    tablesExist: string
+    timeoutCheckTables: string
+    errorCheckTables: string
+    timeoutCheckContent: string
+    dbInitStart: string
+    tablesAlreadyExist: string
+    dbInitSuccess: string
+    dbInitException: string
+    timeoutSql: string
+    errorDecompress: string
+    dataCorrupted: string
+    errorGetLocal: string
+    errorSetLocal: string
+    gettingMatches: string
+    supabaseAvailableGetting: string
+    matchesNotFoundInSupabase: string
+    tablesNotExistUseLocal: string
+    supabaseUnavailableUseLocal: string
+    restoredFromLocal: string
+    gotFromLocal: string
+    errorGettingMatches: string
+    errorProcessingKey: string
+    errorSearchLocal: string
+    gettingMatchById: string
+    matchFromCache: string
+    supabaseAvailableGettingMatch: string
+    errorMatchFromSupabase: string
+    matchGotFromSupabase: string
+    initEmptySetsSupabase: string
+    playerCountriesLoaded: string
+    playerCountriesLoadFailed: string
+    playerCountriesError: string
+    matchNotFoundSupabase: string
+    matchFoundLocal: string
+    initEmptySetsLocal: string
+    matchFoundInList: string
+    initEmptySetsList: string
+    matchNotFoundAnywhere: string
+    errorGettingMatch: string
+    cleaningStorage: string
+    deletedOldMatch: string
+    errorCleaningStorage: string
+    creatingMatch: string
+    initEmptySetsNew: string
+    supabaseAvailableSaving: string
+    errorSavingSupabase: string
+    matchSavedSupabase: string
+    tablesNotExistSaveLocal: string
+    supabaseUnavailableSaveLocal: string
+    matchSavedLocal: string
+    errorCreatingMatch: string
+    deletingMatch: string
+    matchNotFoundForDelete: string
+    supabaseAvailableDeleting: string
+    errorDeletingSupabase: string
+    matchDeletedSupabase: string
+    tablesNotExistDeleteLocal: string
+    supabaseUnavailableDeleteLocal: string
+    matchDeletedLocal: string
+    errorDeletingMatch: string
+    matchNotFoundForSubscribe: string
+    supabaseEventReceived: string
+    subscribeStatus: string
+    unsubscribeMatch: string
+    tablesNotExistLocalSubscribe: string
+    supabaseUnavailableLocalSubscribe: string
+    checkingAvailability: string
+    runningTestQuery: string
+    supabaseAvailable: string
+    errorCheckingAvailability: string
+    exceptionCheckingAvailability: string
+    gettingAllMatches: string
+    gettingMatchByCourt: string
+    invalidCourtNumber: string
+    failedCreateClient: string
+    activeMatchNotFoundSeekCompleted: string
+    errorCompletedMatch: string
+    matchNotFoundActiveOrCompleted: string
+    initEmptySetsCompleted: string
+    gotCompletedMatchByCourt: string
+    gotMatchByCourt: string
+    timeoutGetMatchByCourt: string
+    errorGetMatchByCourt: string
+    gettingOccupiedCourts: string
+    errorOccupiedCourts: string
+    noActiveMatchesOnCourts: string
+    gotOccupiedCourts: string
+    timeoutOccupiedCourts: string
+    failedOccupiedUseLocal: string
+    errorLocalCourts: string
+    gotFreeCourts: string
+    errorFreeCourts: string
+    assigningMatchToCourt: string
+    matchNotFound: string
+    errorAssigningCourt: string
+    matchAssignedToCourt: string
+    timeoutAssigningCourt: string
+    freeingCourt: string
+    matchOnCourtNotFound: string
+    errorFreeingCourt: string
+    courtFreed: string
+    timeoutFreeingCourt: string
+    errorExecutingSql: string
+    errorInitializingDb: string
+    sqlExecuted: string
+    sqlQueryError: string
+    startConnectionTest: string
+    connectionTestCompleted: string
+    connectionTestFailed: string
+    errorConnectionTest: string
+    checkingTablesExist: string
+    checkingTablesContent: string
+    checkingDb: string
+    checkingTablesStatus: string
+    tablesCheckResult: string
+    initDbResult: string
+    sqlCreateResult: string
+    sqlCreatePlayersResult: string
+    matchSynced: string
+    syncConflict: string
+    operationDeadLetter: string
+    flushQueueError: string
+    revisionColumnMissing: string
+    localStorageUnavailable: string
+    operationLogCorrupted: string
+    operationLogReadError: string
+    operationLogSaveError: string
+    operationLogListError: string
+    errorFetchPlayers: string
+    errorGetPlayers: string
+    errorAddPlayerSupabase: string
+    errorAddPlayer: string
+    errorUpdatePlayerSupabase: string
+    errorUpdatePlayer: string
+    errorDeletePlayerSupabase: string
+    errorDeletePlayer: string
+    errorDeletePlayersSupabase: string
+    errorDeletePlayers: string
+    gettingMatchServer: string
+    matchGotServer: string
+    gettingMatchByCourtServer: string
+    matchGotByCourtServer: string
+    vmixGetError: string
+    vmixGetException: string
+    vmixGetByIdError: string
+    vmixGetByIdException: string
+    vmixGetDefaultError: string
+    vmixGetDefaultException: string
+    vmixResetDefaultError: string
+    vmixCreateError: string
+    vmixCreated: string
+    vmixUpdateError: string
+    vmixUpdated: string
+    vmixSaveException: string
+    vmixDeleteError: string
+    vmixDeleted: string
+    vmixDeleteException: string
+  }
 }
 
 export const translations: { [key in Language]: TranslationKeys } = {
@@ -1380,6 +1619,245 @@ export const translations: { [key in Language]: TranslationKeys } = {
       changeTournament: "Сменить турнир",
       startOver: "В начало",
     },
+    debugPage: {
+      backToHome: "На главную",
+      tabDatabase: "База данных",
+      tabConnection: "Соединение",
+      tabErrorLogs: "Журнал ошибок",
+      connectionDiagnostics: "Диагностика соединения с базой данных",
+      runConnectionTest: "Запустить тест соединения",
+      runningTest: "Выполнение теста...",
+      testResults: "Результаты теста:",
+      checkingDatabase: "Проверка базы данных...",
+      tableExists: "Таблица существует",
+      tableNotExists: "Таблица не существует",
+      matchesTable: "Таблица матчей (matches)",
+      playersTable: "Таблица игроков (players)",
+      tablesContent: "Содержимое таблиц:",
+      playersLabel: "Игроки",
+      matchesLabel: "Матчи",
+      playersEmpty: "Таблица игроков пуста",
+      matchesEmpty: "Таблица матчей пуста",
+      tablesNotCreated: "Таблицы не созданы",
+      tablesNotCreatedDesc: "Для работы приложения необходимо создать таблицы в базе данных Supabase. Перейдите на вкладку «База данных» для инициализации.",
+      errorTitle: "Ошибка",
+      checkTablesError: "Не удалось проверить статус таблиц. Проверьте соединение с Supabase.",
+      checkDatabase: "Проверить базу данных",
+      checkingDatabaseStatus: "Проверка статуса таблиц...",
+      dbInitialization: "Инициализация базы данных",
+      checkingTablesStatus: "Проверка статуса таблиц...",
+      tablesNotCreatedInit: "Таблицы не созданы",
+      tablesNotCreatedInitDesc: "Для работы приложения необходимо создать таблицы в базе данных Supabase. Вы можете использовать автоматическую инициализацию или создать таблицы вручную.",
+      successTitle: "Успешно",
+      errorTitleShort: "Ошибка",
+      dbInitializedSuccess: "База данных успешно инициализирована",
+      dbInitError: "Ошибка при инициализации базы данных",
+      sqlExecutedSuccess: "SQL выполнен успешно",
+      sqlExecutionError: "Ошибка выполнения SQL",
+      sqlQuerySuccess: "SQL-запрос успешно выполнен",
+      sqlQueryError: "Ошибка",
+      tabAutoInit: "Автоматическая инициализация",
+      tabManualCreation: "Ручное создание",
+      tabSqlScript: "SQL-скрипт",
+      tabCustomSql: "Свой SQL",
+      autoInitDescription: "Нажмите кнопку ниже, чтобы автоматически создать необходимые таблицы в базе данных Supabase. Этот метод требует наличия функции exec_sql в вашей базе данных.",
+      initializeDatabase: "Инициализировать базу данных",
+      initializing: "Инициализация...",
+      tablesAlreadyCreated: "Таблицы уже созданы",
+      manualCreationDescription: "Создайте таблицы по отдельности, если автоматическая инициализация не работает.",
+      createMatchesTable: "Создать таблицу matches",
+      createPlayersTable: "Создать таблицу players",
+      creatingTable: "Создание таблицы...",
+      matchesTableCreated: "Таблица matches уже создана",
+      playersTableCreated: "Таблица players уже создана",
+      sqlScriptDescription: "Вы также можете выполнить этот SQL-скрипт вручную в SQL-редакторе Supabase:",
+      customSqlDescription: "Выполните произвольный SQL-запрос:",
+      enterSqlPlaceholder: "Введите SQL-запрос...",
+      executeSql: "Выполнить SQL",
+      executing: "Выполнение...",
+      checkTablesStatus: "Проверить статус таблиц",
+      errorLogTitle: "Журнал ошибок и событий",
+      refreshBtn: "Обновить",
+      exportBtn: "Экспорт",
+      clearBtn: "Очистить",
+      clearConfirm: "Вы уверены, что хотите очистить журнал ошибок?",
+      filterAll: "Все",
+      filterErrors: "Ошибки",
+      filterWarnings: "Предупреждения",
+      filterInfo: "Информация",
+      filterDebug: "Отладка",
+      loadingLog: "Загрузка журнала...",
+      noRecordsFound: "Записи не найдены",
+      logStorageNote: "Журнал хранится только в локальном хранилище браузера и не отправляется на сервер.",
+    },
+    logMessages: {
+      missingServerEnvVars: "Отсутствуют переменные окружения для Supabase на сервере",
+      creatingServerClient: "Создание серверного клиента Supabase",
+      missingClientEnvVars: "Отсутствуют переменные окружения для Supabase на клиенте",
+      creatingClientClient: "Создание клиентского клиента Supabase",
+      errorCreatingClient: "Ошибка при создании клиента Supabase",
+      timeoutAvailability: "Таймаут при проверке доступности Supabase",
+      supabaseQueryError: "Ошибка при запросе к Supabase: {error}",
+      exceptionAvailability: "Исключение при проверке доступности Supabase",
+      tablesNotExistDirect: "Таблицы в базе данных не существуют (проверка через прямые запросы)",
+      tablesExist: "Таблицы в базе данных существуют",
+      timeoutCheckTables: "Таймаут при проверке существования таблиц",
+      errorCheckTables: "Ошибка при проверке существования таблиц",
+      timeoutCheckContent: "Таймаут при проверке содержимого таблиц",
+      dbInitStart: "Начало инициализации базы данных",
+      tablesAlreadyExist: "Таблицы уже существуют, инициализация не требуется",
+      dbInitSuccess: "База данных успешно инициализирована",
+      dbInitException: "Исключение при инициализации базы данных",
+      timeoutSql: "Таймаут при выполнении SQL",
+      errorDecompress: "Ошибка при распаковке данных из localStorage: {key}",
+      dataCorrupted: "Данные в localStorage повреждены: {key}",
+      errorGetLocal: "Ошибка при получении данных из localStorage: {key}",
+      errorSetLocal: "Ошибка при сохранении данных в localStorage: {key}",
+      gettingMatches: "Получение списка матчей",
+      supabaseAvailableGetting: "Supabase доступен, получаем матчи из базы данных",
+      matchesNotFoundInSupabase: "Матчи в Supabase не найдены",
+      tablesNotExistUseLocal: "Таблицы в Supabase не существуют, используем локальное хранилище",
+      supabaseUnavailableUseLocal: "Supabase недоступен, используем локальное хранилище",
+      restoredFromLocal: "Восстановлено {count} матчей из localStorage",
+      gotFromLocal: "Получено {count} матчей из localStorage",
+      errorGettingMatches: "Ошибка при получении матчей",
+      errorProcessingKey: "Ошибка при обработке ключа {key}",
+      errorSearchLocal: "Ошибка при поиске матчей в localStorage",
+      gettingMatchById: "Получение матча по ID/коду: {id}",
+      matchFromCache: "Матч {id} получен из кэша",
+      supabaseAvailableGettingMatch: "Supabase доступен, получаем матч из базы данных",
+      errorMatchFromSupabase: "Ошибка при получении матча из Supabase: {error}",
+      matchGotFromSupabase: "Матч успешно получен из Supabase",
+      initEmptySetsSupabase: "Инициализирован пустой массив sets для матча из Supabase",
+      playerCountriesLoaded: "Информация о странах игроков успешно загружена",
+      playerCountriesLoadFailed: "Не удалось загрузить информацию о странах игроков",
+      playerCountriesError: "Ошибка при загрузке информации о странах игроков",
+      matchNotFoundSupabase: "Матч не найден в Supabase",
+      matchFoundLocal: "Матч найден в локальном хранилище",
+      initEmptySetsLocal: "Инициализирован пустой массив sets для матча из localStorage",
+      matchFoundInList: "Матч найден в общем списке локального хранилища",
+      initEmptySetsList: "Инициализирован пустой массив sets для матча из списка",
+      matchNotFoundAnywhere: "Матч не найден ни в Supabase, ни в локальном хранилище",
+      errorGettingMatch: "Ошибка при получении матча: {error}",
+      cleaningStorage: "Очистка локального хранилища: {count} матчей, лимит {limit}",
+      deletedOldMatch: "Удален старый матч из localStorage: {id}",
+      errorCleaningStorage: "Ошибка при очистке хранилища",
+      creatingMatch: "Создание нового матча",
+      initEmptySetsNew: "Инициализирован пустой массив sets для нового матча",
+      supabaseAvailableSaving: "Supabase доступен, сохраняем матч в базу данных",
+      errorSavingSupabase: "Ошибка при сохранении матча в Supabase: {error}",
+      matchSavedSupabase: "Матч успешно сохранен в Supabase",
+      tablesNotExistSaveLocal: "Таблицы в Supabase не существуют, сохраняем только в локальное хранилище",
+      supabaseUnavailableSaveLocal: "Supabase недоступен, сохраняем только в локальное хранилище",
+      matchSavedLocal: "Матч успешно сохранен в локальное хранилище",
+      errorCreatingMatch: "Ошибка при создании матча: {error}",
+      deletingMatch: "Удаление матча: {id}",
+      matchNotFoundForDelete: "Матч не найден для удаления: {id}",
+      supabaseAvailableDeleting: "Supabase доступен, удаляем матч из базы данных",
+      errorDeletingSupabase: "Ошибка при удалении матча из Supabase: {error}",
+      matchDeletedSupabase: "Матч успешно удален из Supabase",
+      tablesNotExistDeleteLocal: "Таблицы в Supabase не существуют, удаляем только из локального хранилища",
+      supabaseUnavailableDeleteLocal: "Supabase недоступен, удаляем только из локального хранилища",
+      matchDeletedLocal: "Матч успешно удален из локального хранилища",
+      errorDeletingMatch: "Ошибка при удалении матча: {error}",
+      matchNotFoundForSubscribe: "Матч не найден для подписки: {id}",
+      supabaseEventReceived: "Получено событие Supabase для матча {id}",
+      subscribeStatus: "Статус подписки на матч {id}: {status}",
+      unsubscribeMatch: "Отписка от обновлений матча {id}",
+      tablesNotExistLocalSubscribe: "Таблицы в Supabase не существуют, используем локальную подписку",
+      supabaseUnavailableLocalSubscribe: "Supabase недоступен, используем локальную подписку",
+      checkingAvailability: "Проверка доступности Supabase",
+      runningTestQuery: "Выполнение тестового запроса к Supabase",
+      supabaseAvailable: "Supabase доступен",
+      errorCheckingAvailability: "Ошибка при проверке доступности Supabase: {error}",
+      exceptionCheckingAvailability: "Исключение при проверке доступности Supabase",
+      gettingAllMatches: "Получение всех матчей для истории",
+      gettingMatchByCourt: "Получение матча по номеру корта: {court}",
+      invalidCourtNumber: "Некорректный номер корта",
+      failedCreateClient: "Не удалось создать клиент Supabase",
+      activeMatchNotFoundSeekCompleted: "Активный матч на корте {court} не найден, ищем завершенный",
+      errorCompletedMatch: "Ошибка при получении завершенного матча: {error}",
+      matchNotFoundActiveOrCompleted: "Матч не найден в Supabase (ни активный, ни завершенный)",
+      initEmptySetsCompleted: "Инициализирован пустой массив sets для завершенного матча",
+      gotCompletedMatchByCourt: "Получен завершенный матч по номеру корта",
+      gotMatchByCourt: "Матч успешно получен по номеру корта",
+      timeoutGetMatchByCourt: "Таймаут при получении матча по номеру корта",
+      errorGetMatchByCourt: "Ошибка при получении матча по номеру корта: {error}",
+      gettingOccupiedCourts: "Получение списка занятых кортов",
+      errorOccupiedCourts: "Ошибка при получении списка занятых кортов: {error}",
+      noActiveMatchesOnCourts: "Нет активных матчей на кортах",
+      gotOccupiedCourts: "Получено {count} занятых кортов",
+      timeoutOccupiedCourts: "Таймаут при получении списка занятых кортов",
+      failedOccupiedUseLocal: "Не удалось получить занятые корты из Supabase, используем локальные данные",
+      errorLocalCourts: "Ошибка при получении локальных данных о кортах",
+      gotFreeCourts: "Получено {count} свободных кортов",
+      errorFreeCourts: "Ошибка при получении списка свободных кортов: {error}",
+      assigningMatchToCourt: "Назначение матча {matchId} на корт {court}",
+      matchNotFound: "Матч не найден",
+      errorAssigningCourt: "Ошибка при назначении матча на корт: {error}",
+      matchAssignedToCourt: "Матч {matchId} успешно назначен на корт {court}",
+      timeoutAssigningCourt: "Таймаут при назначении матча на корт",
+      freeingCourt: "Освобождение корта {court}",
+      matchOnCourtNotFound: "Матч на корте не найден",
+      errorFreeingCourt: "Ошибка при освобождении корта: {error}",
+      courtFreed: "Корт {court} успешно освобожден",
+      timeoutFreeingCourt: "Таймаут при освобождении корта",
+      errorExecutingSql: "Ошибка при выполнении SQL: {error}",
+      errorInitializingDb: "Ошибка при инициализации базы данных: {error}",
+      sqlExecuted: "SQL-запрос успешно выполнен",
+      sqlQueryError: "Ошибка выполнения SQL",
+      startConnectionTest: "Запуск теста соединения с Supabase",
+      connectionTestCompleted: "Тест соединения завершен: успешно",
+      connectionTestFailed: "Тест соединения завершен: неудачно",
+      errorConnectionTest: "Ошибка при выполнении теста соединения",
+      checkingTablesExist: "Проверка существования таблиц",
+      checkingTablesContent: "Проверка содержимого таблиц",
+      checkingDb: "Проверка базы данных",
+      checkingTablesStatus: "Проверка статуса таблиц",
+      tablesCheckResult: "Результат проверки таблиц",
+      initDbResult: "Результат инициализации базы данных",
+      sqlCreateResult: "Результат создания таблицы matches",
+      sqlCreatePlayersResult: "Результат создания таблицы players",
+      matchSynced: "Матч {id} синхронизирован, revision={revision}",
+      syncConflict: "Конфликт синхронизации матча {id}: {reason}",
+      operationDeadLetter: "Операция матча {id} перемещена в dead-letter: {error}",
+      flushQueueError: "Ошибка слива очереди матча {id}",
+      revisionColumnMissing: "Колонка matches.revision отсутствует — режим last-writer-wins",
+      localStorageUnavailable: "localStorage недоступен — синхронизация работает в ограниченном режиме",
+      operationLogCorrupted: "Журнал операций повреждён или устарел: {id}",
+      operationLogReadError: "Не удалось прочитать журнал операций: {id}",
+      operationLogSaveError: "Не удалось сохранить журнал операций (квота?): {id}",
+      operationLogListError: "Не удалось перечислить журналы операций",
+      errorFetchPlayers: "Ошибка при получении игроков из Supabase",
+      errorGetPlayers: "Ошибка при получении игроков",
+      errorAddPlayerSupabase: "Ошибка при добавлении игрока в Supabase",
+      errorAddPlayer: "Ошибка при добавлении игрока",
+      errorUpdatePlayerSupabase: "Ошибка при обновлении игрока в Supabase",
+      errorUpdatePlayer: "Ошибка при обновлении игрока",
+      errorDeletePlayerSupabase: "Ошибка при удалении игрока из Supabase",
+      errorDeletePlayer: "Ошибка при удалении игрока",
+      errorDeletePlayersSupabase: "Ошибка при удалении игроков из Supabase",
+      errorDeletePlayers: "Ошибка при удалении игроков",
+      gettingMatchServer: "Получение матча по ID (сервер): {id}",
+      matchGotServer: "Матч успешно получен из Supabase (сервер)",
+      gettingMatchByCourtServer: "Получение матча по номеру корта (сервер): {court}",
+      matchGotByCourtServer: "Матч успешно получен из Supabase (сервер)",
+      vmixGetError: "Ошибка при получении настроек vMix",
+      vmixGetException: "Исключение при получении настроек vMix",
+      vmixGetByIdError: "Ошибка при получении настроек vMix по ID: {id}",
+      vmixGetByIdException: "Исключение при получении настроек vMix по ID",
+      vmixGetDefaultError: "Ошибка при получении настроек vMix по умолчанию",
+      vmixGetDefaultException: "Исключение при получении настроек vMix по умолчанию",
+      vmixResetDefaultError: "Ошибка при сбросе флага 'по умолчанию'",
+      vmixCreateError: "Ошибка при создании настроек vMix",
+      vmixCreated: "Созданы новые настройки vMix: {name}",
+      vmixUpdateError: "Ошибка при обновлении настроек vMix: {id}",
+      vmixUpdated: "Обновлены настройки vMix: {name}",
+      vmixSaveException: "Исключение при сохранении настроек vMix",
+      vmixDeleteError: "Ошибка при удалении настроек vMix: {id}",
+      vmixDeleted: "Удалены настройки vMix: {id}",
+      vmixDeleteException: "Исключение при удалении настроек vMix",
+    },
   },
   en: {
     common: {
@@ -2067,6 +2545,245 @@ export const translations: { [key in Language]: TranslationKeys } = {
       changeTournament: "Change tournament",
       startOver: "Start over",
     },
+    debugPage: {
+      backToHome: "Back to Home",
+      tabDatabase: "Database",
+      tabConnection: "Connection",
+      tabErrorLogs: "Error Logs",
+      connectionDiagnostics: "Database Connection Diagnostics",
+      runConnectionTest: "Run Connection Test",
+      runningTest: "Running test...",
+      testResults: "Test Results:",
+      checkingDatabase: "Checking database...",
+      tableExists: "Table exists",
+      tableNotExists: "Table does not exist",
+      matchesTable: "Matches table (matches)",
+      playersTable: "Players table (players)",
+      tablesContent: "Tables content:",
+      playersLabel: "Players",
+      matchesLabel: "Matches",
+      playersEmpty: "Players table is empty",
+      matchesEmpty: "Matches table is empty",
+      tablesNotCreated: "Tables not created",
+      tablesNotCreatedDesc: "Tables must be created in the Supabase database for the application to work. Go to the \"Database\" tab to initialize.",
+      errorTitle: "Error",
+      checkTablesError: "Failed to check table status. Check the Supabase connection.",
+      checkDatabase: "Check Database",
+      checkingDatabaseStatus: "Checking table status...",
+      dbInitialization: "Database Initialization",
+      checkingTablesStatus: "Checking table status...",
+      tablesNotCreatedInit: "Tables not created",
+      tablesNotCreatedInitDesc: "Tables must be created in the Supabase database for the application to work. You can use automatic initialization or create tables manually.",
+      successTitle: "Success",
+      errorTitleShort: "Error",
+      dbInitializedSuccess: "Database initialized successfully",
+      dbInitError: "Error initializing database",
+      sqlExecutedSuccess: "SQL executed successfully",
+      sqlExecutionError: "SQL execution error",
+      sqlQuerySuccess: "SQL query executed successfully",
+      sqlQueryError: "Error",
+      tabAutoInit: "Auto Initialization",
+      tabManualCreation: "Manual Creation",
+      tabSqlScript: "SQL Script",
+      tabCustomSql: "Custom SQL",
+      autoInitDescription: "Click the button below to automatically create the required tables in the Supabase database. This method requires the exec_sql function in your database.",
+      initializeDatabase: "Initialize Database",
+      initializing: "Initializing...",
+      tablesAlreadyCreated: "Tables already created",
+      manualCreationDescription: "Create tables individually if automatic initialization doesn't work.",
+      createMatchesTable: "Create matches table",
+      createPlayersTable: "Create players table",
+      creatingTable: "Creating table...",
+      matchesTableCreated: "Matches table already created",
+      playersTableCreated: "Players table already created",
+      sqlScriptDescription: "You can also run this SQL script manually in the Supabase SQL editor:",
+      customSqlDescription: "Execute a custom SQL query:",
+      enterSqlPlaceholder: "Enter SQL query...",
+      executeSql: "Execute SQL",
+      executing: "Executing...",
+      checkTablesStatus: "Check Table Status",
+      errorLogTitle: "Error and Event Log",
+      refreshBtn: "Refresh",
+      exportBtn: "Export",
+      clearBtn: "Clear",
+      clearConfirm: "Are you sure you want to clear the error log?",
+      filterAll: "All",
+      filterErrors: "Errors",
+      filterWarnings: "Warnings",
+      filterInfo: "Info",
+      filterDebug: "Debug",
+      loadingLog: "Loading log...",
+      noRecordsFound: "No records found",
+      logStorageNote: "The log is stored only in the browser's local storage and is not sent to the server.",
+    },
+    logMessages: {
+      missingServerEnvVars: "Missing Supabase environment variables on server",
+      creatingServerClient: "Creating server Supabase client",
+      missingClientEnvVars: "Missing Supabase environment variables on client",
+      creatingClientClient: "Creating client Supabase client",
+      errorCreatingClient: "Error creating Supabase client",
+      timeoutAvailability: "Timeout checking Supabase availability",
+      supabaseQueryError: "Supabase query error: {error}",
+      exceptionAvailability: "Exception checking Supabase availability",
+      tablesNotExistDirect: "Tables do not exist in database (direct query check)",
+      tablesExist: "Tables exist in database",
+      timeoutCheckTables: "Timeout checking table existence",
+      errorCheckTables: "Error checking table existence",
+      timeoutCheckContent: "Timeout checking table content",
+      dbInitStart: "Starting database initialization",
+      tablesAlreadyExist: "Tables already exist, initialization not required",
+      dbInitSuccess: "Database initialized successfully",
+      dbInitException: "Exception during database initialization",
+      timeoutSql: "Timeout executing SQL",
+      errorDecompress: "Error decompressing data from localStorage: {key}",
+      dataCorrupted: "Data in localStorage corrupted: {key}",
+      errorGetLocal: "Error getting data from localStorage: {key}",
+      errorSetLocal: "Error saving data to localStorage: {key}",
+      gettingMatches: "Getting match list",
+      supabaseAvailableGetting: "Supabase available, getting matches from database",
+      matchesNotFoundInSupabase: "No matches found in Supabase",
+      tablesNotExistUseLocal: "Tables don't exist in Supabase, using local storage",
+      supabaseUnavailableUseLocal: "Supabase unavailable, using local storage",
+      restoredFromLocal: "Restored {count} matches from localStorage",
+      gotFromLocal: "Got {count} matches from localStorage",
+      errorGettingMatches: "Error getting matches",
+      errorProcessingKey: "Error processing key {key}",
+      errorSearchLocal: "Error searching matches in localStorage",
+      gettingMatchById: "Getting match by ID/code: {id}",
+      matchFromCache: "Match {id} retrieved from cache",
+      supabaseAvailableGettingMatch: "Supabase available, getting match from database",
+      errorMatchFromSupabase: "Error getting match from Supabase: {error}",
+      matchGotFromSupabase: "Match successfully retrieved from Supabase",
+      initEmptySetsSupabase: "Initialized empty sets array for match from Supabase",
+      playerCountriesLoaded: "Player country info loaded successfully",
+      playerCountriesLoadFailed: "Failed to load player country info",
+      playerCountriesError: "Error loading player country info",
+      matchNotFoundSupabase: "Match not found in Supabase",
+      matchFoundLocal: "Match found in local storage",
+      initEmptySetsLocal: "Initialized empty sets array for match from localStorage",
+      matchFoundInList: "Match found in local storage list",
+      initEmptySetsList: "Initialized empty sets array for match from list",
+      matchNotFoundAnywhere: "Match not found in Supabase or local storage",
+      errorGettingMatch: "Error getting match: {error}",
+      cleaningStorage: "Cleaning local storage: {count} matches, limit {limit}",
+      deletedOldMatch: "Deleted old match from localStorage: {id}",
+      errorCleaningStorage: "Error cleaning storage",
+      creatingMatch: "Creating new match",
+      initEmptySetsNew: "Initialized empty sets array for new match",
+      supabaseAvailableSaving: "Supabase available, saving match to database",
+      errorSavingSupabase: "Error saving match to Supabase: {error}",
+      matchSavedSupabase: "Match saved to Supabase successfully",
+      tablesNotExistSaveLocal: "Tables don't exist in Supabase, saving to local storage only",
+      supabaseUnavailableSaveLocal: "Supabase unavailable, saving to local storage only",
+      matchSavedLocal: "Match saved to local storage successfully",
+      errorCreatingMatch: "Error creating match: {error}",
+      deletingMatch: "Deleting match: {id}",
+      matchNotFoundForDelete: "Match not found for deletion: {id}",
+      supabaseAvailableDeleting: "Supabase available, deleting match from database",
+      errorDeletingSupabase: "Error deleting match from Supabase: {error}",
+      matchDeletedSupabase: "Match deleted from Supabase successfully",
+      tablesNotExistDeleteLocal: "Tables don't exist in Supabase, deleting from local storage only",
+      supabaseUnavailableDeleteLocal: "Supabase unavailable, deleting from local storage only",
+      matchDeletedLocal: "Match deleted from local storage successfully",
+      errorDeletingMatch: "Error deleting match: {error}",
+      matchNotFoundForSubscribe: "Match not found for subscription: {id}",
+      supabaseEventReceived: "Received Supabase event for match {id}",
+      subscribeStatus: "Match {id} subscription status: {status}",
+      unsubscribeMatch: "Unsubscribed from match {id} updates",
+      tablesNotExistLocalSubscribe: "Tables don't exist in Supabase, using local subscription",
+      supabaseUnavailableLocalSubscribe: "Supabase unavailable, using local subscription",
+      checkingAvailability: "Checking Supabase availability",
+      runningTestQuery: "Running test query to Supabase",
+      supabaseAvailable: "Supabase available",
+      errorCheckingAvailability: "Error checking Supabase availability: {error}",
+      exceptionCheckingAvailability: "Exception checking Supabase availability",
+      gettingAllMatches: "Getting all matches for history",
+      gettingMatchByCourt: "Getting match by court number: {court}",
+      invalidCourtNumber: "Invalid court number",
+      failedCreateClient: "Failed to create Supabase client",
+      activeMatchNotFoundSeekCompleted: "Active match on court {court} not found, searching completed",
+      errorCompletedMatch: "Error getting completed match: {error}",
+      matchNotFoundActiveOrCompleted: "Match not found in Supabase (neither active nor completed)",
+      initEmptySetsCompleted: "Initialized empty sets array for completed match",
+      gotCompletedMatchByCourt: "Got completed match by court number",
+      gotMatchByCourt: "Match retrieved by court number",
+      timeoutGetMatchByCourt: "Timeout getting match by court number",
+      errorGetMatchByCourt: "Error getting match by court number: {error}",
+      gettingOccupiedCourts: "Getting occupied courts list",
+      errorOccupiedCourts: "Error getting occupied courts: {error}",
+      noActiveMatchesOnCourts: "No active matches on courts",
+      gotOccupiedCourts: "Got {count} occupied courts",
+      timeoutOccupiedCourts: "Timeout getting occupied courts",
+      failedOccupiedUseLocal: "Failed to get occupied courts from Supabase, using local data",
+      errorLocalCourts: "Error getting local court data",
+      gotFreeCourts: "Got {count} free courts",
+      errorFreeCourts: "Error getting free courts: {error}",
+      assigningMatchToCourt: "Assigning match {matchId} to court {court}",
+      matchNotFound: "Match not found",
+      errorAssigningCourt: "Error assigning match to court: {error}",
+      matchAssignedToCourt: "Match {matchId} assigned to court {court}",
+      timeoutAssigningCourt: "Timeout assigning match to court",
+      freeingCourt: "Freeing court {court}",
+      matchOnCourtNotFound: "Match on court not found",
+      errorFreeingCourt: "Error freeing court: {error}",
+      courtFreed: "Court {court} freed successfully",
+      timeoutFreeingCourt: "Timeout freeing court",
+      errorExecutingSql: "Error executing SQL: {error}",
+      errorInitializingDb: "Error initializing database: {error}",
+      sqlExecuted: "SQL query executed successfully",
+      sqlQueryError: "SQL execution error",
+      startConnectionTest: "Starting Supabase connection test",
+      connectionTestCompleted: "Connection test completed: success",
+      connectionTestFailed: "Connection test completed: failed",
+      errorConnectionTest: "Error running connection test",
+      checkingTablesExist: "Checking table existence",
+      checkingTablesContent: "Checking table content",
+      checkingDb: "Checking database",
+      checkingTablesStatus: "Checking table status",
+      tablesCheckResult: "Table check result",
+      initDbResult: "Database initialization result",
+      sqlCreateResult: "Create matches table result",
+      sqlCreatePlayersResult: "Create players table result",
+      matchSynced: "Match {id} synced, revision={revision}",
+      syncConflict: "Sync conflict for match {id}: {reason}",
+      operationDeadLetter: "Match {id} operation moved to dead-letter: {error}",
+      flushQueueError: "Error flushing queue for match {id}",
+      revisionColumnMissing: "Column matches.revision missing — last-writer-wins mode",
+      localStorageUnavailable: "localStorage unavailable — sync running in limited mode",
+      operationLogCorrupted: "Operation log corrupted or stale: {id}",
+      operationLogReadError: "Failed to read operation log: {id}",
+      operationLogSaveError: "Failed to save operation log (quota?): {id}",
+      operationLogListError: "Failed to list operation logs",
+      errorFetchPlayers: "Error fetching players from Supabase",
+      errorGetPlayers: "Error getting players",
+      errorAddPlayerSupabase: "Error adding player to Supabase",
+      errorAddPlayer: "Error adding player",
+      errorUpdatePlayerSupabase: "Error updating player in Supabase",
+      errorUpdatePlayer: "Error updating player",
+      errorDeletePlayerSupabase: "Error deleting player from Supabase",
+      errorDeletePlayer: "Error deleting player",
+      errorDeletePlayersSupabase: "Error deleting players from Supabase",
+      errorDeletePlayers: "Error deleting players",
+      gettingMatchServer: "Getting match by ID (server): {id}",
+      matchGotServer: "Match retrieved from Supabase (server)",
+      gettingMatchByCourtServer: "Getting match by court number (server): {court}",
+      matchGotByCourtServer: "Match retrieved from Supabase (server)",
+      vmixGetError: "Error getting vMix settings",
+      vmixGetException: "Exception getting vMix settings",
+      vmixGetByIdError: "Error getting vMix settings by ID: {id}",
+      vmixGetByIdException: "Exception getting vMix settings by ID",
+      vmixGetDefaultError: "Error getting default vMix settings",
+      vmixGetDefaultException: "Exception getting default vMix settings",
+      vmixResetDefaultError: "Error resetting default flag",
+      vmixCreateError: "Error creating vMix settings",
+      vmixCreated: "Created new vMix settings: {name}",
+      vmixUpdateError: "Error updating vMix settings: {id}",
+      vmixUpdated: "Updated vMix settings: {name}",
+      vmixSaveException: "Exception saving vMix settings",
+      vmixDeleteError: "Error deleting vMix settings: {id}",
+      vmixDeleted: "Deleted vMix settings: {id}",
+      vmixDeleteException: "Exception deleting vMix settings",
+    },
   },
   uk: {
     common: {
@@ -2753,6 +3470,245 @@ export const translations: { [key in Language]: TranslationKeys } = {
       changePlatform: "Змінити платформу",
       changeTournament: "Змінити турнір",
       startOver: "На початок",
+    },
+    debugPage: {
+      backToHome: "На головну",
+      tabDatabase: "База даних",
+      tabConnection: "З'єднання",
+      tabErrorLogs: "Журнал помилок",
+      connectionDiagnostics: "Діагностика з'єднання з базою даних",
+      runConnectionTest: "Запустити тест з'єднання",
+      runningTest: "Виконання тесту...",
+      testResults: "Результати тесту:",
+      checkingDatabase: "Перевірка бази даних...",
+      tableExists: "Таблиця існує",
+      tableNotExists: "Таблиця не існує",
+      matchesTable: "Таблиця матчів (matches)",
+      playersTable: "Таблиця гравців (players)",
+      tablesContent: "Вміст таблиць:",
+      playersLabel: "Гравці",
+      matchesLabel: "Матчі",
+      playersEmpty: "Таблиця гравців порожня",
+      matchesEmpty: "Таблиця матчів порожня",
+      tablesNotCreated: "Таблиці не створені",
+      tablesNotCreatedDesc: "Для роботи додатку необхідно створити таблиці в базі даних Supabase. Перейдіть на вкладку «База даних» для ініціалізації.",
+      errorTitle: "Помилка",
+      checkTablesError: "Не вдалося перевірити статус таблиць. Перевірте з'єднання з Supabase.",
+      checkDatabase: "Перевірити базу даних",
+      checkingDatabaseStatus: "Перевірка статусу таблиць...",
+      dbInitialization: "Ініціалізація бази даних",
+      checkingTablesStatus: "Перевірка статусу таблиць...",
+      tablesNotCreatedInit: "Таблиці не створені",
+      tablesNotCreatedInitDesc: "Для роботи додатку необхідно створити таблиці в базі даних Supabase. Ви можете використати автоматичну ініціалізацію або створити таблиці вручну.",
+      successTitle: "Успіх",
+      errorTitleShort: "Помилка",
+      dbInitializedSuccess: "Базу даних успішно ініціалізовано",
+      dbInitError: "Помилка при ініціалізації бази даних",
+      sqlExecutedSuccess: "SQL виконано успішно",
+      sqlExecutionError: "Помилка виконання SQL",
+      sqlQuerySuccess: "SQL-запит успішно виконано",
+      sqlQueryError: "Помилка",
+      tabAutoInit: "Автоматична ініціалізація",
+      tabManualCreation: "Ручне створення",
+      tabSqlScript: "SQL-скрипт",
+      tabCustomSql: "Свій SQL",
+      autoInitDescription: "Натисніть кнопку нижче, щоб автоматично створити необхідні таблиці в базі даних Supabase. Цей метод вимагає наявності функції exec_sql у вашій базі даних.",
+      initializeDatabase: "Ініціалізувати базу даних",
+      initializing: "Ініціалізація...",
+      tablesAlreadyCreated: "Таблиці вже створені",
+      manualCreationDescription: "Створіть таблиці окремо, якщо автоматична ініціалізація не працює.",
+      createMatchesTable: "Створити таблицю matches",
+      createPlayersTable: "Створити таблицю players",
+      creatingTable: "Створення таблиці...",
+      matchesTableCreated: "Таблиця matches вже створена",
+      playersTableCreated: "Таблиця players вже створена",
+      sqlScriptDescription: "Ви також можете виконати цей SQL-скрипт вручну в SQL-редакторі Supabase:",
+      customSqlDescription: "Виконайте довільний SQL-запит:",
+      enterSqlPlaceholder: "Введіть SQL-запит...",
+      executeSql: "Виконати SQL",
+      executing: "Виконання...",
+      checkTablesStatus: "Перевірити статус таблиць",
+      errorLogTitle: "Журнал помилок та подій",
+      refreshBtn: "Оновити",
+      exportBtn: "Експорт",
+      clearBtn: "Очистити",
+      clearConfirm: "Ви впевнені, що хочете очистити журнал помилок?",
+      filterAll: "Всі",
+      filterErrors: "Помилки",
+      filterWarnings: "Попередження",
+      filterInfo: "Інформація",
+      filterDebug: "Налагодження",
+      loadingLog: "Завантаження журналу...",
+      noRecordsFound: "Записи не знайдені",
+      logStorageNote: "Журнал зберігається лише в локальному сховищі браузера і не надсилається на сервер.",
+    },
+    logMessages: {
+      missingServerEnvVars: "Відсутні змінні оточення для Supabase на сервері",
+      creatingServerClient: "Створення серверного клієнта Supabase",
+      missingClientEnvVars: "Відсутні змінні оточення для Supabase на клієнті",
+      creatingClientClient: "Створення клієнтського клієнта Supabase",
+      errorCreatingClient: "Помилка при створенні клієнта Supabase",
+      timeoutAvailability: "Таймаут при перевірці доступності Supabase",
+      supabaseQueryError: "Помилка запиту до Supabase: {error}",
+      exceptionAvailability: "Виняток при перевірці доступності Supabase",
+      tablesNotExistDirect: "Таблиці в базі даних не існують (перевірка через прямі запити)",
+      tablesExist: "Таблиці в базі даних існують",
+      timeoutCheckTables: "Таймаут при перевірці існування таблиць",
+      errorCheckTables: "Помилка при перевірці існування таблиць",
+      timeoutCheckContent: "Таймаут при перевірці вмісту таблиць",
+      dbInitStart: "Початок ініціалізації бази даних",
+      tablesAlreadyExist: "Таблиці вже існують, ініціалізація не потрібна",
+      dbInitSuccess: "Базу даних успішно ініціалізовано",
+      dbInitException: "Виняток при ініціалізації бази даних",
+      timeoutSql: "Таймаут при виконанні SQL",
+      errorDecompress: "Помилка при розпакуванні даних з localStorage: {key}",
+      dataCorrupted: "Дані в localStorage пошкоджено: {key}",
+      errorGetLocal: "Помилка при отриманні даних з localStorage: {key}",
+      errorSetLocal: "Помилка при збереженні даних в localStorage: {key}",
+      gettingMatches: "Отримання списку матчів",
+      supabaseAvailableGetting: "Supabase доступний, отримуємо матчі з бази даних",
+      matchesNotFoundInSupabase: "Матчі в Supabase не знайдені",
+      tablesNotExistUseLocal: "Таблиці в Supabase не існують, використовуємо локальне сховище",
+      supabaseUnavailableUseLocal: "Supabase недоступний, використовуємо локальне сховище",
+      restoredFromLocal: "Відновлено {count} матчів з localStorage",
+      gotFromLocal: "Отримано {count} матчів з localStorage",
+      errorGettingMatches: "Помилка при отриманні матчів",
+      errorProcessingKey: "Помилка при обробці ключа {key}",
+      errorSearchLocal: "Помилка при пошуку матчів в localStorage",
+      gettingMatchById: "Отримання матчу по ID/коду: {id}",
+      matchFromCache: "Матч {id} отримано з кешу",
+      supabaseAvailableGettingMatch: "Supabase доступний, отримуємо матч з бази даних",
+      errorMatchFromSupabase: "Помилка при отриманні матчу з Supabase: {error}",
+      matchGotFromSupabase: "Матч успішно отримано з Supabase",
+      initEmptySetsSupabase: "Ініціалізовано порожній масив sets для матчу з Supabase",
+      playerCountriesLoaded: "Інформацію про країни гравців завантажено",
+      playerCountriesLoadFailed: "Не вдалося завантажити інформацію про країни гравців",
+      playerCountriesError: "Помилка при завантаженні інформації про країни гравців",
+      matchNotFoundSupabase: "Матч не знайдено в Supabase",
+      matchFoundLocal: "Матч знайдено в локальному сховищі",
+      initEmptySetsLocal: "Ініціалізовано порожній масив sets для матчу з localStorage",
+      matchFoundInList: "Матч знайдено в загальному списку локального сховища",
+      initEmptySetsList: "Ініціалізовано порожній масив sets для матчу зі списку",
+      matchNotFoundAnywhere: "Матч не знайдено ні в Supabase, ні в локальному сховищі",
+      errorGettingMatch: "Помилка при отриманні матчу: {error}",
+      cleaningStorage: "Очищення локального сховища: {count} матчів, ліміт {limit}",
+      deletedOldMatch: "Видалено старий матч з localStorage: {id}",
+      errorCleaningStorage: "Помилка при очищенні сховища",
+      creatingMatch: "Створення нового матчу",
+      initEmptySetsNew: "Ініціалізовано порожній масив sets для нового матчу",
+      supabaseAvailableSaving: "Supabase доступний, зберігаємо матч в базу даних",
+      errorSavingSupabase: "Помилка при збереженні матчу в Supabase: {error}",
+      matchSavedSupabase: "Матч успішно збережено в Supabase",
+      tablesNotExistSaveLocal: "Таблиці в Supabase не існують, зберігаємо лише в локальне сховище",
+      supabaseUnavailableSaveLocal: "Supabase недоступний, зберігаємо лише в локальне сховище",
+      matchSavedLocal: "Матч успішно збережено в локальне сховище",
+      errorCreatingMatch: "Помилка при створенні матчу: {error}",
+      deletingMatch: "Видалення матчу: {id}",
+      matchNotFoundForDelete: "Матч не знайдено для видалення: {id}",
+      supabaseAvailableDeleting: "Supabase доступний, видаляємо матч з бази даних",
+      errorDeletingSupabase: "Помилка при видаленні матчу з Supabase: {error}",
+      matchDeletedSupabase: "Матч успішно видалено з Supabase",
+      tablesNotExistDeleteLocal: "Таблиці в Supabase не існують, видаляємо лише з локального сховища",
+      supabaseUnavailableDeleteLocal: "Supabase недоступний, видаляємо лише з локального сховища",
+      matchDeletedLocal: "Матч успішно видалено з локального сховища",
+      errorDeletingMatch: "Помилка при видаленні матчу: {error}",
+      matchNotFoundForSubscribe: "Матч не знайдено для підписки: {id}",
+      supabaseEventReceived: "Отримано подію Supabase для матчу {id}",
+      subscribeStatus: "Статус підписки на матч {id}: {status}",
+      unsubscribeMatch: "Відписка від оновлень матчу {id}",
+      tablesNotExistLocalSubscribe: "Таблиці в Supabase не існують, використовуємо локальну підписку",
+      supabaseUnavailableLocalSubscribe: "Supabase недоступний, використовуємо локальну підписку",
+      checkingAvailability: "Перевірка доступності Supabase",
+      runningTestQuery: "Виконання тестового запиту до Supabase",
+      supabaseAvailable: "Supabase доступний",
+      errorCheckingAvailability: "Помилка при перевірці доступності Supabase: {error}",
+      exceptionCheckingAvailability: "Виняток при перевірці доступності Supabase",
+      gettingAllMatches: "Отримання всіх матчів для історії",
+      gettingMatchByCourt: "Отримання матчу за номером корту: {court}",
+      invalidCourtNumber: "Некоректний номер корту",
+      failedCreateClient: "Не вдалося створити клієнт Supabase",
+      activeMatchNotFoundSeekCompleted: "Активний матч на корті {court} не знайдено, шукаємо завершений",
+      errorCompletedMatch: "Помилка при отриманні завершеного матчу: {error}",
+      matchNotFoundActiveOrCompleted: "Матч не знайдено в Supabase (ні активний, ні завершений)",
+      initEmptySetsCompleted: "Ініціалізовано порожній масив sets для завершеного матчу",
+      gotCompletedMatchByCourt: "Отримано завершений матч за номером корту",
+      gotMatchByCourt: "Матч успішно отримано за номером корту",
+      timeoutGetMatchByCourt: "Таймаут при отриманні матчу за номером корту",
+      errorGetMatchByCourt: "Помилка при отриманні матчу за номером корту: {error}",
+      gettingOccupiedCourts: "Отримання списку зайнятих кортів",
+      errorOccupiedCourts: "Помилка при отриманні списку зайнятих кортів: {error}",
+      noActiveMatchesOnCourts: "Немає активних матчів на кортах",
+      gotOccupiedCourts: "Отримано {count} зайнятих кортів",
+      timeoutOccupiedCourts: "Таймаут при отриманні списку зайнятих кортів",
+      failedOccupiedUseLocal: "Не вдалося отримати зайняті корти з Supabase, використовуємо локальні дані",
+      errorLocalCourts: "Помилка при отриманні локальних даних про корти",
+      gotFreeCourts: "Отримано {count} вільних кортів",
+      errorFreeCourts: "Помилка при отриманні списку вільних кортів: {error}",
+      assigningMatchToCourt: "Призначення матчу {matchId} на корт {court}",
+      matchNotFound: "Матч не знайдено",
+      errorAssigningCourt: "Помилка при призначенні матчу на корт: {error}",
+      matchAssignedToCourt: "Матч {matchId} успішно призначено на корт {court}",
+      timeoutAssigningCourt: "Таймаут при призначенні матчу на корт",
+      freeingCourt: "Звільнення корту {court}",
+      matchOnCourtNotFound: "Матч на корті не знайдено",
+      errorFreeingCourt: "Помилка при звільненні корту: {error}",
+      courtFreed: "Корт {court} успішно звільнено",
+      timeoutFreeingCourt: "Таймаут при звільненні корту",
+      errorExecutingSql: "Помилка при виконанні SQL: {error}",
+      errorInitializingDb: "Помилка при ініціалізації бази даних: {error}",
+      sqlExecuted: "SQL-запит успішно виконано",
+      sqlQueryError: "Помилка виконання SQL",
+      startConnectionTest: "Запуск тесту з'єднання з Supabase",
+      connectionTestCompleted: "Тест з'єднання завершено: успішно",
+      connectionTestFailed: "Тест з'єднання завершено: невдало",
+      errorConnectionTest: "Помилка при виконанні тесту з'єднання",
+      checkingTablesExist: "Перевірка існування таблиць",
+      checkingTablesContent: "Перевірка вмісту таблиць",
+      checkingDb: "Перевірка бази даних",
+      checkingTablesStatus: "Перевірка статусу таблиць",
+      tablesCheckResult: "Результат перевірки таблиць",
+      initDbResult: "Результат ініціалізації бази даних",
+      sqlCreateResult: "Результат створення таблиці matches",
+      sqlCreatePlayersResult: "Результат створення таблиці players",
+      matchSynced: "Матч {id} синхронізовано, revision={revision}",
+      syncConflict: "Конфлікт синхронізації матчу {id}: {reason}",
+      operationDeadLetter: "Операцію матчу {id} переміщено до dead-letter: {error}",
+      flushQueueError: "Помилка зливу черги матчу {id}",
+      revisionColumnMissing: "Колонку matches.revision відсутньо — режим last-writer-wins",
+      localStorageUnavailable: "localStorage недоступний — синхронізація працює в обмеженому режимі",
+      operationLogCorrupted: "Журнал операцій пошкоджено або застаріло: {id}",
+      operationLogReadError: "Не вдалося прочитати журнал операцій: {id}",
+      operationLogSaveError: "Не вдалося зберегти журнал операцій (квота?): {id}",
+      operationLogListError: "Не вдалося перерахувати журнали операцій",
+      errorFetchPlayers: "Помилка при отриманні гравців з Supabase",
+      errorGetPlayers: "Помилка при отриманні гравців",
+      errorAddPlayerSupabase: "Помилка при додаванні гравця в Supabase",
+      errorAddPlayer: "Помилка при додаванні гравця",
+      errorUpdatePlayerSupabase: "Помилка при оновленні гравця в Supabase",
+      errorUpdatePlayer: "Помилка при оновленні гравця",
+      errorDeletePlayerSupabase: "Помилка при видаленні гравця з Supabase",
+      errorDeletePlayer: "Помилка при видаленні гравця",
+      errorDeletePlayersSupabase: "Помилка при видаленні гравців з Supabase",
+      errorDeletePlayers: "Помилка при видаленні гравців",
+      gettingMatchServer: "Отримання матчу по ID (сервер): {id}",
+      matchGotServer: "Матч успішно отримано з Supabase (сервер)",
+      gettingMatchByCourtServer: "Отримання матчу за номером корту (сервер): {court}",
+      matchGotByCourtServer: "Матч успішно отримано з Supabase (сервер)",
+      vmixGetError: "Помилка при отриманні налаштувань vMix",
+      vmixGetException: "Виняток при отриманні налаштувань vMix",
+      vmixGetByIdError: "Помилка при отриманні налаштувань vMix по ID: {id}",
+      vmixGetByIdException: "Виняток при отриманні налаштувань vMix по ID",
+      vmixGetDefaultError: "Помилка при отриманні налаштувань vMix за замовчуванням",
+      vmixGetDefaultException: "Виняток при отриманні налаштувань vMix за замовчуванням",
+      vmixResetDefaultError: "Помилка при скиданні прапорця 'за замовчуванням'",
+      vmixCreateError: "Помилка при створенні налаштувань vMix",
+      vmixCreated: "Створено нові налаштування vMix: {name}",
+      vmixUpdateError: "Помилка при оновленні налаштувань vMix: {id}",
+      vmixUpdated: "Оновлено налаштування vMix: {name}",
+      vmixSaveException: "Виняток при збереженні налаштувань vMix",
+      vmixDeleteError: "Помилка при видаленні налаштувань vMix: {id}",
+      vmixDeleted: "Видалено налаштування vMix: {id}",
+      vmixDeleteException: "Виняток при видаленні налаштувань vMix",
     },
   },
 }

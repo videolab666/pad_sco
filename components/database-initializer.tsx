@@ -9,6 +9,7 @@ import { checkTablesExist, initializeDatabase, getCreateTablesSql, executeSql } 
 import { logEvent } from "@/lib/error-logger"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { useLanguage } from "@/contexts/language-context"
 
 export function DatabaseInitializer() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,6 +22,7 @@ export function DatabaseInitializer() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [sqlResult, setSqlResult] = useState<any>(null)
   const [isExecutingSql, setIsExecutingSql] = useState(false)
+  const { t } = useLanguage()
 
   const checkTables = async () => {
     setIsChecking(true)
@@ -49,7 +51,6 @@ export function DatabaseInitializer() {
       logEvent("info", "Результат инициализации базы данных", "DatabaseInitializer", result)
 
       if (result.success) {
-        // Перепроверяем статус таблиц после инициализации
         await checkTables()
       }
     } catch (error: any) {
@@ -72,7 +73,6 @@ export function DatabaseInitializer() {
       logEvent("info", "Результат выполнения SQL", "DatabaseInitializer", result)
 
       if (result.success) {
-        // Перепроверяем статус таблиц после выполнения SQL
         await checkTables()
       }
     } catch (error: any) {
@@ -154,29 +154,29 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Database className="h-5 w-5" />
-          Инициализация базы данных
+          {t("debugPage.dbInitialization")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {isChecking ? (
           <div className="flex items-center justify-center p-4">
             <Loader2 className="h-6 w-6 animate-spin mr-2" />
-            <span>Проверка статуса таблиц...</span>
+            <span>{t("debugPage.checkingTablesStatus")}</span>
           </div>
         ) : tablesStatus ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="border rounded-md p-3">
-                <h3 className="font-medium mb-2">Таблица матчей (matches)</h3>
+                <h3 className="font-medium mb-2">{t("debugPage.matchesTable")}</h3>
                 {tablesStatus.matchesExists ? (
                   <div className="flex items-center text-green-600">
                     <CheckCircle className="h-5 w-5 mr-2" />
-                    Таблица существует
+                    {t("debugPage.tableExists")}
                   </div>
                 ) : (
                   <div className="flex items-center text-amber-600">
                     <AlertCircle className="h-5 w-5 mr-2" />
-                    Таблица не существует
+                    {t("debugPage.tableNotExists")}
                     {tablesStatus.errors?.matches && (
                       <span className="text-xs ml-2 text-red-500">{tablesStatus.errors.matches}</span>
                     )}
@@ -185,16 +185,16 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
               </div>
 
               <div className="border rounded-md p-3">
-                <h3 className="font-medium mb-2">Таблица игроков (players)</h3>
+                <h3 className="font-medium mb-2">{t("debugPage.playersTable")}</h3>
                 {tablesStatus.playersExists ? (
                   <div className="flex items-center text-green-600">
                     <CheckCircle className="h-5 w-5 mr-2" />
-                    Таблица существует
+                    {t("debugPage.tableExists")}
                   </div>
                 ) : (
                   <div className="flex items-center text-amber-600">
                     <AlertCircle className="h-5 w-5 mr-2" />
-                    Таблица не существует
+                    {t("debugPage.tableNotExists")}
                     {tablesStatus.errors?.players && (
                       <span className="text-xs ml-2 text-red-500">{tablesStatus.errors.players}</span>
                     )}
@@ -206,10 +206,9 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
             {!tablesStatus.exists && (
               <Alert variant="default" className="bg-amber-50 border-amber-200">
                 <AlertCircle className="h-4 w-4 text-amber-800" />
-                <AlertTitle className="text-amber-800">Таблицы не созданы</AlertTitle>
+                <AlertTitle className="text-amber-800">{t("debugPage.tablesNotCreatedInit")}</AlertTitle>
                 <AlertDescription className="text-amber-800">
-                  Для работы приложения необходимо создать таблицы в базе данных Supabase. Вы можете использовать
-                  автоматическую инициализацию или создать таблицы вручную.
+                  {t("debugPage.tablesNotCreatedInitDesc")}
                 </AlertDescription>
               </Alert>
             )}
@@ -225,12 +224,12 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
                   <AlertCircle className="h-4 w-4" />
                 )}
                 <AlertTitle className={initResult.success ? "text-green-800" : ""}>
-                  {initResult.success ? "Успешно" : "Ошибка"}
+                  {initResult.success ? t("debugPage.successTitle") : t("debugPage.errorTitleShort")}
                 </AlertTitle>
                 <AlertDescription className={initResult.success ? "text-green-800" : ""}>
                   {initResult.success
-                    ? initResult.message || "База данных успешно инициализирована"
-                    : `Ошибка при инициализации базы данных: ${initResult.error}`}
+                    ? initResult.message || t("debugPage.dbInitializedSuccess")
+                    : `${t("debugPage.dbInitError")}: ${initResult.error}`}
                 </AlertDescription>
               </Alert>
             )}
@@ -246,40 +245,39 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
                   <AlertCircle className="h-4 w-4" />
                 )}
                 <AlertTitle className={sqlResult.success ? "text-green-800" : ""}>
-                  {sqlResult.success ? "SQL выполнен успешно" : "Ошибка выполнения SQL"}
+                  {sqlResult.success ? t("debugPage.sqlExecutedSuccess") : t("debugPage.sqlExecutionError")}
                 </AlertTitle>
                 <AlertDescription className={sqlResult.success ? "text-green-800" : ""}>
-                  {sqlResult.success ? "SQL-запрос успешно выполнен" : `Ошибка: ${sqlResult.error}`}
+                  {sqlResult.success ? t("debugPage.sqlQuerySuccess") : `${t("debugPage.sqlQueryError")}: ${sqlResult.error}`}
                 </AlertDescription>
               </Alert>
             )}
 
             <Tabs defaultValue="init">
               <TabsList>
-                <TabsTrigger value="init">Автоматическая инициализация</TabsTrigger>
-                <TabsTrigger value="manual">Ручное создание</TabsTrigger>
-                <TabsTrigger value="sql">SQL-скрипт</TabsTrigger>
-                <TabsTrigger value="custom">Свой SQL</TabsTrigger>
+                <TabsTrigger value="init">{t("debugPage.tabAutoInit")}</TabsTrigger>
+                <TabsTrigger value="manual">{t("debugPage.tabManualCreation")}</TabsTrigger>
+                <TabsTrigger value="sql">{t("debugPage.tabSqlScript")}</TabsTrigger>
+                <TabsTrigger value="custom">{t("debugPage.tabCustomSql")}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="init" className="space-y-4 pt-4">
                 <p className="text-sm text-muted-foreground">
-                  Нажмите кнопку ниже, чтобы автоматически создать необходимые таблицы в базе данных Supabase. Этот
-                  метод требует наличия функции exec_sql в вашей базе данных.
+                  {t("debugPage.autoInitDescription")}
                 </p>
                 <Button onClick={handleInitializeDatabase} disabled={isInitializing || tablesStatus.exists}>
                   {isInitializing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {tablesStatus.exists
-                    ? "Таблицы уже созданы"
+                    ? t("debugPage.tablesAlreadyCreated")
                     : isInitializing
-                      ? "Инициализация..."
-                      : "Инициализировать базу данных"}
+                      ? t("debugPage.initializing")
+                      : t("debugPage.initializeDatabase")}
                 </Button>
               </TabsContent>
 
               <TabsContent value="manual" className="space-y-4 pt-4">
                 <p className="text-sm text-muted-foreground">
-                  Создайте таблицы по отдельности, если автоматическая инициализация не работает.
+                  {t("debugPage.manualCreationDescription")}
                 </p>
                 <div className="flex flex-col gap-2">
                   <Button
@@ -289,10 +287,10 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
                   >
                     {isExecutingSql && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {tablesStatus.matchesExists
-                      ? "Таблица matches уже создана"
+                      ? t("debugPage.matchesTableCreated")
                       : isExecutingSql
-                        ? "Создание таблицы..."
-                        : "Создать таблицу matches"}
+                        ? t("debugPage.creatingTable")
+                        : t("debugPage.createMatchesTable")}
                   </Button>
 
                   <Button
@@ -302,17 +300,17 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
                   >
                     {isExecutingSql && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {tablesStatus.playersExists
-                      ? "Таблица players уже создана"
+                      ? t("debugPage.playersTableCreated")
                       : isExecutingSql
-                        ? "Создание таблицы..."
-                        : "Создать таблицу players"}
+                        ? t("debugPage.creatingTable")
+                        : t("debugPage.createPlayersTable")}
                   </Button>
                 </div>
               </TabsContent>
 
               <TabsContent value="sql" className="pt-4">
                 <p className="text-sm text-muted-foreground mb-2">
-                  Вы также можете выполнить этот SQL-скрипт вручную в SQL-редакторе Supabase:
+                  {t("debugPage.sqlScriptDescription")}
                 </p>
                 <div className="bg-gray-100 p-3 rounded-md overflow-auto max-h-60">
                   <pre className="text-xs">{getCreateTablesSql()}</pre>
@@ -320,16 +318,16 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
               </TabsContent>
 
               <TabsContent value="custom" className="space-y-4 pt-4">
-                <p className="text-sm text-muted-foreground">Выполните произвольный SQL-запрос:</p>
+                <p className="text-sm text-muted-foreground">{t("debugPage.customSqlDescription")}</p>
                 <Textarea
                   value={customSql}
                   onChange={(e) => setCustomSql(e.target.value)}
-                  placeholder="Введите SQL-запрос..."
+                  placeholder={t("debugPage.enterSqlPlaceholder")}
                   rows={5}
                 />
                 <Button onClick={handleExecuteSql} disabled={isExecutingSql || !customSql.trim()}>
                   {isExecutingSql && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isExecutingSql ? "Выполнение..." : "Выполнить SQL"}
+                  {isExecutingSql ? t("debugPage.executing") : t("debugPage.executeSql")}
                 </Button>
               </TabsContent>
             </Tabs>
@@ -337,15 +335,15 @@ CREATE INDEX IF NOT EXISTS players_name_idx ON players (name);`
         ) : (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Ошибка</AlertTitle>
-            <AlertDescription>Не удалось проверить статус таблиц. Проверьте соединение с Supabase.</AlertDescription>
+            <AlertTitle>{t("debugPage.errorTitle")}</AlertTitle>
+            <AlertDescription>{t("debugPage.checkTablesError")}</AlertDescription>
           </Alert>
         )}
       </CardContent>
       <CardFooter>
         <Button variant="outline" size="sm" onClick={checkTables} disabled={isChecking}>
           {isChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Проверить статус таблиц
+          {t("debugPage.checkTablesStatus")}
         </Button>
       </CardFooter>
     </Card>

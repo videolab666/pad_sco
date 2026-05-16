@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Loader2, Database, AlertCircle, CheckCircle } from "lucide-react"
 import { checkTablesExist, checkTablesContent } from "@/lib/supabase"
 import { logEvent } from "@/lib/error-logger"
+import { useLanguage } from "@/contexts/language-context"
 
 export function DatabaseChecker() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,16 +15,15 @@ export function DatabaseChecker() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [tablesContent, setTablesContent] = useState<any>(null)
   const [isChecking, setIsChecking] = useState(true)
+  const { t } = useLanguage()
 
   const checkDatabase = async () => {
     setIsChecking(true)
     try {
-      // Проверяем существование таблиц
       const status = await checkTablesExist()
       setTablesStatus(status)
       logEvent("info", "Проверка существования таблиц", "DatabaseChecker", status)
 
-      // Если таблицы существуют, проверяем их содержимое
       if (status.exists) {
         const content = await checkTablesContent()
         setTablesContent(content)
@@ -45,29 +45,29 @@ export function DatabaseChecker() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Database className="h-5 w-5" />
-          Проверка базы данных
+          {t("debugPage.checkDatabase")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {isChecking ? (
           <div className="flex items-center justify-center p-4">
             <Loader2 className="h-6 w-6 animate-spin mr-2" />
-            <span>Проверка базы данных...</span>
+            <span>{t("debugPage.checkingDatabase")}</span>
           </div>
         ) : tablesStatus ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="border rounded-md p-3">
-                <h3 className="font-medium mb-2">Таблица матчей (matches)</h3>
+                <h3 className="font-medium mb-2">{t("debugPage.matchesTable")}</h3>
                 {tablesStatus.matchesExists ? (
                   <div className="flex items-center text-green-600">
                     <CheckCircle className="h-5 w-5 mr-2" />
-                    Таблица существует
+                    {t("debugPage.tableExists")}
                   </div>
                 ) : (
                   <div className="flex items-center text-amber-600">
                     <AlertCircle className="h-5 w-5 mr-2" />
-                    Таблица не существует
+                    {t("debugPage.tableNotExists")}
                     {tablesStatus.errors?.matches && (
                       <span className="text-xs ml-2 text-red-500">{tablesStatus.errors.matches}</span>
                     )}
@@ -76,16 +76,16 @@ export function DatabaseChecker() {
               </div>
 
               <div className="border rounded-md p-3">
-                <h3 className="font-medium mb-2">Таблица игроков (players)</h3>
+                <h3 className="font-medium mb-2">{t("debugPage.playersTable")}</h3>
                 {tablesStatus.playersExists ? (
                   <div className="flex items-center text-green-600">
                     <CheckCircle className="h-5 w-5 mr-2" />
-                    Таблица существует
+                    {t("debugPage.tableExists")}
                   </div>
                 ) : (
                   <div className="flex items-center text-amber-600">
                     <AlertCircle className="h-5 w-5 mr-2" />
-                    Таблица не существует
+                    {t("debugPage.tableNotExists")}
                     {tablesStatus.errors?.players && (
                       <span className="text-xs ml-2 text-red-500">{tablesStatus.errors.players}</span>
                     )}
@@ -96,27 +96,27 @@ export function DatabaseChecker() {
 
             {tablesStatus.exists && tablesContent && (
               <div className="space-y-4">
-                <h3 className="font-medium">Содержимое таблиц:</h3>
+                <h3 className="font-medium">{t("debugPage.tablesContent")}</h3>
 
                 <div className="border rounded-md p-3">
-                  <h4 className="font-medium mb-2">Игроки ({tablesContent.players.length})</h4>
+                  <h4 className="font-medium mb-2">{t("debugPage.playersLabel")} ({tablesContent.players.length})</h4>
                   {tablesContent.players.length > 0 ? (
                     <div className="bg-gray-100 p-2 rounded-md overflow-auto max-h-40">
                       <pre className="text-xs">{JSON.stringify(tablesContent.players, null, 2)}</pre>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Таблица игроков пуста</p>
+                    <p className="text-sm text-muted-foreground">{t("debugPage.playersEmpty")}</p>
                   )}
                 </div>
 
                 <div className="border rounded-md p-3">
-                  <h4 className="font-medium mb-2">Матчи ({tablesContent.matches.length})</h4>
+                  <h4 className="font-medium mb-2">{t("debugPage.matchesLabel")} ({tablesContent.matches.length})</h4>
                   {tablesContent.matches.length > 0 ? (
                     <div className="bg-gray-100 p-2 rounded-md overflow-auto max-h-40">
                       <pre className="text-xs">{JSON.stringify(tablesContent.matches, null, 2)}</pre>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Таблица матчей пуста</p>
+                    <p className="text-sm text-muted-foreground">{t("debugPage.matchesEmpty")}</p>
                   )}
                 </div>
               </div>
@@ -125,10 +125,9 @@ export function DatabaseChecker() {
             {!tablesStatus.exists && (
               <Alert className="bg-amber-50 border-amber-200">
                 <AlertCircle className="h-4 w-4 text-amber-800" />
-                <AlertTitle className="text-amber-800">Таблицы не созданы</AlertTitle>
+                <AlertTitle className="text-amber-800">{t("debugPage.tablesNotCreated")}</AlertTitle>
                 <AlertDescription className="text-amber-800">
-                  Для работы приложения необходимо создать таблицы в базе данных Supabase. Перейдите на вкладку "База
-                  данных" для инициализации.
+                  {t("debugPage.tablesNotCreatedDesc")}
                 </AlertDescription>
               </Alert>
             )}
@@ -136,15 +135,15 @@ export function DatabaseChecker() {
         ) : (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Ошибка</AlertTitle>
-            <AlertDescription>Не удалось проверить статус таблиц. Проверьте соединение с Supabase.</AlertDescription>
+            <AlertTitle>{t("debugPage.errorTitle")}</AlertTitle>
+            <AlertDescription>{t("debugPage.checkTablesError")}</AlertDescription>
           </Alert>
         )}
       </CardContent>
       <CardFooter>
         <Button variant="outline" size="sm" onClick={checkDatabase} disabled={isChecking}>
           {isChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Проверить базу данных
+          {t("debugPage.checkDatabase")}
         </Button>
       </CardFooter>
     </Card>

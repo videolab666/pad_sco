@@ -11,11 +11,12 @@ import { logEvent } from "@/lib/error-logger"
 import { ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-// Импортируем новый компонент
 import { DatabaseChecker } from "@/components/database-checker"
+import { useLanguage } from "@/contexts/language-context"
 
 export default function DebugPage() {
   const router = useRouter()
+  const { t } = useLanguage()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [testResults, setTestResults] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -27,19 +28,15 @@ export default function DebugPage() {
     try {
       logEvent("info", "Запуск теста соединения с Supabase", "DebugPage")
 
-      // Проверяем доступность Supabase
       const startTime = Date.now()
       const isAvailable = await isSupabaseAvailable()
       const endTime = Date.now()
 
-      // Получаем подробную информацию о соединении
       const connectionInfo = await getSupabaseConnectionInfo()
 
-      // Проверяем переменные окружения
       const envVars = {
         NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? "Установлена" : "Отсутствует",
         NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "Установлена" : "Отсутствует",
-        // Проверяем другие переменные окружения
         envKeys: Object.keys(process.env).filter(
           (key) => key.includes("SUPABASE") || key.includes("POSTGRES") || key.includes("DATABASE"),
         ),
@@ -72,16 +69,16 @@ export default function DebugPage() {
       <div className="flex justify-between items-center mb-6">
         <Button variant="ghost" onClick={() => router.push("/")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          На главную
+          {t("debugPage.backToHome")}
         </Button>
         <SupabaseStatus />
       </div>
 
       <Tabs defaultValue="database">
         <TabsList className="mb-6">
-          <TabsTrigger value="database">База данных</TabsTrigger>
-          <TabsTrigger value="connection">Соединение</TabsTrigger>
-          <TabsTrigger value="logs">Журнал ошибок</TabsTrigger>
+          <TabsTrigger value="database">{t("debugPage.tabDatabase")}</TabsTrigger>
+          <TabsTrigger value="connection">{t("debugPage.tabConnection")}</TabsTrigger>
+          <TabsTrigger value="logs">{t("debugPage.tabErrorLogs")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="database">
@@ -94,18 +91,18 @@ export default function DebugPage() {
         <TabsContent value="connection">
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Диагностика соединения с базой данных</CardTitle>
+              <CardTitle>{t("debugPage.connectionDiagnostics")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
                 <Button onClick={runConnectionTest} disabled={isLoading}>
-                  {isLoading ? "Выполнение теста..." : "Запустить тест соединения"}
+                  {isLoading ? t("debugPage.runningTest") : t("debugPage.runConnectionTest")}
                 </Button>
               </div>
 
               {testResults && (
                 <div className="border rounded-md p-4 mt-4">
-                  <h3 className="font-medium mb-2">Результаты теста:</h3>
+                  <h3 className="font-medium mb-2">{t("debugPage.testResults")}</h3>
                   <pre className="bg-gray-100 p-3 rounded text-xs overflow-auto max-h-60">
                     {JSON.stringify(testResults, null, 2)}
                   </pre>

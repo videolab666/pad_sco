@@ -1,12 +1,13 @@
 @echo off
-chcp 65001 >nul 2>&1
 setlocal EnableExtensions
-
-rem Always run from the folder this script lives in (the repository root)
 cd /d "%~dp0"
 
+rem NOTE: every git command is invoked via "call" because on this machine
+rem git resolves to a .bat wrapper (depot_tools); calling a .bat from a .bat
+rem without "call" transfers control and never returns.
+
 rem Make sure this is actually a git repository
-git rev-parse --is-inside-work-tree >nul 2>&1
+call git rev-parse --is-inside-work-tree >nul 2>&1
 if errorlevel 1 (
     echo ERROR: not a git repository: %cd%
     goto :fail
@@ -30,7 +31,7 @@ if not defined msg (
 )
 
 rem Stage all changes
-git add -A
+call git add -A
 if errorlevel 1 (
     echo ERROR: git add failed.
     goto :fail
@@ -38,13 +39,13 @@ if errorlevel 1 (
 
 rem Commit only when there is something staged
 set "hasChanges="
-git diff --cached --quiet || set "hasChanges=1"
+call git diff --cached --quiet || set "hasChanges=1"
 if not defined hasChanges (
     echo No staged changes - skipping commit.
     goto :afterCommit
 )
 
-git commit -m "%msg%"
+call git commit -m "%msg%"
 if errorlevel 1 (
     echo ERROR: git commit failed.
     goto :fail
@@ -53,7 +54,7 @@ echo Commit created.
 
 :afterCommit
 rem Push the working branch
-git push origin "%branch%"
+call git push origin "%branch%"
 if errorlevel 1 (
     echo ERROR: failed to push branch %branch%.
     goto :fail
@@ -61,30 +62,30 @@ if errorlevel 1 (
 echo Branch %branch% pushed.
 
 rem Merge the working branch into main and push main
-git checkout main
+call git checkout main
 if errorlevel 1 (
     echo ERROR: failed to checkout main.
     goto :fail
 )
 
-git merge "%branch%"
+call git merge "%branch%"
 if errorlevel 1 (
     echo ERROR: merge conflict - aborting merge.
-    git merge --abort
-    git checkout "%branch%"
+    call git merge --abort
+    call git checkout "%branch%"
     goto :fail
 )
 
-git push origin main
+call git push origin main
 if errorlevel 1 (
     echo ERROR: failed to push main.
-    git checkout "%branch%"
+    call git checkout "%branch%"
     goto :fail
 )
 echo main pushed.
 
 rem Return to the working branch
-git checkout "%branch%"
+call git checkout "%branch%"
 
 echo.
 echo Done! Committed and pushed (%branch% -^> main).

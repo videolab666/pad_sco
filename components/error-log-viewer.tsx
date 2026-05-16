@@ -10,11 +10,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Download, Trash2, RefreshCw } from "lucide-react"
 import { format } from "date-fns"
 import { ru } from "date-fns/locale"
+import { useLanguage } from "@/contexts/language-context"
 
 export function ErrorLogViewer() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [filter, setFilter] = useState<string>("all")
   const [isLoading, setIsLoading] = useState(false)
+  const { t } = useLanguage()
 
   const loadLogs = () => {
     setIsLoading(true)
@@ -33,7 +35,7 @@ export function ErrorLogViewer() {
   }, [])
 
   const handleClearLogs = () => {
-    if (confirm("Вы уверены, что хотите очистить журнал ошибок?")) {
+    if (confirm(t("debugPage.clearConfirm"))) {
       clearErrorLog()
       setLogs([])
     }
@@ -43,7 +45,6 @@ export function ErrorLogViewer() {
     try {
       const jsonData = exportErrorLog()
 
-      // Создаем файл для скачивания
       const blob = new Blob([jsonData], { type: "application/json" })
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
@@ -52,7 +53,6 @@ export function ErrorLogViewer() {
       document.body.appendChild(a)
       a.click()
 
-      // Очищаем ресурсы
       setTimeout(() => {
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
@@ -82,36 +82,36 @@ export function ErrorLogViewer() {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Журнал ошибок и событий</CardTitle>
+        <CardTitle>{t("debugPage.errorLogTitle")}</CardTitle>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadLogs} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? "animate-spin" : ""}`} />
-            Обновить
+            {t("debugPage.refreshBtn")}
           </Button>
           <Button variant="outline" size="sm" onClick={handleExportLogs}>
             <Download className="h-4 w-4 mr-1" />
-            Экспорт
+            {t("debugPage.exportBtn")}
           </Button>
           <Button variant="outline" size="sm" onClick={handleClearLogs}>
             <Trash2 className="h-4 w-4 mr-1" />
-            Очистить
+            {t("debugPage.clearBtn")}
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="all" value={filter} onValueChange={setFilter}>
           <TabsList className="mb-4">
-            <TabsTrigger value="all">Все ({logs.length})</TabsTrigger>
-            <TabsTrigger value="error">Ошибки ({logs.filter((log) => log.level === "error").length})</TabsTrigger>
-            <TabsTrigger value="warn">Предупреждения ({logs.filter((log) => log.level === "warn").length})</TabsTrigger>
-            <TabsTrigger value="info">Информация ({logs.filter((log) => log.level === "info").length})</TabsTrigger>
-            <TabsTrigger value="debug">Отладка ({logs.filter((log) => log.level === "debug").length})</TabsTrigger>
+            <TabsTrigger value="all">{t("debugPage.filterAll")} ({logs.length})</TabsTrigger>
+            <TabsTrigger value="error">{t("debugPage.filterErrors")} ({logs.filter((log) => log.level === "error").length})</TabsTrigger>
+            <TabsTrigger value="warn">{t("debugPage.filterWarnings")} ({logs.filter((log) => log.level === "warn").length})</TabsTrigger>
+            <TabsTrigger value="info">{t("debugPage.filterInfo")} ({logs.filter((log) => log.level === "info").length})</TabsTrigger>
+            <TabsTrigger value="debug">{t("debugPage.filterDebug")} ({logs.filter((log) => log.level === "debug").length})</TabsTrigger>
           </TabsList>
 
           <ScrollArea className="h-[400px] border rounded-md p-2">
             {filteredLogs.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                {isLoading ? "Загрузка журнала..." : "Записи не найдены"}
+                {isLoading ? t("debugPage.loadingLog") : t("debugPage.noRecordsFound")}
               </div>
             ) : (
               <div className="space-y-3">
@@ -142,7 +142,7 @@ export function ErrorLogViewer() {
         </Tabs>
       </CardContent>
       <CardFooter className="text-xs text-muted-foreground">
-        Журнал хранится только в локальном хранилище браузера и не отправляется на сервер.
+        {t("debugPage.logStorageNote")}
       </CardFooter>
     </Card>
   )

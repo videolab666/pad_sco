@@ -38,8 +38,11 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
   }, [])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [matchHistory, setMatchHistory] = useState<any[]>([])
-  // Task 4: tracks the rule revision the scoreboard has already reconciled.
-  const [ruleRevisionSeen, setRuleRevisionSeen] = useState(match?.ruleRevision)
+  // Task 4: a rule edit changes match.settings. Tracking the settings content
+  // (not ruleRevision) keeps the buffer-reset correct across devices, because
+  // settings round-trip through Supabase while ruleRevision does not.
+  const settingsSignature = JSON.stringify(match?.settings ?? null)
+  const [settingsSeen, setSettingsSeen] = useState(settingsSignature)
   const { t } = useLanguage()
 
   const [swappedTeamA, setSwappedTeamA] = useState(false)
@@ -71,19 +74,18 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     }
   }, [match, isProcessingClick])
 
-  // Task 4, Step 3: when a settings edit is saved the match arrives with a
-  // bumped ruleRevision. Drop the stale click/history buffers and the pending
-  // match-end confirmation, then refresh the scoreboard from the canonical match.
+  // Task 4, Step 3: when a rule edit lands (match.settings changed) drop the
+  // stale click/history buffers and the pending match-end confirmation, then
+  // refresh the scoreboard from the canonical match.
   useEffect(() => {
-    const rev = match?.ruleRevision
-    if (rev === undefined || rev === ruleRevisionSeen) return
-    setRuleRevisionSeen(rev)
+    if (settingsSignature === settingsSeen) return
+    setSettingsSeen(settingsSignature)
     setMatchHistory([])
     setLocalMatchState(match)
     setPendingMatchUpdate(null)
     setPreviousMatchState(null)
     setShowMatchEndDialog(false)
-  }, [match?.ruleRevision])
+  }, [settingsSignature])
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

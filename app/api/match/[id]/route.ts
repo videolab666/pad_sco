@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getMatch } from "@/lib/match-storage"
+import { getMatchFromServer } from "@/lib/server-match-storage"
 import { getImportantPoint, isGamePoint, isSetPoint, isMatchPoint } from "@/lib/scoring-logic"
 import { getSetsToWin as getConfiguredSetsToWin } from "@/lib/match-format-rules"
 import { logEvent } from "@/lib/error-logger"
@@ -107,7 +107,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     while (!match && attempts < maxAttempts) {
       attempts++
       try {
-        match = await getMatch(matchId)
+        match = await getMatchFromServer(matchId)
         if (match) break
       } catch (retryError) {
         logEvent("warn", `Попытка ${attempts} получения матча не удалась`, "match-api", retryError)

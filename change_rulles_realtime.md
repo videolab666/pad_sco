@@ -437,11 +437,12 @@ edits keep `score` byte-identical and only normalize the server pointer.
 > `normalizeCurrentSet` and `normalizeMatchState` (post-change normalization)
 > alongside the existing point application. `match-settings.tsx` runs every
 > rule edit through `commitRuleChange` → `normalizeMatchState` + a bumped
-> `ruleRevision`. `score-board.tsx` watches `ruleRevision` and drops stale
-> `matchHistory` / `localMatchState` / pending match-end state, refreshing from
-> the canonical match. `score-controls.tsx` already re-syncs `localMatch` on
-> every `match` change, so no buffer survives a rule edit. Regressions added;
-> build green.
+> `ruleRevision`. `score-board.tsx` watches the **match settings signature**
+> (a rule edit always changes `settings`; this round-trips through Supabase,
+> unlike the non-persisted `ruleRevision`) and drops stale `matchHistory` /
+> `localMatchState` / pending match-end state, refreshing from the canonical
+> match. `score-controls.tsx` already re-syncs `localMatch` on every `match`
+> change, so no buffer survives a rule edit. Regressions added; build green.
 
 **Files:**
 - Modify: `lib/scoring-logic.ts`
@@ -599,6 +600,27 @@ never re-saves on read.
 
 `old-match backfill checks passed` — regressions confirm defaults are applied,
 existing values are never overwritten, and the backfill is idempotent.
+
+## Post-completion fixes
+
+Defects found and fixed after the eight tasks were implemented:
+
+1. **Score flicker (increased → original → increased).** `drainMatch` probed
+   `isSupabaseAvailable` + `checkTablesExist` (uncached network calls) before
+   every write, delaying it past the 500 ms anti-flicker window. Fixed with a
+   30 s environment-check cache in `match-sync.ts`, invalidated on failure /
+   reconnect. The match page also now ignores sync snapshots whose `revision`
+   is behind the current state (failure mode #6).
+2. **Cross-device buffer reset.** `ruleRevision` is not a DB column, so it did
+   not survive a Supabase round-trip. `score-board.tsx` now detects a rule
+   edit from the `settings` content (which does round-trip).
+3. **`/api/court`, `/api/vmix`, `/api/match` returned 404 server-side.**
+   `server-match-storage.ts` used the deprecated `@supabase/auth-helpers-nextjs`
+   `createServerComponentClient({ cookies })`, which breaks in Next 15 route
+   handlers. Switched to `createServerSupabaseClient()` (service-role client).
+   `/api/match/[id]` GET also used the client-only `getMatch` (always `null`
+   server-side) — switched to `getMatchFromServer`. All three verified against
+   a fresh production server.
 
 ## Task 8: Regression Coverage ✅
 

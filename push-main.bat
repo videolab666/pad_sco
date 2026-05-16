@@ -1,13 +1,98 @@
 @echo off
 chcp 65001 >nul 2>&1
-set /p msg="Commit message: "
+setlocal EnableExtensions
+
+rem Always run from the folder this script lives in (the repository root)
+cd /d "%~dp0"
+
+rem Make sure this is actually a git repository
+git rev-parse --is-inside-work-tree >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: not a git repository: %cd%
+    goto :fail
+)
+
+rem Detect the current branch
+set "branch="
+for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD') do set "branch=%%b"
+if not defined branch (
+    echo ERROR: could not detect the current branch.
+    goto :fail
+)
+echo Current branch: %branch%
+
+rem Require a non-empty commit message
+set "msg="
+set /p "msg=Commit message: "
+if not defined msg (
+    echo CANCELLED: empty commit message - nothing was done.
+    goto :fail
+)
+
+rem Stage all changes
 git add -A
+if errorlevel 1 (
+    echo ERROR: git add failed.
+    goto :fail
+)
+
+rem Commit only when there is something staged
+set "hasChanges="
+git diff --cached --quiet || set "hasChanges=1"
+if not defined hasChanges (
+    echo No staged changes - skipping commit.
+    goto :afterCommit
+)
+
 git commit -m "%msg%"
-git push origin Nivki_RSP_1
+if errorlevel 1 (
+    echo ERROR: git commit failed.
+    goto :fail
+)
+echo Commit created.
+
+:afterCommit
+rem Push the working branch
+git push origin "%branch%"
+if errorlevel 1 (
+    echo ERROR: failed to push branch %branch%.
+    goto :fail
+)
+echo Branch %branch% pushed.
+
+rem Merge the working branch into main and push main
 git checkout main
-git merge Nivki_RSP_1
+if errorlevel 1 (
+    echo ERROR: failed to checkout main.
+    goto :fail
+)
+
+git merge "%branch%"
+if errorlevel 1 (
+    echo ERROR: merge conflict - aborting merge.
+    git merge --abort
+    git checkout "%branch%"
+    goto :fail
+)
+
 git push origin main
-git checkout Nivki_RSP_1
+if errorlevel 1 (
+    echo ERROR: failed to push main.
+    git checkout "%branch%"
+    goto :fail
+)
+echo main pushed.
+
+rem Return to the working branch
+git checkout "%branch%"
+
 echo.
-echo Done! Pushed to main.
+echo Done! Committed and pushed (%branch% -^> main).
 pause
+exit /b 0
+
+:fail
+echo.
+echo Aborted - see the error above.
+pause
+exit /b 1

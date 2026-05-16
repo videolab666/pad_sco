@@ -3,9 +3,10 @@ import { logEvent } from "@/lib/error-logger"
 import { getTennisPointName } from "@/lib/tennis-utils"
 import { getMatchFromServer } from "@/lib/server-match-storage"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const matchId = params.id
+    const resolvedParams = await params
+    const matchId = resolvedParams.id
 
     if (!matchId) {
       return NextResponse.json({ error: "Match ID is required" }, { status: 400 })

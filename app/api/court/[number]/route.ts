@@ -86,9 +86,10 @@ const getCurrentSetNumber = (match) => {
   return 1
 }
 
-export async function GET(request: NextRequest, { params }: { params: { number: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ number: string }> }) {
   try {
-    const courtNumber = Number.parseInt(params.number)
+    const resolvedParams = await params
+    const courtNumber = Number.parseInt(resolvedParams.number)
 
     if (isNaN(courtNumber) || courtNumber < 1 || courtNumber > 10) {
       return NextResponse.json({ error: "Некорректный номер корта" }, { status: 400 })
@@ -119,19 +120,19 @@ export async function GET(request: NextRequest, { params }: { params: { number: 
     })
 
     // Получаем текущие сеты для обеих команд
-// Получаем завершенные сеты
-const completedTeamASets = match.score.sets ? match.score.sets.map((set) => set.teamA) : []
-const completedTeamBSets = match.score.sets ? match.score.sets.map((set) => set.teamB) : []
+    // Получаем завершенные сеты
+    const completedTeamASets = match.score.sets ? match.score.sets.map((set) => set.teamA) : []
+    const completedTeamBSets = match.score.sets ? match.score.sets.map((set) => set.teamB) : []
 
-// Создаем полные массивы сетов, включая текущий играющийся сет
-const teamASets = [...completedTeamASets]
-const teamBSets = [...completedTeamBSets]
+    // Создаем полные массивы сетов, включая текущий играющийся сет
+    const teamASets = [...completedTeamASets]
+    const teamBSets = [...completedTeamBSets]
 
-// Если матч не завершен и есть текущий сет, добавляем его счет
-if (!match.isCompleted && match.score.currentSet) {
-  teamASets.push(match.score.currentSet.teamA)
-  teamBSets.push(match.score.currentSet.teamB)
-}
+    // Если матч не завершен и есть текущий сет, добавляем его счет
+    if (!match.isCompleted && match.score.currentSet) {
+      teamASets.push(match.score.currentSet.teamA)
+      teamBSets.push(match.score.currentSet.teamB)
+    }
 
     // Определяем информацию о победителе
     let winnerTeamName = ""

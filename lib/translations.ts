@@ -312,6 +312,8 @@ export type TranslationKeys = {
     noPlayersFound: string
   }
   newMatch: {
+    tiebreakLength10: string
+    tiebreakLength7: string
     title: string
     selectedCourt: string
     tennisDesc: string
@@ -1414,6 +1416,17 @@ export const translations: { [key in Language]: TranslationKeys } = {
         finishMatchButton: "Finish Match",
         finishMatchLink: "Finish Match",
         matchFinished: "Match Finished",
+        finishMatchError: "Error finishing match",
+        matchFinishedDescription: "Match successfully finished.",
+        finishMatchErrorDescription: "Error occurred while finishing match.",
+        managePlayers: "Manage Players",
+        activeMatches: "Active Matches",
+        activeMatchesDesc: "Current matches",
+        matchHistory: "Match History",
+        joinMatch: "Join Match",
+        joinMatchDesc: "Enter code to view match",
+        joinByCode: "Join by code",
+        diagnostics: "Diagnostics",
         matchInProgress: "Match in Progress",
         matchInProgressDescription: "A match is already in progress on this court. Please wait until it is over or PRESS THE RED BUTTON TO END THE MATCH WHEN ENTERING THE COURT. Then refresh the page.",
         noMatch: "Court Available",

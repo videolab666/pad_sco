@@ -1,7 +1,7 @@
 // Вспомогательные функции для тенниса и паделя
 
 // Преобразование числового значения очка в текстовое представление
-export const getTennisPointName = (point) => {
+export const getTennisPointName = (point: number | string) => {
   if (point === 0) return "0"
   if (point === 15) return "15"
   if (point === 30) return "30"
@@ -25,7 +25,7 @@ export function shouldChangeSides(totalGames: number): boolean {
 }
 
 // Определение, кто подает в тай-брейке
-export const getTiebreakServer = (startingServer, pointNumber) => {
+export const getTiebreakServer = (startingServer: boolean, pointNumber: number) => {
   // Первый подает стартовый игрок
   // Затем каждые 2 очка меняется подающий
   if (pointNumber === 0) return startingServer
@@ -38,7 +38,7 @@ export const getTiebreakServer = (startingServer, pointNumber) => {
 }
 
 // Получение названия стороны корта
-export const getCourtSideName = (side, short = false) => {
+export const getCourtSideName = (side: "left" | "right" | string, short = false) => {
   if (side === "left") return short ? "Л" : "Левая"
   if (side === "right") return short ? "П" : "Правая"
   return ""

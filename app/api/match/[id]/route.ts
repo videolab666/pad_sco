@@ -87,9 +87,10 @@ const getCurrentSetNumber = (match) => {
   return 1
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const matchId = params.id
+    const resolvedParams = await params
+    const matchId = resolvedParams.id
 
     if (!matchId) {
       return NextResponse.json({ error: "Match ID is required" }, { status: 400 })
@@ -281,9 +282,10 @@ const toMatchRow = (match: any): Record<string, any> => ({
  *  - A stale `baseRevision` fails fast with 409 and the authoritative snapshot
  *    instead of overwriting newer server data.
  */
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const matchId = params.id
+    const resolvedParams = await params
+    const matchId = resolvedParams.id
     if (!matchId) {
       return NextResponse.json({ error: "Match ID is required" }, { status: 400 })
     }

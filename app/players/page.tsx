@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Trash2, Plus, Check, X, Loader2, Flag } from "lucide-react" // Добавляем иконку Flag
 import { v4 as uuidv4 } from "uuid"
@@ -88,10 +88,15 @@ export default function PlayersPage() {
     setTimeout(() => setShowAlert(false), 3000)
   }
 
+  // hard guard against double-add of a player (synchronous — catches same-tick clicks)
+  const addingPlayerRef = useRef(false)
+
   // Обновляем функцию добавления игрока, чтобы она включала страну
   const handleAddPlayer = async () => {
     if (!newPlayerName.trim()) return
+    if (addingPlayerRef.current) return
 
+    addingPlayerRef.current = true
     setIsAddingPlayer(true)
     try {
       const newPlayer = {
@@ -129,6 +134,7 @@ export default function PlayersPage() {
       showNotification(t("players.errorAddingPlayer"), "error")
       logEvent("error", "Ошибка при добавлении игрока", "PlayersPage", error)
     } finally {
+      addingPlayerRef.current = false
       setIsAddingPlayer(false)
     }
   }

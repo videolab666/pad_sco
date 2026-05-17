@@ -3,6 +3,8 @@
 import { useContext, useState, useEffect } from "react"
 import { LanguageContext } from "@/contexts/language-context"
 import { translations } from "@/lib/translations"
+import { getServeSide as getServeSideView } from "@/lib/match-view"
+import { swapCourtSides as swapSides } from "@/lib/scoring-logic"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CourtSVG({
@@ -27,54 +29,8 @@ function CourtSVG({
     return team === servingTeam && playerIndex === servingPlayerIndex
   }
 
-  // Определяем сторону подачи (R - правая, L - левая)
-  const getServeSide = () => {
-    // Если матч не инициализирован, вернуть правую сторону по умолчанию
-    if (!match) return "R"
-
-    // Получаем текущий гейм, если он есть
-    const currentGame = match?.score?.currentSet?.currentGame
-    if (!currentGame) return "R"
-
-    // Считаем общее количество очков в текущем гейме
-    const totalPoints =
-      (currentGame.teamA === "Ad"
-        ? 4
-        : typeof currentGame.teamA === "number"
-          ? currentGame.teamA === 0
-            ? 0
-            : currentGame.teamA === 15
-              ? 1
-              : currentGame.teamA === 30
-                ? 2
-                : 3
-          : 0) +
-      (currentGame.teamB === "Ad"
-        ? 4
-        : typeof currentGame.teamB === "number"
-          ? currentGame.teamB === 0
-            ? 0
-            : currentGame.teamB === 15
-              ? 1
-              : currentGame.teamB === 30
-                ? 2
-                : 3
-          : 0)
-
-    // В тай-брейке логика немного другая
-    if (match?.score?.currentSet?.isTiebreak) {
-      // В тай-брейке первая подача справа, затем чередуется каждые 2 очка
-      // Но первая смена происходит после 1 очка
-      if (totalPoints === 0) return "R"
-
-      // После первого очка и далее
-      // Нечетное количество очков - левая сторона, четное - правая
-      return totalPoints % 2 === 1 ? "L" : "R"
-    }
-
-    // В обычном гейме: четное количество очков - правая сторона, нечетное - левая
-    return totalPoints % 2 === 0 ? "R" : "L"
-  }
+  // Сторона подачи (R/L) — из общего проектора lib/match-view (единый источник).
+  const getServeSide = () => getServeSideView(match)
 
   // Определяем позиции игроков на основе сторон корта
   const getPlayerPositions = () => {
@@ -935,12 +891,9 @@ export default function CourtPreview({ match }: any) {
     window.dispatchEvent(event)
   }
 
-  // Функция для смены сторон корта
+  // Функция для смены сторон корта (свап — из общего хелпера scoring-logic)
   const swapCourtSides = () => {
-    const newSides = {
-      teamA: localCourtSides.teamA === "left" ? "right" : "left",
-      teamB: localCourtSides.teamB === "left" ? "right" : "left",
-    }
+    const newSides = swapSides(localCourtSides)
     setLocalCourtSides(newSides)
     return newSides
   }

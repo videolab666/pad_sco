@@ -219,17 +219,9 @@ function winGame(team: TeamKey, updatedMatch: Match): Match {
     }
     return updatedMatch;
   }
-  // Fast4 / classic
+  // Fast4 / classic — set targets resolved by the shared getSetTargets helper.
   const scoringSystem = updatedMatch.settings.scoringSystem || "classic";
-  const defaultGames = updatedMatch.settings.gamesPerSet || (scoringSystem === "fast4" ? 4 : 6);
-  const currentSetIndex = updatedMatch.score.sets.length;
-  const isDecidingSet = updatedMatch.score.sets.length + 1 === updatedMatch.settings.sets;
-  const finalSetGoesTo12 = isDecidingSet && isFinalSetGamesTo12(updatedMatch.settings);
-  const gamesNeededToWin = finalSetGoesTo12
-    ? 12
-    : updatedMatch.settings.gamesPerSetOverrides?.[currentSetIndex] || defaultGames;
-  const regularTiebreakAt = Number.parseInt(updatedMatch.settings.tiebreakAt?.split("-")[0] || "6");
-  const tiebreakAt = finalSetGoesTo12 ? 12 : regularTiebreakAt;
+  const { gamesNeededToWin, tiebreakAt, isDecidingSet } = getSetTargets(updatedMatch);
   const useFinalSetGameTiebreak = isDecidingSet && usesFinalSetGameTiebreak(updatedMatch.settings);
 
   if (useFinalSetGameTiebreak) {
@@ -282,7 +274,16 @@ function winSet(team: TeamKey, updatedMatch: Match): Match {
     teamB: updatedMatch.score.currentSet.teamB,
     winner: team,
   };
-  if (updatedMatch.score.currentSet.isTiebreak) {
+  // Tiebreak score: a pre-recorded `currentSet.tiebreak` (set by a manual
+  // end-tiebreak) wins; otherwise read the live currentGame of an in-play
+  // tiebreak. The engine sets `currentSet.tiebreak` to the same values before
+  // calling winSet, so this changes nothing for normal scoring.
+  if (updatedMatch.score.currentSet.tiebreak) {
+    setToSave.tiebreak = {
+      teamA: updatedMatch.score.currentSet.tiebreak.teamA,
+      teamB: updatedMatch.score.currentSet.tiebreak.teamB,
+    };
+  } else if (updatedMatch.score.currentSet.isTiebreak) {
     setToSave.tiebreak = {
       teamA: updatedMatch.score.currentSet.currentGame.teamA as number,
       teamB: updatedMatch.score.currentSet.currentGame.teamB as number,
@@ -315,17 +316,60 @@ function winSet(team: TeamKey, updatedMatch: Match): Match {
       isTiebreak: false,
     };
   }
-  if (updatedMatch.score.sets.length % 2 === 1) {
-    updatedMatch.courtSides = {
-      teamA: updatedMatch.courtSides.teamA === "left" ? "right" : "left",
-      teamB: updatedMatch.courtSides.teamB === "left" ? "right" : "left",
-    };
+  // B1 fix: end-of-set change of ends goes through the single `shouldChangeSides`
+  // channel (consumed by ScoreControls), never a direct courtSides swap here —
+  // a direct swap on top of the flag caused a double swap. Change ends when the
+  // completed set's total games is odd; an even count changes after game 1 of
+  // the next set, which the next set's winGame already flags.
+  const completedSetGames = setToSave.teamA + setToSave.teamB;
+  if (completedSetGames % 2 === 1) {
+    updatedMatch.shouldChangeSides = true;
   }
   return updatedMatch;
 }
 
+/**
+ * Pure public "the given team has won the current set" — deep-clones the match,
+ * records the set win (set entry incl. tiebreak score, set counter, match
+ * completion or next set, end-of-set side change), and returns the new match.
+ *
+ * Shares the engine's `winSet` logic so the manual "end tiebreak" action in
+ * match settings stays in lockstep with normal scoring. The caller decides
+ * whether to confirm a match-ending set.
+ */
+export function commitSetWin(match: Match, team: TeamKey): Match {
+  const next: Match = JSON.parse(JSON.stringify(match));
+  return winSet(team, next);
+}
+
 function getTiebreakWinMargin(settings: MatchSettings): number {
   return settings.tiebreakFormat === "sudden-death" ? 1 : 2;
+}
+
+/**
+ * Resolves how the current set ends: how many games win it and the game count
+ * at which a tiebreak starts. Honours per-set overrides, fast4 defaults and the
+ * games-to-12 deciding-set format. Single source of truth — used by `winGame`
+ * (set completion) and `isSetPoint` (the SET POINT indicator).
+ */
+export function getSetTargets(match: any): {
+  gamesNeededToWin: number;
+  tiebreakAt: number;
+  isDecidingSet: boolean;
+  finalSetGoesTo12: boolean;
+} {
+  const settings = match?.settings ?? {};
+  const scoringSystem = settings.scoringSystem || "classic";
+  const defaultGames = settings.gamesPerSet || (scoringSystem === "fast4" ? 4 : 6);
+  const currentSetIndex = match?.score?.sets?.length ?? 0;
+  const isDecidingSet = currentSetIndex + 1 === settings.sets;
+  const finalSetGoesTo12 = isDecidingSet && isFinalSetGamesTo12(settings);
+  const gamesNeededToWin = finalSetGoesTo12
+    ? 12
+    : settings.gamesPerSetOverrides?.[currentSetIndex] || defaultGames;
+  const regularTiebreakAt = Number.parseInt(settings.tiebreakAt?.split("-")[0] || "6");
+  const tiebreakAt = finalSetGoesTo12 ? 12 : regularTiebreakAt;
+  return { gamesNeededToWin, tiebreakAt, isDecidingSet, finalSetGoesTo12 };
 }
 
 function isGoldenPointActive(settings: MatchSettings, deuceCount: number): boolean {
@@ -336,7 +380,12 @@ function isGoldenPointActive(settings: MatchSettings, deuceCount: number): boole
   return deuceCount >= requiredDeuce;
 }
 
-function switchServer(updatedMatch: Match): void {
+/**
+ * Advances the server to the next player. Singles → other team. Doubles → the
+ * A1 → B1 → A2 → B2 rotation. Mutates `currentServer` in place. Exported as the
+ * single implementation shared by the scoreboard and score-controls.
+ */
+export function switchServer(updatedMatch: Match): void {
   if (!updatedMatch.currentServer) return;
   const currentTeam = updatedMatch.currentServer.team;
   const otherTeam: TeamKey = currentTeam === "teamA" ? "teamB" : "teamA";
@@ -351,6 +400,14 @@ function switchServer(updatedMatch: Match): void {
       updatedMatch.currentServer.playerIndex = updatedMatch.currentServer.playerIndex === 0 ? 1 : 0;
     }
   }
+}
+
+/** Returns a new courtSides object with the two teams' sides swapped. */
+export function swapCourtSides(sides: CourtSides): CourtSides {
+  return {
+    teamA: sides.teamA === "left" ? "right" : "left",
+    teamB: sides.teamB === "left" ? "right" : "left",
+  };
 }
 
 // ─── Exported indicator helpers ───────────────────────────────────────────────
@@ -379,6 +436,9 @@ function getTiebreakPointMargin(settings: any): number {
 }
 
 export function isGamePoint(match: any): TeamKey | "both" | false {
+  // A finished match has no live point — every indicator must be silent.
+  // isSetPoint / isMatchPoint delegate here, so this guard covers all three.
+  if (match?.isCompleted) return false;
   const currentSet = match?.score?.currentSet;
   const currentGame = currentSet?.currentGame;
   if (!currentGame) return false;
@@ -439,17 +499,21 @@ export function isSetPoint(match: any): TeamKey | "both" | false {
   const settings = match.settings || {};
 
   const wouldWinSet = (a: number, b: number): boolean => {
-    const currentSetNumber = (match.score?.sets?.length ?? 0) + 1;
-    const isDecidingSet = currentSetNumber === settings.sets;
-    const target = isDecidingSet && isFinalSetGamesTo12(settings) ? 12 : settings.gamesPerSet || 6;
+    // Targets honour per-set overrides / games-to-12 via getSetTargets, and the
+    // win conditions mirror winGame exactly (super set, golden game, fast4).
+    const { gamesNeededToWin } = getSetTargets(match);
 
-    if (scoringSystem === "fast4") {
-      return a >= 4 && a - b >= 1;
-    }
     if (settings.isSuperSet) {
       return (a >= 8 && a - b >= 2) || (a === 9 && b <= 7);
     }
-    return a >= target && a - b >= 2;
+    // Golden game: a one-game margin wins exactly at gamesNeededToWin.
+    if (settings.goldenGame && a === gamesNeededToWin && b === gamesNeededToWin - 1) {
+      return true;
+    }
+    if (scoringSystem === "fast4") {
+      return a >= gamesNeededToWin && a - b >= 1;
+    }
+    return a >= gamesNeededToWin && a - b >= 2;
   };
 
   if (gp === "both") {
@@ -565,6 +629,34 @@ export function normalizeMatchState(match: Match): Match {
   return next;
 }
 
+/**
+ * Recomputes the sets-won counters and the match outcome from the completed
+ * sets and the current `setsToWin`. A rule edit can change how many sets win
+ * the match (`sets`, final-set / match-tiebreak format), so after such an edit
+ * a finished match could otherwise keep running — or a still-open match could
+ * stay flagged complete. Deep-clones — the input is not mutated.
+ */
+export function recomputeMatchCompletion(match: Match): Match {
+  if (!match || !match.score) return match;
+  const next: Match = JSON.parse(JSON.stringify(match));
+  const sets: SavedSet[] = next.score.sets ?? [];
+  next.score.teamA = sets.filter((s) => s.winner === "teamA").length;
+  next.score.teamB = sets.filter((s) => s.winner === "teamB").length;
+
+  const setsToWin = getSetsToWin(next.settings);
+  if (next.score.teamA >= setsToWin) {
+    next.isCompleted = true;
+    next.winner = "teamA";
+  } else if (next.score.teamB >= setsToWin) {
+    next.isCompleted = true;
+    next.winner = "teamB";
+  } else {
+    next.isCompleted = false;
+    next.winner = null;
+  }
+  return next;
+}
+
 // ─── Match tiebreak <-> full set conversion (Task 6) ───────────────────────────
 //
 // Conversion policy:
@@ -619,6 +711,8 @@ export function restartCurrentSet(match: Match): Match {
 
 export function getImportantPoint(match: any): { type: string | null; team: string | null } {
   if (!match?.score?.currentSet) return { type: null, team: null };
+  // A finished match shows no important-point banner (SET POINT / TIEBREAK / …).
+  if (match.isCompleted) return { type: null, team: null };
 
   const isTiebreak = match.score.currentSet.isTiebreak || false;
 

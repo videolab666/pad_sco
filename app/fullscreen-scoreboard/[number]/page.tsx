@@ -4,10 +4,10 @@ import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { getMatchByCourtNumber } from "@/lib/court-utils"
-import { getTennisPointName } from "@/lib/tennis-utils"
 import { logEvent } from "@/lib/error-logger"
 import { subscribeToMatchUpdates } from "@/lib/match-storage"
-import { applyScoreIncrement, getImportantPoint } from "@/lib/scoring-logic"
+import { applyScoreIncrement } from "@/lib/scoring-logic"
+import { getGameScoreDisplay, getImportantEventType, getSetCellDisplay, isPlayerServing } from "@/lib/match-view"
 import { Maximize2, Minimize2, Trophy, ArrowLeft, Clock } from "lucide-react"
 import { translations, type Language } from "@/lib/translations"
 import { getDefaultVmixSettings } from "@/lib/vmix-settings-storage"
@@ -45,6 +45,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   const [lastMatchId, setLastMatchId] = useState(null);
   const searchParams = useSearchParams();
   const containerRef = useRef(null);
+  // guard against double-tap double-counting a point (debounce window)
+  const scoringRef = useRef(false);
   const courtNumber = Number.parseInt(resolvedParams.number);
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -90,6 +92,10 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   // Handler to increment score for Team A or B
   const handleIncrementScore = async (team: 'teamA' | 'teamB') => {
     if (!match || match.isCompleted) return;
+    // Защита от двойного тапа — иначе одно очко засчитывается дважды.
+    if (scoringRef.current) return;
+    scoringRef.current = true;
+    setTimeout(() => { scoringRef.current = false }, 150);
     // Save current match state to history for undo
     setMatchHistory(prev => [...prev, JSON.parse(JSON.stringify(match))]);
     // Deep copy to avoid mutating state directly
@@ -625,28 +631,17 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
     }
   }, [courtNumber, language, lastMatchId, isCompletedMatch])
 
-  // Получаем текущий счет в виде строки (0, 15, 30, 40, Ad)
-  const getCurrentGameScore = (team: 'teamA' | 'teamB') => {
-    if (!match || !match.score || !match.score.currentSet) return ""
+  // Счёт гейма и подача — из общего проектора lib/match-view (единый источник).
+  const getCurrentGameScore = (team: 'teamA' | 'teamB') => getGameScoreDisplay(match, team)
 
-    const currentSet = match.score.currentSet
-
-    if (currentSet.isTiebreak) {
-      return currentSet.currentGame[team]
-    }
-
-    return getTennisPointName(currentSet.currentGame[team])
-  }
-
-  // Определяем, кто подает
-  const isServing = (team: 'teamA' | 'teamB', playerIndex: number) => {
-    if (!match || !match.currentServer) return false
-    return match.currentServer.team === team && match.currentServer.playerIndex === playerIndex
-  }
+  const isServing = (team: 'teamA' | 'teamB', playerIndex: number) =>
+    isPlayerServing(match, team, playerIndex)
 
   // Форматируем счет сета с верхним индексом для тай-брейка
   const formatSetScore = (score: any, tiebreakScore: any = null) => {
-    if (tiebreakScore === null) return <span>{score}</span>
+    if (tiebreakScore === null || tiebreakScore === undefined || tiebreakScore === "") {
+      return <span>{score}</span>
+    }
 
     return (
       <span className="relative">
@@ -658,39 +653,23 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
     )
   }
 
-  // Получаем данные о тай-брейках
-  const getTiebreakScores = () => {
-    if (!match || !match.score || !match.score.sets || match.score.sets.length === 0) return {}
-
-    const tiebreakScores: Record<number, any> = {}
-    match.score.sets.forEach((set: any, index: number) => {
-      // Проверяем наличие тай-брейка в данных сета
-      if (set.tiebreak) {
-        tiebreakScores[index] = {
-          teamA: set.tiebreak.teamA,
-          teamB: set.tiebreak.teamB,
-        }
-      }
-      // Удаляем альтернативный способ определения тай-брейка, который создавал примерный счет
-      // Если данных о тай-брейке нет, просто не показываем его
-    })
-
-    return tiebreakScores
+  // Ячейка счёта сета через общий проектор: супер-тай-брейк → очки тай-брейка,
+  // обычный тай-брейк → индекс только у проигравшего сет.
+  const renderSetCell = (set: any, team: "teamA" | "teamB") => {
+    const cell = getSetCellDisplay(set, team)
+    return formatSetScore(cell.main, cell.sup)
   }
+
+  // Счёт сетов рендерится через renderSetCell / getSetCellDisplay.
 
   // getPointIndex, isGamePoint, isSetPoint, isMatchPoint, getImportantPoint
   // → removed, now imported from @/lib/scoring-logic
 
-  const getImportantEvent = () => {
-    if (!match || !match.score) return null
-
-    if (match.isCompleted) {
-      return (translations[language] as any).scoreboard.matchCompleted || "MATCH IS OVER"
-    }
-
-    const { type } = getImportantPoint(match)
-    return type || null
-  }
+  const getImportantEvent = () =>
+    getImportantEventType(
+      match,
+      (translations[language] as any).scoreboard.matchCompleted || "MATCH IS OVER",
+    )
 
   // Получаем стиль градиента для фона
   const getGradientStyle = (useGradient: boolean, fromColor: string, toColor: string) => {
@@ -773,8 +752,6 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   }
 
   if (!match || !settingsLoaded) return null
-
-  const tiebreakScores = getTiebreakScores()
 
   return (
     <>
@@ -1162,7 +1139,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
                     color: theme === "transparent" ? textColor : setsTextColor,
                   }}
                 >
-                  {tiebreakScores[idx] ? formatSetScore(set.teamA, tiebreakScores[idx].teamA) : set.teamA}
+                  {renderSetCell(set, "teamA")}
                 </div>
               ))}
 
@@ -1295,7 +1272,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
                     color: theme === "transparent" ? textColor : setsTextColor,
                   }}
                 >
-                  {tiebreakScores[idx] ? formatSetScore(set.teamB, tiebreakScores[idx].teamB) : set.teamB}
+                  {renderSetCell(set, "teamB")}
                 </div>
               ))}
 

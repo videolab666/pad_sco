@@ -181,12 +181,17 @@ function classifyKey(key: string, oldS: RuleSettings, newS: RuleSettings, score:
     }
 
     case "sets": {
-      const oldSets = Number(oldS.sets) || 0
       const newSets = Number(newS.sets) || 0
       const played = score?.sets?.length ?? 0
       // Cutting the match shorter than what has already been played, or editing
       // the length while the deciding set is live, cannot be done losslessly.
       if (newSets < played) return "restart-required"
+      // Changing the set count moves setsToWin, which can decide (or un-decide)
+      // the match — that must be confirmed, never applied silently.
+      const newSetsToWin = getSetsToWin(newS)
+      const aSets = (score?.sets ?? []).filter((s: any) => s.winner === "teamA").length
+      const bSets = (score?.sets ?? []).filter((s: any) => s.winner === "teamB").length
+      if (aSets >= newSetsToWin || bSets >= newSetsToWin) return "current-set"
       if (isDecidingSetUnderway(oldS, score) || isDecidingSetUnderway(newS, score)) return "current-set"
       return matchHasStarted(score) ? "future-only" : "safe"
     }

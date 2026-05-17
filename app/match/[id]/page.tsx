@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useContext } from "react"
+import React, { useState, useEffect, useContext, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Share2, Copy, Download, Upload, ExternalLink, CircleDot } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,13 +11,11 @@ import { MatchSettings } from "@/components/match-settings"
 import { SupabaseStatus } from "@/components/supabase-status"
 import { OfflineNotice } from "@/components/offline-notice"
 import {
-  getMatch,
-  updateMatch,
   getMatchShareUrl,
   exportMatchToJson,
   importMatchFromJson,
-  subscribeToMatchUpdates,
 } from "@/lib/match-storage"
+import { useMatch } from "@/hooks/use-match"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
@@ -41,191 +39,47 @@ export default function MatchPage({ params }: MatchParams) {
   const language = languageContext?.language || "ru"
   const t: any = translations[language as keyof typeof translations] || translations.ru
 
-  const [match, setMatch] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  // C3: canonical match state (load, realtime sync, optimistic updates) lives
+  // in the useMatch hook — the single owner. This page only consumes it.
+  const { match, loading, error, notice, updateMatch } = useMatch(matchId)
+
   const [showAlert, setShowAlert] = useState(false)
   const [alertMessage, setAlertMessage] = useState("")
   const [importData, setImportData] = useState("")
+  const [isImporting, setIsImporting] = useState(false)
+  // hard guard against double-submit on import (synchronous, catches same-tick clicks)
+  const importingRef = useRef(false)
   const [activeTab, setActiveTab] = useState("match")
   const [sideChangeAlert, setSideChangeAlert] = useState(false)
 
+  // Side-change banner — pure UI, driven by the courtSidesSwapped event.
   useEffect(() => {
-    const loadMatch = async () => {
-      try {
-        if (!matchId || matchId === "[object%20Promise]") {
-          setError(language === "ru" ? "Некорректный ID матча" : "Invalid match ID")
-          setLoading(false)
-          return
-        }
-
-        const matchData = await getMatch(matchId)
-        if (matchData) {
-          // Убедимся, что структура матча полная
-          if (!matchData.score.sets) {
-            matchData.score.sets = []
-          }
-          setMatch(matchData)
-          setError("")
-        } else {
-          setError(language === "ru" ? "Матч не найден" : "Match not found")
-        }
-      } catch (err) {
-        setError(language === "ru" ? "Ошибка загрузки матча" : "Error loading match")
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadMatch()
-
-    // Подписываемся на обновления матча в реальном времени
-    const unsubscribe = subscribeToMatchUpdates(matchId, async (updatedMatch: any) => {
-      if (updatedMatch) {
-        // Загружаем состояние синхронизации
-        let hasPendingOperations = false;
-        try {
-          const { getMatchSyncState } = await import("@/lib/match-sync");
-          const syncState = getMatchSyncState(matchId);
-          hasPendingOperations = syncState && syncState.pendingCount > 0;
-        } catch (e) {
-          console.error("Ошибка при получении состояния синхронизации:", e);
-        }
-
-        // Failure mode #6: never let a late, stale snapshot overwrite a newer
-        // local/optimistic state — ignore a payload whose revision is behind.
-        setMatch((prev: any) => {
-          // Игнорируем websocket-эхо и обновления, пока у нас есть свои
-          // локальные (оптимистичные) операции в очереди (предотвращает мерцание/flicker)
-          if (hasPendingOperations) {
-            return prev;
-          }
-
-          if (
-            prev &&
-            typeof prev.revision === "number" &&
-            typeof updatedMatch.revision === "number" &&
-            updatedMatch.revision <= prev.revision // строже, чтобы отсекать эхо с такой же ревизией
-          ) {
-            return prev
-          }
-          return updatedMatch
-        })
-        setError("")
-      } else {
-        // Если матч был удален, показываем ошибку
-        setError(language === "ru" ? "Матч не найден или был удален" : "Match not found or was deleted")
-      }
-    })
-
-    // Добавляем обработчик события match-updated
-    const handleMatchUpdated = async (event: any) => {
-      if (event.detail && event.detail.id === matchId) {
-        // Перезагружаем матч при получении события обновления
-        const matchData = await getMatch(matchId)
-        if (matchData) {
-          setMatch((prev: any) => {
-            if (
-              prev &&
-              typeof prev.revision === "number" &&
-              typeof matchData.revision === "number" &&
-              matchData.revision < prev.revision
-            ) {
-              return prev
-            }
-            return matchData
-          })
-          setError("")
-        }
-      }
-    }
-
-    window.addEventListener("match-updated", handleMatchUpdated)
-
-    // Добавляем обработчик события смены сторон
     const handleCourtSidesSwapped = (event: any) => {
       if (event.detail && event.detail.newSides) {
         setSideChangeAlert(true)
         setTimeout(() => setSideChangeAlert(false), 2000)
       }
     }
-
     window.addEventListener("courtSidesSwapped", handleCourtSidesSwapped)
+    return () => window.removeEventListener("courtSidesSwapped", handleCourtSidesSwapped)
+  }, [])
 
-    return () => {
-      // Отписываемся при размонтировании компонента
-      if (unsubscribe) {
-        unsubscribe()
-      }
-      window.removeEventListener("match-updated", handleMatchUpdated)
-      window.removeEventListener("courtSidesSwapped", handleCourtSidesSwapped)
-    }
-  }, [matchId, language])
-
-  const handleUpdateMatch = async (updatedMatch: any) => {
-    try {
-      // Отключаем функцию отмены для экономии места
-      updatedMatch.history = []
-
-      // Оптимистичное обновление состояния для предотвращения мерцания (flicker)
-      setMatch(updatedMatch)
-
-      await updateMatch(updatedMatch)
-
-      // Убираем показ уведомления при обновлении счета
-      // setAlertMessage(t.matchPage.scoreUpdated)
-      // setShowAlert(true)
-      // setTimeout(() => setShowAlert(false), 2000)
-    } catch (err) {
-      console.error("Ошибка обновления матча:", err)
-
-      // Если произошла ошибка, пробуем упростить объект матча
-      try {
-        // Создаем минимальную версию матча
-        const minimalMatch = {
-          ...updatedMatch,
-          history: [],
-        }
-
-        // Удаляем историю геймов для экономии места
-        if (minimalMatch.score && minimalMatch.score.currentSet) {
-          minimalMatch.score.currentSet.games = []
-        }
-
-        if (minimalMatch.score && minimalMatch.score.sets) {
-          minimalMatch.score.sets = minimalMatch.score.sets.map((set: any) => ({
-            teamA: set.teamA,
-            teamB: set.teamB,
-            winner: set.winner,
-          }))
-        }
-
-        await updateMatch(minimalMatch)
-        setMatch(minimalMatch)
-
-        // Показываем уведомление о проблеме
-        setAlertMessage(t.matchPage.matchDataSimplified)
-        setShowAlert(true)
-        setTimeout(() => setShowAlert(false), 3000)
-      } catch (innerErr) {
-        console.error("Критическая ошибка обновления матча:", innerErr)
-        setError(
-          language === "ru"
-            ? "Не удалось обновить матч. Попробуйте обновить страницу."
-            : "Failed to update match. Try refreshing the page.",
-        )
-      }
-    }
-  }
+  // Surface the hook's soft notice (e.g. storage-quota fallback) in the banner.
+  useEffect(() => {
+    if (!notice) return
+    setAlertMessage(notice)
+    setShowAlert(true)
+    const id = setTimeout(() => setShowAlert(false), 3000)
+    return () => clearTimeout(id)
+  }, [notice])
 
   const handleShare = () => {
     const url = getMatchShareUrl(matchId)
 
     if (navigator.share) {
       navigator.share({
-        title: language === "ru" ? "Теннисный матч" : "Tennis match",
-        text: language === "ru" ? "Следите за счетом матча в реальном времени" : "Follow the match score in real-time",
+        title: t.matchPage.shareMatchTitle,
+        text: t.matchPage.shareMatchText,
         url,
       })
     } else {
@@ -254,12 +108,19 @@ export default function MatchPage({ params }: MatchParams) {
   }
 
   const handleImportMatch = async () => {
+    // Защита от двойного импорта (двойной клик / медленная сеть): иначе один
+    // JSON импортируется дважды и создаёт дубликат матча.
+    if (importingRef.current) return
+
     if (!importData.trim()) {
       setAlertMessage(t.matchPage.importDataRequired)
       setShowAlert(true)
       setTimeout(() => setShowAlert(false), 2000)
       return
     }
+
+    importingRef.current = true
+    setIsImporting(true)
 
     try {
       const matchId = await importMatchFromJson(importData)
@@ -277,6 +138,9 @@ export default function MatchPage({ params }: MatchParams) {
       setAlertMessage(t.matchPage.importError)
       setShowAlert(true)
       setTimeout(() => setShowAlert(false), 3000)
+      // Сбрасываем флаг — даём повторить после ошибки.
+      importingRef.current = false
+      setIsImporting(false)
     }
   }
 
@@ -372,7 +236,7 @@ export default function MatchPage({ params }: MatchParams) {
         <TabsContent value="match">
           <div className="flex flex-col gap-1 mb-3">
             <Card className="px-[3px] py-2 bg-[#fefcf8]" aria-label={t.match.scoreCard}>
-              <ScoreBoard match={match} updateMatch={handleUpdateMatch} />
+              <ScoreBoard match={match} updateMatch={updateMatch} />
 
               <div className="mt-2 pt-1.5 border-t border-gray-200 flex justify-center">
                 <Button
@@ -406,8 +270,8 @@ export default function MatchPage({ params }: MatchParams) {
           </div>
 
           <div className="flex flex-col gap-2 w-full">
-            <ScoreControls match={match} updateMatch={handleUpdateMatch} />
-            <MatchSettings match={match} updateMatch={handleUpdateMatch} />
+            <ScoreControls match={match} updateMatch={updateMatch} />
+            <MatchSettings match={match} updateMatch={updateMatch} />
           </div>
         </TabsContent>
 
@@ -432,7 +296,7 @@ export default function MatchPage({ params }: MatchParams) {
                 className="mb-4"
                 rows={6}
               />
-              <Button onClick={handleImportMatch}>
+              <Button onClick={handleImportMatch} disabled={isImporting}>
                 <Upload className="mr-2 h-4 w-4" />
                 {t.matchPage.importButton}
               </Button>

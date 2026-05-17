@@ -255,7 +255,8 @@ async function scenarioConflict() {
   seedServerMatch(id2, 5)
   enqueueOperation(id2, "snapshot", makeMatch(id2), makeMatch(id2))
   // Local record believes it was synced at revision 1; server is ahead at 5.
-  const { loadSyncRecord, saveSyncRecord } = require("../lib/match-operation-log")
+  // Dynamic import (not require) so the script runs under Vitest's ESM loader.
+  const { loadSyncRecord, saveSyncRecord } = await import("../lib/match-operation-log")
   const rec = loadSyncRecord(id2)
   rec.lastSyncedRevision = 1
   saveSyncRecord(rec)
@@ -347,7 +348,9 @@ async function scenarioPublicEntry() {
   console.log("  G. public syncMatchToServer entry point — OK")
 }
 
-async function main() {
+// Exported so the Vitest wrapper (test/match-sync.test.ts) can await it.
+// Still runnable standalone via `npx tsx test/match-sync-regression.ts`.
+export async function main() {
   console.log("match-sync regression:")
   await scenarioOfflineReconnect()
   await scenarioIdempotency()
@@ -360,7 +363,16 @@ async function main() {
   console.log("match-sync regression checks passed")
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+// Self-run only when executed directly (tsx/node), not when imported by Vitest.
+const isDirectRun =
+  typeof process !== "undefined" &&
+  Array.isArray(process.argv) &&
+  process.argv[1] !== undefined &&
+  /match-sync-regression\.(ts|js|mjs)$/.test(process.argv[1].replace(/\\/g, "/"))
+
+if (isDirectRun) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}

@@ -28,6 +28,8 @@ export type TranslationKeys = {
     vmixSettings: string
     checking: string
     saving: string
+    enterFullscreen: string
+    exitFullscreen: string
     continue: string
     updateSettings: string
     updateSettingsDesc: string
@@ -174,6 +176,7 @@ export type TranslationKeys = {
     currentServer: string
     playerA: string
     playerB: string
+    court: string
   }
   scoreboardSettings: {
     title: string
@@ -253,6 +256,17 @@ export type TranslationKeys = {
     shareMatchTitle: string
     shareMatchText: string
     returnToHome: string
+    matchUpdateFailed: string
+    matchIsOver: string
+    finalTiebreak: string
+    teamWonConfirm: string
+    ruleChangeNoRestart: string
+    ruleChangeAffectsSet: string
+    ruleChangeDescription: string
+    applyNow: string
+    restartSet: string
+    playerFallbackTeamA: string
+    playerFallbackTeamB: string
   }
   matchList: {
     loading: string
@@ -993,6 +1007,8 @@ export const translations: { [key in Language]: TranslationKeys } = {
       vmixSettings: "Настройки vMix",
       checking: "Проверка...",
       saving: "Сохранение...",
+      enterFullscreen: "Полный экран",
+      exitFullscreen: "Выйти из полного экрана",
       continue: "Продолжить",
       updateSettings: "Обновить настройки",
       updateSettingsDesc: "Обновить текущие настройки",
@@ -1140,6 +1156,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       currentServer: "Текущая подача",
       playerA: "Игрок A",
       playerB: "Игрок B",
+      court: "Корт",
     },
     scoreboardSettings: {
       title: "Настройки отображения",
@@ -1219,6 +1236,17 @@ export const translations: { [key in Language]: TranslationKeys } = {
       shareMatchTitle: "Счет теннисного матча",
       shareMatchText: "Следите за счетом матча в реальном времени",
       returnToHome: "Вернуться на главную",
+      matchUpdateFailed: "Не удалось обновить матч. Попробуйте обновить страницу.",
+      matchIsOver: "Матч завершён",
+      finalTiebreak: "(Финальный тайбрейк)",
+      teamWonConfirm: "Команда {team} выиграла матч! Завершить матч?",
+      ruleChangeNoRestart: "Изменение нельзя применить без потерь",
+      ruleChangeAffectsSet: "Изменение влияет на текущий сет",
+      ruleChangeDescription: "Выберите, как применить это изменение правил.",
+      applyNow: "Применить сейчас",
+      restartSet: "Перезапустить текущий сет с 0:0",
+      playerFallbackTeamA: "Игрок 1, Игрок 2",
+      playerFallbackTeamB: "Игрок 3, Игрок 4",
     },
     matchList: {
       loading: "Загрузка матчей...",
@@ -1959,6 +1987,8 @@ export const translations: { [key in Language]: TranslationKeys } = {
       vmixSettings: "vMix Settings",
       checking: "Checking...",
       saving: "Saving...",
+      enterFullscreen: "Enter fullscreen",
+      exitFullscreen: "Exit fullscreen",
       continue: "Continue",
       updateSettings: "Update settings",
       updateSettingsDesc: "Update current settings",
@@ -2105,6 +2135,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       currentServer: "Current Server",
       playerA: "Player A",
       playerB: "Player B",
+      court: "Court",
     },
     scoreboardSettings: {
       title: "Display Settings",
@@ -2184,6 +2215,17 @@ export const translations: { [key in Language]: TranslationKeys } = {
       shareMatchTitle: "Tennis Match Score",
       shareMatchText: "Follow the match score in real time",
       returnToHome: "Return to Home",
+      matchUpdateFailed: "Failed to update match. Try refreshing the page.",
+      matchIsOver: "Match is over",
+      finalTiebreak: "(Final tiebreak)",
+      teamWonConfirm: "Team {team} won the match! End the match?",
+      ruleChangeNoRestart: "Change cannot be applied without data loss",
+      ruleChangeAffectsSet: "Change affects the current set",
+      ruleChangeDescription: "Choose how to apply this rule change.",
+      applyNow: "Apply now",
+      restartSet: "Restart current set from 0:0",
+      playerFallbackTeamA: "Player 1, Player 2",
+      playerFallbackTeamB: "Player 3, Player 4",
     },
     matchList: {
       loading: "Loading matches...",
@@ -2924,6 +2966,8 @@ export const translations: { [key in Language]: TranslationKeys } = {
       vmixSettings: "Налаштування vMix",
       checking: "Перевірка...",
       saving: "Збереження...",
+      enterFullscreen: "Повний екран",
+      exitFullscreen: "Вийти з повного екрану",
       continue: "Продовжити",
       updateSettings: "Оновити налаштування",
       updateSettingsDesc: "Оновити поточні налаштування",
@@ -3070,6 +3114,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       currentServer: "Поточна подача",
       playerA: "Гравець A",
       playerB: "Гравець B",
+      court: "Корт",
     },
     scoreboardSettings: {
       title: "Налаштування відображення",
@@ -3149,6 +3194,17 @@ export const translations: { [key in Language]: TranslationKeys } = {
       shareMatchTitle: "Рахунок тенісного матчу",
       shareMatchText: "Слідкуйте за рахунком матчу в реальному часі",
       returnToHome: "Повернутися на головну",
+      matchUpdateFailed: "Не вдалося оновити матч. Спробуйте оновити сторінку.",
+      matchIsOver: "Матч завершено",
+      finalTiebreak: "(Фінальний тайбрейк)",
+      teamWonConfirm: "Команда {team} виграла матч! Завершити матч?",
+      ruleChangeNoRestart: "Зміну не можна застосувати без втрат",
+      ruleChangeAffectsSet: "Зміна впливає на поточний сет",
+      ruleChangeDescription: "Виберіть, як застосувати цю зміну правил.",
+      applyNow: "Застосувати зараз",
+      restartSet: "Перезапустити поточний сет з 0:0",
+      playerFallbackTeamA: "Гравець 1, Гравець 2",
+      playerFallbackTeamB: "Гравець 3, Гравець 4",
     },
     matchList: {
       loading: "Завантаження матчів...",

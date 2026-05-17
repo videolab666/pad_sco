@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { getMatch, subscribeToMatchUpdates } from "@/lib/match-storage"
 import { getImportantPoint, isGamePoint, isSetPoint, isMatchPoint } from "@/lib/scoring-logic"
+import { getGameScoreDisplay, getSetCellDisplay, isPlayerServing } from "@/lib/match-view"
 import { getTennisPointName } from "@/lib/tennis-utils"
 import { logEvent } from "@/lib/error-logger"
 import { decompressFromUTF16 } from "lz-string"
@@ -560,33 +561,31 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
     setPrevImportantPoint(currentImportantPoint)
   }, [match, prevImportantPoint.type]) // Зависим только от match и prevImportantPoint.type
 
-  // Получаем текущий счет в виде строки (0, 15, 30, 40, Ad)
-  const getCurrentGameScore = (team: string) => {
-    if (!match || !match.score || !match.score.currentSet) return ""
+  // Счёт гейма и подача — из общего проектора lib/match-view (единый источник).
+  const getCurrentGameScore = (team: string) =>
+    getGameScoreDisplay(match, team as "teamA" | "teamB")
 
-    const currentSet = match.score.currentSet
+  const isServing = (team: string, playerIndex: number) =>
+    isPlayerServing(match, team as "teamA" | "teamB", playerIndex)
 
-    if (currentSet.isTiebreak) {
-      return currentSet.currentGame[team]
-    }
-
-    return getTennisPointName(currentSet.currentGame[team])
-  }
-
-  // Определяем, кто подает
-  const isServing = (team: string, playerIndex: number) => {
-    if (!match || !match.currentServer) return false
-    return match.currentServer.team === team && match.currentServer.playerIndex === playerIndex
-  }
-
-  // Форматируем счет сета с верхним индексом для тай-брейка
+  // Форматируем счет сета с верхним индексом для тай-брейка.
   const formatSetScore = (score: string | number, tiebreakScore: string | number | null = null) => {
+    if (tiebreakScore === null || tiebreakScore === undefined || tiebreakScore === "") {
+      return <span>{score}</span>
+    }
     return (
       <span>
         {score}
         <sup>{tiebreakScore}</sup>
       </span>
     )
+  }
+
+  // Ячейка счёта сета через общий проектор: супер-тай-брейк → очки тай-брейка,
+  // обычный тай-брейк → индекс только у проигравшего сет.
+  const renderSetCell = (set: any, team: "teamA" | "teamB") => {
+    const cell = getSetCellDisplay(set, team)
+    return formatSetScore(cell.main, cell.sup)
   }
 
   // Стили в зависимости от темы и параметров
@@ -732,24 +731,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
     )
   }
 
-  // Получаем данные о тай-брейках
-  const getTiebreakScores = () => {
-    if (!match.score.sets || match.score.sets.length === 0) return {}
-
-    const tiebreakScores: Record<number, any> = {}
-    match.score.sets.forEach((set: any, index: number) => {
-      if (set.tiebreak) {
-        tiebreakScores[index] = {
-          teamA: set.tiebreak.teamA,
-          teamB: set.tiebreak.teamB,
-        }
-      }
-    })
-
-    return tiebreakScores
-  }
-
-  const tiebreakScores = getTiebreakScores()
+  // Счёт сетов рендерится через renderSetCell / getSetCellDisplay.
 
   // Получаем информацию о важном моменте матча
   const importantPoint = getImportantPoint(match)
@@ -1011,7 +993,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
                       fontSize: "1.8em",
                     }}
                   >
-                    {tiebreakScores[idx] ? formatSetScore(set.teamA, tiebreakScores[idx].teamA) : set.teamA}
+                    {renderSetCell(set, "teamA")}
                   </div>
                 ))}
                 {/* Текущий сет */}
@@ -1239,7 +1221,7 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
                       fontSize: "1.8em",
                     }}
                   >
-                    {tiebreakScores[idx] ? formatSetScore(set.teamB, tiebreakScores[idx].teamB) : set.teamB}
+                    {renderSetCell(set, "teamB")}
                   </div>
                 ))}
 

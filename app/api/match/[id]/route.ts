@@ -1,91 +1,9 @@
 import { NextResponse } from "next/server"
 import { getMatchFromServer } from "@/lib/server-match-storage"
-import { getImportantPoint, isGamePoint, isSetPoint, isMatchPoint } from "@/lib/scoring-logic"
-import { getSetsToWin as getConfiguredSetsToWin } from "@/lib/match-format-rules"
 import { logEvent } from "@/lib/error-logger"
-import { getTennisPointName } from "@/lib/tennis-utils"
+import { buildCourtVmixPayload } from "@/lib/match-view"
 import { createServerSupabaseClient } from "@/lib/supabase"
-
-// getPointIndex, isGamePoint, isSetPoint, isMatchPoint, getImportantPoint
-// → removed, now imported from @/lib/scoring-logic
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getTotalSets = (match: any) => {
-  // Проверяем различные возможные пути к данным о формате матча
-  if (match.format && typeof match.format === "object") {
-    // Прямое указание общего количества сетов
-    if (typeof match.format.totalSets === "number") {
-      return match.format.totalSets
-    }
-    if (typeof match.format.sets === "number") {
-      return match.format.sets
-    }
-    // Формат "best of X sets"
-    if (typeof match.format.bestOf === "number") {
-      return match.format.bestOf
-    }
-  }
-
-  // Проверяем настройки матча
-  if (match.settings && typeof match.settings === "object") {
-    // Прямое указание общего количества сетов
-    if (typeof match.settings.totalSets === "number") {
-      return match.settings.totalSets
-    }
-    if (typeof match.settings.sets === "number") {
-      return match.settings.sets
-    }
-    // Формат "best of X sets"
-    if (typeof match.settings.bestOf === "number") {
-      return match.settings.bestOf
-    }
-  }
-
-  // По умолчанию 3 сета
-  return 3
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getSetsToWin = (match: any) => {
-  // Проверяем различные возможные пути к данным о формате матча
-  if (match.format && typeof match.format === "object") {
-    // Прямое указание количества сетов для победы
-    if (typeof match.format.setsToWin === "number") {
-      return match.format.setsToWin
-    }
-  }
-
-  // Проверяем настройки матча
-  if (match.settings && typeof match.settings === "object") {
-    // Прямое указание количества сетов для победы
-    if (typeof match.settings.setsToWin === "number") {
-      return match.settings.setsToWin
-    }
-  }
-
-  // Вычисляем на основе общего количества сетов
-  return getConfiguredSetsToWin({ ...match.settings, sets: getTotalSets(match) })
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getCurrentSetNumber = (match: any) => {
-  if (!match || !match.score) {
-    return 1
-  }
-
-  // Если матч завершен, возвращаем последний сыгранный сет
-  if (match.isCompleted) {
-    return match.score.sets ? match.score.sets.length : 1
-  }
-
-  // Если есть массив сетов, текущий сет = количество завершенных сетов + 1
-  if (match.score.sets && Array.isArray(match.score.sets)) {
-    return match.score.sets.length + 1
-  }
-
-  // По умолчанию первый сет
-  return 1
-}
+import { matchToRow } from "@/lib/match-supabase"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -123,119 +41,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Match not found" }, { status: 404 })
     }
 
-    // Логируем структуру матча для отладки
-    logEvent("debug", `Match API: структура матча`, "match-api", {
-      matchId: match.id,
-      format: match.format,
-      settings: match.settings,
-    })
-
-    // Получаем текущие сеты для обеих команд
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const teamASets = match.score.sets ? match.score.sets.map((set: any) => set.teamA) : []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const teamBSets = match.score.sets ? match.score.sets.map((set: any) => set.teamB) : []
-
-    // Определяем информацию о победителе
-    let winnerTeamName = ""
-    let winnerName1 = ""
-    let winnerName2 = ""
-
-    if (match.isCompleted && match.winner) {
-      if (match.winner === "teamA") {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        winnerTeamName = match.teamA.players.map((p: any) => p.name).join(" / ")
-        winnerName1 = match.teamA.players[0]?.name || ""
-        winnerName2 = match.teamA.players[1]?.name || ""
-      } else if (match.winner === "teamB") {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        winnerTeamName = match.teamB.players.map((p: any) => p.name).join(" / ")
-        winnerName1 = match.teamB.players[0]?.name || ""
-        winnerName2 = match.teamB.players[1]?.name || ""
-      }
-    }
-
-    // Получаем информацию о важном моменте
-    const importantPoint = getImportantPoint(match)
-
-    // Определяем общее количество сетов и сетов для победы
-    const totalSets = getTotalSets(match)
-    const setsToWin = getSetsToWin(match)
-    const currentSetNumber = getCurrentSetNumber(match)
-
-    // Логируем определенные значения для отладки
-    logEvent("debug", `Match API: определены параметры матча`, "match-api", {
-      totalSets,
-      setsToWin,
-      currentSetNumber,
-      completedSets: match.score.sets ? match.score.sets.length : 0,
-    })
-
-    // Формируем объект данных в том же формате, что и для API корта
-    const flatMatchData = {
-      match_id: match.id,
-      court_number: match.courtNumber || 0,
-
-      // Данные команды A
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      teamA_name: match.teamA.players.map((p: any) => p.name).join(" / "),
-      teamA_player1_name: match.teamA.players[0]?.name || "",
-      teamA_player2_name: match.teamA.players[1]?.name || "",
-      teamA_score: match.score.teamA,
-      teamA_game_score: match.score.currentSet
-        ? match.score.currentSet.isTiebreak
-          ? match.score.currentSet.currentGame.teamA
-          : getTennisPointName(match.score.currentSet.currentGame.teamA)
-        : "0",
-      teamA_current_set: match.score.currentSet ? match.score.currentSet.teamA : 0,
-      teamA_serving: match.currentServer && match.currentServer.team === "teamA" ? "True" : "False",
-
-      // Данные команды B
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      teamB_name: match.teamB.players.map((p: any) => p.name).join(" / "),
-      teamB_player1_name: match.teamB.players[0]?.name || "",
-      teamB_player2_name: match.teamB.players[1]?.name || "",
-      teamB_score: match.score.teamB,
-      teamB_game_score: match.score.currentSet
-        ? match.score.currentSet.isTiebreak
-          ? match.score.currentSet.currentGame.teamB
-          : getTennisPointName(match.score.currentSet.currentGame.teamB)
-        : "0",
-      teamB_current_set: match.score.currentSet ? match.score.currentSet.teamB : 0,
-      teamB_serving: match.currentServer && match.currentServer.team === "teamB" ? "True" : "False",
-
-      // Общие данные матча
-      is_tiebreak: match.score.currentSet ? (match.score.currentSet.isTiebreak ? "True" : "False") : "False",
-      is_completed: match.isCompleted ? "True" : "False",
-      winner: match.winner || "",
-      total_sets: totalSets,
-      sets_to_win: setsToWin,
-      current_set_number: currentSetNumber,
-
-      // Информация о победителе
-      winner_team_name: winnerTeamName,
-      winner_name1: winnerName1,
-      winner_name2: winnerName2,
-
-      // Информация о важном моменте
-      important_point_type: importantPoint.type || "",
-      important_point_team: importantPoint.team || "",
-      is_match_point: isMatchPoint(match) ? "True" : "False",
-      is_set_point: isSetPoint(match) ? "True" : "False",
-      is_game_point: isGamePoint(match) ? "True" : "False",
-
-      // Служебная информация
-      timestamp: new Date().toISOString(),
-      update_time: new Date().toLocaleTimeString(),
-    }
-
-    // Динамически добавляем данные о сетах в зависимости от настроек матча
-    // Гарантируем, что будет как минимум 5 сетов для совместимости с vMix
-    const maxSets = Math.max(5, totalSets)
-    for (let i = 0; i < maxSets; i++) {
-      ; (flatMatchData as any)[`teamA_set${i + 1}`] = teamASets[i] !== undefined ? teamASets[i] : ""
-        ; (flatMatchData as any)[`teamB_set${i + 1}`] = teamBSets[i] !== undefined ? teamBSets[i] : ""
-    }
+    // Единый источник плоского payload для vMix — lib/match-view
+    // (тот же билдер, что и у /api/court/[number]).
+    const flatMatchData = buildCourtVmixPayload(match, null)
 
     // Устанавливаем заголовки для предотвращения кэширования
     const headers = new Headers()
@@ -260,24 +68,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 // ─── Idempotent, revisioned match write (Task 2, Step 3) ───────────────────────
 
-// Snapshot (camelCase) → Supabase row (snake_case).
-const toMatchRow = (match: any): Record<string, any> => ({
-  id: match.id,
-  type: match.type,
-  format: match.format,
-  created_at: match.createdAt,
-  settings: match.settings,
-  team_a: match.teamA,
-  team_b: match.teamB,
-  score: match.score,
-  current_server: match.currentServer,
-  court_sides: match.courtSides,
-  should_change_sides: match.shouldChangeSides,
-  is_completed: match.isCompleted,
-  winner: match.winner || null,
-  court_number: match.courtNumber,
-  created_via_court_link: match.created_via_court_link,
-})
+// Snapshot (camelCase) → Supabase row — single source in lib/match-supabase.
+const toMatchRow = (match: any): Record<string, any> => matchToRow(match)
 
 /**
  * Applies a single match operation idempotently with optimistic concurrency.

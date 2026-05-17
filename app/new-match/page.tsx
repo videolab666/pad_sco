@@ -151,11 +151,14 @@ export default function NewMatchPage() {
   const [newPlayerName, setNewPlayerName] = useState("")
   const [loading, setLoading] = useState(true)
   const [isAddingPlayer, setIsAddingPlayer] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
   const [showAlert, setShowAlert] = useState(false)
   const [alertMessage, setAlertMessage] = useState("")
   const [alertType, setAlertType] = useState("success") // success, error, warning
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const playersRef = useRef<any[]>([]) // Reference to keep track of players without re-renders
+  const creatingRef = useRef(false) // hard guard against double-submit on "create match"
+  const addingPlayerRef = useRef(false) // hard guard against double-add of a player
 
   // Игроки для команд
   const [teamAPlayer1, setTeamAPlayer1] = useState("")
@@ -285,7 +288,10 @@ export default function NewMatchPage() {
   // Добавление нового игрока
   const handleAddPlayer = async () => {
     if (!newPlayerName.trim()) return
+    // ref срабатывает синхронно — ловит и два клика в одном тике.
+    if (addingPlayerRef.current) return
 
+    addingPlayerRef.current = true
     setIsAddingPlayer(true)
     try {
       const newPlayer = {
@@ -324,6 +330,7 @@ export default function NewMatchPage() {
       showNotification(t("newMatch.errorAddingPlayer"), "error")
       logEvent("error", "Ошибка при добавлении игрока", "NewMatchPage", error)
     } finally {
+      addingPlayerRef.current = false
       setIsAddingPlayer(false)
     }
   }
@@ -354,6 +361,10 @@ export default function NewMatchPage() {
 
   // Обновим функцию handleCreateMatch, добавив номер корта
   const handleCreateMatch = async () => {
+    // Защита от двойного создания матча (двойной клик / медленная сеть).
+    // ref срабатывает синхронно — ловит даже два клика в одном тике.
+    if (creatingRef.current) return
+
     // Проверка, что все необходимые игроки выбраны (только если нет courtParam)
     if (!courtParam) {
       if (!teamAPlayer1 || !teamBPlayer1) {
@@ -366,11 +377,16 @@ export default function NewMatchPage() {
       }
     }
 
+    creatingRef.current = true
+    setIsCreating(true)
+
     // Проверка доступности корта
     if (courtNumber !== null) {
       const isAvailable = await isCourtAvailable(courtNumber)
       if (!isAvailable) {
         showNotification(t("newMatch.courtOccupied") + " " + courtNumber, "error")
+        creatingRef.current = false
+        setIsCreating(false)
         return
       }
     }
@@ -502,9 +518,18 @@ export default function NewMatchPage() {
           : null,
     }
 
-    // Сохранение матча и переход на страницу матча
-    const matchId = await createMatch(match)
-    router.push(`/match/${matchId}`)
+    // Сохранение матча и переход на страницу матча.
+    // На успехе уходим со страницы — флаг не сбрасываем (компонент размонтируется);
+    // на ошибке сбрасываем, чтобы можно было повторить.
+    try {
+      const matchId = await createMatch(match)
+      router.push(`/match/${matchId}`)
+    } catch (err) {
+      console.error("Ошибка создания матча:", err)
+      showNotification("Не удалось создать матч. Попробуйте ещё раз.", "error")
+      creatingRef.current = false
+      setIsCreating(false)
+    }
   }
 
 
@@ -1142,7 +1167,7 @@ export default function NewMatchPage() {
           <div className="orange-button-container">
             <div className="orange-button">
               <div className="orange-button-glow"></div>
-              <button className="orange-button-inner" onClick={handleCreateMatch}>
+              <button className="orange-button-inner" onClick={handleCreateMatch} disabled={isCreating}>
                 {t("newMatch.startMatch")}
                 <svg className="arrow-icon h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />

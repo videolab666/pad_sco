@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { getTennisPointName } from "@/lib/tennis-utils"
+import { getGameScoreDisplay, getImportantEventType, getServeSide as getServeSideView, isPlayerServing } from "@/lib/match-view"
 import { useState, useEffect } from "react"
 import {
   AlertDialog,
@@ -18,7 +18,7 @@ import { useLanguage } from "@/contexts/language-context"
 import { Trophy } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CircleDot } from "lucide-react"
-import { applyScoreIncrement, getImportantPoint } from "@/lib/scoring-logic"
+import { applyScoreIncrement, switchServer, swapCourtSides } from "@/lib/scoring-logic"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: any }) {
@@ -168,11 +168,13 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
   // Use localMatchState if available for more responsive UI
   const displayMatch = localMatchState || match
 
+  // B2 fix: guard before destructuring — otherwise a null match crashes here
+  // and the check below is dead code.
+  if (!displayMatch || !displayMatch.score || !displayMatch.score.currentSet) return null
+
   // Extract values from match data
   const { teamA, teamB } = displayMatch
   const currentSet = displayMatch.score.currentSet
-
-  if (!displayMatch) return null
 
   // Оптимизируем обработчик нажатия на счет для более быстрой работы
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,12 +192,11 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     // Set processing flag
     setIsProcessingClick(true)
 
-    // Use a longer debounce time to ensure we don't process clicks too quickly
-    // and to allow any database operations to complete
+    // Debounce window: blocks a second click while the first is processed.
     setTimeout(() => {
       setIsProcessingClick(false)
       setProcessingTeam(null) // Clear the processing team indicator
-    }, 500) // Increased to 500ms debounce for better protection
+    }, 100)
 
     // Set which team is being processed for visual feedback
     setProcessingTeam(team)
@@ -243,11 +244,11 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     // Set processing flag
     setIsProcessingClick(true)
 
-    // Use a longer debounce time to match the handleScoreClick function
+    // Debounce window — matches handleScoreClick.
     setTimeout(() => {
       setIsProcessingClick(false)
       setProcessingTeam(null)
-    }, 500)
+    }, 100)
 
     // Set which team is being processed for visual feedback
     setProcessingTeam(team)
@@ -255,16 +256,8 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     // Use localMatchState if available, otherwise use the match prop
     const currentMatchState = localMatchState || match
 
-    // If there is history, use undo (pop last state)
-    if (matchHistory.length > 0) {
-      const previousMatch = matchHistory[matchHistory.length - 1]
-      setMatchHistory((prev) => prev.slice(0, -1))
-      setLocalMatchState(previousMatch)
-      updateMatch(previousMatch)
-      return
-    }
-
-    // No history — best-effort single-point decrement
+    // The "-1" button decrements the current game score of *this* team only.
+    // It is NOT Undo — the dedicated Undo button rolls back the last action.
     const updatedMatch = JSON.parse(JSON.stringify(currentMatchState))
     updatedMatch.history = []
 
@@ -300,6 +293,9 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
       }
     }
 
+    // A6 fix: keep the optimistic local state in sync so the displayed score
+    // does not show the stale value during the processing debounce window.
+    setLocalMatchState(updatedMatch)
     updateMatch(updatedMatch)
   }
 
@@ -332,92 +328,16 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     setShowMatchEndDialog(false)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const switchServer = (updatedMatch: any) => {
-    const currentTeam = updatedMatch.currentServer.team
-    const otherTeam = currentTeam === "teamA" ? "teamB" : "teamA"
+  // Stage 3 / B4: switchServer теперь единый — импортируется из движка.
 
-    // For singles, just switch team
-    if (updatedMatch.format === "singles") {
-      updatedMatch.currentServer.team = otherTeam
-      updatedMatch.currentServer.playerIndex = 0
-    } else {
-      // For doubles - after each game, service passes to the next player in order
-      // Order: A1 -> B1 -> A2 -> B2 -> A1 etc.
-      if (currentTeam === "teamA") {
-        // If team A was serving, switch to team B
-        updatedMatch.currentServer.team = "teamB"
-        // Keep the same player index
-      } else {
-        // If team B was serving, switch to team A and change player
-        updatedMatch.currentServer.team = "teamA"
-        // Switch to next player in team A
-        updatedMatch.currentServer.playerIndex = updatedMatch.currentServer.playerIndex === 0 ? 1 : 0
-      }
-    }
-
-    return updatedMatch
-  }
-
-  // Функция для получения текста важного события
-  const getImportantEventText = () => {
-    if (!match || !match.score) return null
-    if (match.isCompleted) return "MATCH IS OVER"
-    const { type } = getImportantPoint(match)
-    return type || null
-  }
+  // Текст важного события — из общего проектора lib/match-view.
+  const getImportantEventText = () => getImportantEventType(match, t("matchPage.matchIsOver"))
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isServing = (team: any, playerIndex: any) => {
-    return match.currentServer.team === team && match.currentServer.playerIndex === playerIndex
-  }
+  const isServing = (team: any, playerIndex: any) => isPlayerServing(match, team, playerIndex)
 
-  const getServeSide = () => {
-    // Если матч не инициализирован, вернуть правую сторону по умолчанию
-    if (!match || !match.score || !match.score.currentSet) return "R"
-
-    // Получаем текущий гейм
-    const currentGame = match.score.currentSet.currentGame
-
-    // Считаем общее количество очков в текущем гейме
-    const totalPoints =
-      (currentGame.teamA === "Ad"
-        ? 4
-        : typeof currentGame.teamA === "number"
-          ? currentGame.teamA === 0
-            ? 0
-            : currentGame.teamA === 15
-              ? 1
-              : currentGame.teamA === 30
-                ? 2
-                : 3
-          : 0) +
-      (currentGame.teamB === "Ad"
-        ? 4
-        : typeof currentGame.teamB === "number"
-          ? currentGame.teamB === 0
-            ? 0
-            : currentGame.teamB === 15
-              ? 1
-              : currentGame.teamB === 30
-                ? 2
-                : 3
-          : 0)
-
-    // В тай-брейке логика немного другая
-    if (match.score.currentSet.isTiebreak) {
-      // В тай-брейке первая подача справа, затем чередуется каждые 2 очка
-      // Но первая смена происходит после 1 очка
-      if (totalPoints === 0) return "R"
-
-      // После первого очка и далее
-      // Нечетное количество очков - левая сторона, четное - правая
-      return totalPoints % 2 === 1 ? "L" : "R"
-    }
-
-    // В обычном гейме: четное количество очков - правая сторона, нечетное - левая
-    return totalPoints % 2 === 0 ? "R" : "L"
-  }
+  // Stage 2: сторона подачи берётся из общего проектора (lib/match-view).
+  const getServeSide = () => getServeSideView(match)
 
   const manualSwitchServer = () => {
     if (!updateMatch || match.isCompleted) return
@@ -449,28 +369,23 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     const updatedMatch = { ...match }
 
     // Switch sides
-    updatedMatch.courtSides = {
-      teamA: updatedMatch.courtSides.teamA === "left" ? "right" : "left",
-      teamB: updatedMatch.courtSides.teamB === "left" ? "right" : "left",
-    }
+    updatedMatch.courtSides = swapCourtSides(updatedMatch.courtSides)
 
     // Update match
     updateMatch(updatedMatch)
   }
 
-  // Получаем текущий счет в виде строки (0, 15, 30, 40, Ad)
+  // Stage 2: текущий счёт гейма берётся из общего проектора (lib/match-view),
+  // чтобы scoreboard и JSON всегда показывали одно и то же.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getCurrentGameScore = (team: any) => {
-    if (currentSet.isTiebreak) {
-      return currentSet.currentGame[team]
-    }
-
-    return getTennisPointName(currentSet.currentGame[team])
-  }
+  const getCurrentGameScore = (team: any) => getGameScoreDisplay(displayMatch, team)
 
   // Определяем общее количество сетов в матче
   const totalSets = match.settings.sets
   const currentSetIndex = match.score.sets.length
+  // B5 fix: после завершения матча показываем номер последнего сыгранного сета,
+  // а не несуществующий следующий.
+  const displaySetNumber = match.isCompleted ? Math.max(1, currentSetIndex) : currentSetIndex + 1
 
   // Создаем массив всех сетов (включая будущие)
   const allSets = []
@@ -554,10 +469,10 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
 
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-0 items-center w-full">
         <div className="text-right space-y-1 pr-3 border-r border-gray-200">
-          {fixedSides && <div className="text-sm text-muted-foreground mb-1 text-right">Ліва сторона</div>}
+          {fixedSides && <div className="text-sm text-muted-foreground mb-1 text-right">{t("match.leftSide")}</div>}
           {!fixedSides && (
             <div className="text-xs text-green-600 font-medium">
-              {match.courtSides?.teamA === "left" ? "Ліва сторона" : "Права сторона"}
+              {match.courtSides?.teamA === "left" ? t("match.leftSide") : t("match.rightSide")}
             </div>
           )}
           {fixedSides
@@ -645,10 +560,10 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
             })}
         </div>
         <div className="text-left space-y-1 pl-3">
-          {fixedSides && <div className="text-sm text-muted-foreground mb-1 text-left">Права сторона</div>}
+          {fixedSides && <div className="text-sm text-muted-foreground mb-1 text-left">{t("match.rightSide")}</div>}
           {!fixedSides && (
             <div className="text-xs text-green-600 font-medium">
-              {match.courtSides?.teamB === "left" ? "Ліва сторона" : "Права сторона"}
+              {match.courtSides?.teamB === "left" ? t("match.leftSide") : t("match.rightSide")}
             </div>
           )}
           {fixedSides
@@ -828,7 +743,7 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
                 <path d="M3 7v6h6"></path>
                 <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
               </svg>
-              {t("match.undo") || "Undo"}
+              {t("match.undo")}
             </button>
 
             {/* Индикатор важных событий */}
@@ -858,9 +773,9 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
           </span>
         </div>
         <div className="text-center text-muted-foreground">
-          {`${t("match.set")} ${currentSetIndex + 1} ${t("match.of")} ${totalSets}`}
+          {`${t("match.set")} ${displaySetNumber} ${t("match.of")} ${totalSets}`}
           {currentSet.isTiebreak && currentSet.isSuperTiebreak && (
-            <span className="ml-2 text-red-600 font-medium">(Финальный тайбрейк)</span>
+            <span className="ml-2 text-red-600 font-medium">{t("matchPage.finalTiebreak")}</span>
           )}
         </div>
         <div className="text-center">

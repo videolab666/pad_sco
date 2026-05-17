@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid"
 import { syncMatchToServer, initSyncRecovery, reconcileServerSnapshot } from "./match-sync"
 import { clearSyncRecord } from "./match-operation-log"
 import { backfillRuleMetadata } from "./match-rule-change"
+import { matchToRow, matchFromRow } from "./match-supabase"
 
 // Максимальное количество хранимых матчей в локальном хранилище
 const MAX_MATCHES = 10
@@ -87,31 +88,8 @@ const safeSetItem = (key: string, value: any) => {
 
 // Изменим функцию transformMatchForSupabase, чтобы не отправлять поле code в Supabase
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const transformMatchForSupabase = (match: any) => {
-  // Добавляем логирование перед отправкой данных в Supabase
-  console.log("Отправка данных в Supabase:", {
-    shouldChangeSides: match.shouldChangeSides,
-    should_change_sides: match.shouldChangeSides,
-  })
-  return {
-    id: match.id,
-    // Удаляем поле code, так как такого столбца нет в Supabase
-    type: match.type,
-    format: match.format,
-    created_at: match.createdAt,
-    settings: match.settings,
-    team_a: match.teamA,
-    team_b: match.teamB,
-    score: match.score,
-    current_server: match.currentServer,
-    court_sides: match.courtSides,
-    should_change_sides: match.shouldChangeSides,
-    is_completed: match.isCompleted,
-    winner: match.winner || null,
-    court_number: match.courtNumber,
-    created_via_court_link: match.created_via_court_link,
-  }
-}
+// Единый источник преобразования — lib/match-supabase.
+const transformMatchForSupabase = (match: any) => matchToRow(match)
 
 // Сброс кэша доступности Supabase — вызывается при возврате связи/фокусе,
 // чтобы не использовать устаревший offline-результат до 60 секунд (failure mode #2).
@@ -131,27 +109,7 @@ export const invalidateMatchCache = (idOrCode?: string) => {
 
 // Обновим функцию transformMatchFromSupabase, добавив поле code
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const transformMatchFromSupabase = (match: any) => {
-  return {
-    id: match.id,
-    code: match.code,
-    type: match.type,
-    format: match.format,
-    createdAt: match.created_at,
-    settings: match.settings,
-    teamA: match.team_a,
-    teamB: match.team_b,
-    score: match.score,
-    currentServer: match.current_server,
-    courtSides: match.court_sides,
-    shouldChangeSides: match.should_change_sides,
-    isCompleted: match.is_completed,
-    winner: match.winner,
-    courtNumber: match.court_number,
-    revision: typeof match.revision === "number" ? match.revision : 0,
-    history: [],
-  }
-}
+const transformMatchFromSupabase = (match: any) => matchFromRow(match)
 
 // Изменим функцию getMatches, чтобы она гарантированно возвращала все матчи, включая незавершенные
 export const getMatches = async () => {

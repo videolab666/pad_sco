@@ -1,6 +1,7 @@
 "use client"
 
 import { useLanguage } from "@/contexts/language-context"
+import { isPlayerServing } from "@/lib/match-view"
 
 import type { Match } from "../lib/types"
 
@@ -30,10 +31,9 @@ export function CourtVisualization({ match, fixedSides }: CourtVisualizationProp
     }
   }
 
-  // Determine which player is serving
-  const isServing = (team: "teamA" | "teamB", playerIndex: number): boolean => {
-    return match.currentServer.team === team && match.currentServer.playerIndex === playerIndex
-  }
+  // Determine which player is serving — via the shared projector lib/match-view.
+  const isServing = (team: "teamA" | "teamB", playerIndex: number): boolean =>
+    isPlayerServing(match, team, playerIndex)
 
   // Get team names for display
   const getTeamName = (team: "teamA" | "teamB"): string => {

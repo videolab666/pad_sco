@@ -23,6 +23,7 @@ import {
   toSyncState,
 } from "./match-operation-log"
 import type { MatchOperationKind, SyncState } from "./types"
+import { matchToRow, matchFromRow } from "./match-supabase"
 
 /** Maximum transient retries before an operation is dead-lettered. */
 const MAX_RETRIES = 6
@@ -173,26 +174,9 @@ function isPermanentError(message: string): boolean {
   )
 }
 
-/** Snapshot → Supabase row. Mirrors transformMatchForSupabase in match-storage. */
+/** Snapshot → Supabase row — single source in lib/match-supabase. */
 function transformForSupabase(match: any): Record<string, any> {
-  const row: Record<string, any> = {
-    id: match.id,
-    type: match.type,
-    format: match.format,
-    created_at: match.createdAt,
-    settings: match.settings,
-    team_a: match.teamA,
-    team_b: match.teamB,
-    score: match.score,
-    current_server: match.currentServer,
-    court_sides: match.courtSides,
-    should_change_sides: match.shouldChangeSides,
-    is_completed: match.isCompleted,
-    winner: match.winner || null,
-    court_number: match.courtNumber,
-    created_via_court_link: match.created_via_court_link,
-  }
-  return row
+  return matchToRow(match)
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────────
@@ -402,27 +386,9 @@ async function applyRevisioned(
   }
 }
 
-/** Supabase row → match snapshot (mirrors transformMatchFromSupabase). */
+/** Supabase row → match snapshot — single source in lib/match-supabase. */
 function fromSupabaseRow(rowData: any): any {
-  return {
-    id: rowData.id,
-    code: rowData.code,
-    type: rowData.type,
-    format: rowData.format,
-    createdAt: rowData.created_at,
-    settings: rowData.settings,
-    teamA: rowData.team_a,
-    teamB: rowData.team_b,
-    score: rowData.score,
-    currentServer: rowData.current_server,
-    courtSides: rowData.court_sides,
-    shouldChangeSides: rowData.should_change_sides,
-    isCompleted: rowData.is_completed,
-    winner: rowData.winner,
-    courtNumber: rowData.court_number,
-    revision: rowData.revision ?? 0,
-    history: [],
-  }
+  return matchFromRow(rowData)
 }
 
 /** Schedules a backoff retry for a match drain. */

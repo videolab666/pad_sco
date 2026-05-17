@@ -5,7 +5,9 @@ import {
 } from "../lib/match-format-rules"
 import {
   applyScoreIncrement,
+  getSetTargets,
   normalizeMatchState,
+  recomputeMatchCompletion,
   restartCurrentSet,
   restartCurrentSetAsMatchTiebreak,
   restartCurrentSetAsNormalSet,
@@ -454,5 +456,68 @@ backfillRuleMetadata(oldMatch)
 assert.equal(JSON.stringify(oldMatch), snapshotBefore, "backfill is idempotent")
 
 console.log("old-match backfill checks passed")
+
+// ─── plan__1 fixes: B1 / A2 / A3 / B3 regressions ─────────────────────────────
+
+// B1: a set won with an odd number of games flags a side change but never
+// swaps courtSides directly (that double-swapped before the fix).
+let oddSet = createMatch({ sets: 3, finalSetTiebreak: false, finalSetFinish: "standard-7" })
+oddSet.score.currentSet.teamA = 5
+oddSet.score.currentSet.teamB = 3
+oddSet = winCurrentGame(oddSet, "teamA") // 6-3 → 9 games, odd
+assert.equal(oddSet.score.sets.length, 1, "B1: the 6-3 set is recorded")
+assert.equal(oddSet.shouldChangeSides, true, "B1: odd-game set flags a side change")
+assert.deepEqual(
+  oddSet.courtSides,
+  { teamA: "left", teamB: "right" },
+  "B1: winSet must not swap courtSides directly — only the flag drives the swap",
+)
+
+// B1: a set won with an even number of games does not flag a side change.
+let evenSet = createMatch({ sets: 3, finalSetTiebreak: false, finalSetFinish: "standard-7" })
+evenSet.score.currentSet.teamA = 5
+evenSet.score.currentSet.teamB = 4
+evenSet = winCurrentGame(evenSet, "teamA") // 6-4 → 10 games, even
+assert.equal(evenSet.shouldChangeSides, false, "B1: even-game set does not flag a side change")
+assert.deepEqual(evenSet.courtSides, { teamA: "left", teamB: "right" }, "B1: courtSides untouched")
+
+// A2: recomputeMatchCompletion re-derives sets-won and the match outcome from
+// the completed sets under the current setsToWin.
+let recomp = createMatch({ sets: 5, finalSetTiebreak: false, finalSetFinish: "standard-7" })
+recomp.score.sets = [
+  { teamA: 6, teamB: 4, winner: "teamA" },
+  { teamA: 6, teamB: 3, winner: "teamA" },
+]
+recomp.score.teamA = 99 // deliberately wrong — must be recomputed
+recomp.score.teamB = 99
+const recompBo5 = recomputeMatchCompletion(recomp)
+assert.equal(recompBo5.score.teamA, 2, "A2: sets-won counters are recomputed from sets")
+assert.equal(recompBo5.score.teamB, 0)
+assert.equal(recompBo5.isCompleted, false, "A2: 2 sets is not enough for best-of-5")
+recomp.settings.sets = 3
+const recompBo3 = recomputeMatchCompletion(recomp)
+assert.equal(recompBo3.isCompleted, true, "A2: 2 sets wins a best-of-3 after the rule change")
+assert.equal(recompBo3.winner, "teamA")
+
+// A3: a sets change that decides the match must not apply silently.
+let a3Match = createMatch({ sets: 3, finalSetTiebreak: false, finalSetFinish: "standard-7" })
+a3Match.score.sets = [
+  { teamA: 6, teamB: 4, winner: "teamA" },
+  { teamA: 6, teamB: 3, winner: "teamA" },
+]
+const decideClass = classifyRuleChange(
+  { ...a3Match.settings },
+  { ...a3Match.settings, sets: 2 },
+  a3Match.score,
+)
+assert.equal(decideClass.scope, "current-set", "A3: a sets change that decides the match needs confirmation")
+
+// B3: getSetTargets honours per-set game overrides.
+const targetsMatch = createMatch({ sets: 3, gamesPerSet: 6, gamesPerSetOverrides: { 0: 4 } })
+assert.equal(getSetTargets(targetsMatch).gamesNeededToWin, 4, "B3: per-set override applies to the current set")
+const targetsDefault = createMatch({ sets: 3, gamesPerSet: 6, gamesPerSetOverrides: {} })
+assert.equal(getSetTargets(targetsDefault).gamesNeededToWin, 6, "B3: default games used without an override")
+
+console.log("plan__1 fixes (B1/A2/A3/B3) checks passed")
 
 console.log("scoring-logic regression checks passed")

@@ -25,3 +25,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# automated checks: coverage reports and run logs
+/logs/
+
+# tool / build artifacts
+/.kilo/
+/.tmp-test/
+/ts-errors*.txt
+/ts-errors*.log
+
+# reference material (decompiled APK, analysis dumps) — not project source
+/SCORE TENNIS/

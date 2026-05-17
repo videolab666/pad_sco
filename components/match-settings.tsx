@@ -25,9 +25,8 @@ import {
   getDefaultFinalSetTiebreakForSelection,
   getDefaultGoldenPointForScoringSystem,
   getSetsToWin,
-  shouldStartMatchTiebreakAfterSet,
 } from "@/lib/match-format-rules"
-import { normalizeMatchState, restartCurrentSet } from "@/lib/scoring-logic"
+import { commitSetWin, normalizeMatchState, recomputeMatchCompletion, restartCurrentSet } from "@/lib/scoring-logic"
 import { classifyRuleChange } from "@/lib/match-rule-change"
 
 type MatchSettingsProps = {
@@ -71,7 +70,9 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   const [editSetScoreA, setEditSetScoreA] = useState(0)
   const [editSetScoreB, setEditSetScoreB] = useState(0)
 
-  // Task 5: a rule edit awaiting a scope decision ({ updatedMatch, classification }).
+  // Task 5 / A4: a rule edit awaiting a scope decision. Only the pending
+  // `settings` are stored (plus the classification) — never a whole match
+  // snapshot — so points scored while the dialog is open are not lost.
   const [pendingRuleChange, setPendingRuleChange] = useState<any>(null)
   // True while the pending dialog is being closed by an explicit action button,
   // so the close handler does not also treat it as a cancel.
@@ -130,9 +131,12 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   const commitRuleChange = (updatedMatch: any) => {
     updatedMatch.history = []
     const normalized = normalizeMatchState(updatedMatch)
-    normalized.ruleRevision = (typeof updatedMatch.ruleRevision === "number" ? updatedMatch.ruleRevision : 0) + 1
-    normalized.lastRuleChangeAt = new Date().toISOString()
-    return normalized
+    // A2 fix: a rule edit can change setsToWin — recompute the match outcome so
+    // a finished match is not left running (and vice versa).
+    const recomputed = recomputeMatchCompletion(normalized)
+    recomputed.ruleRevision = (typeof updatedMatch.ruleRevision === "number" ? updatedMatch.ruleRevision : 0) + 1
+    recomputed.lastRuleChangeAt = new Date().toISOString()
+    return recomputed
   }
 
   // Persists a rule change, with the legacy storage-quota fallback.
@@ -163,19 +167,29 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       doCommit(updatedMatch)
     } else {
       ruleChangeHandledRef.current = false
-      setPendingRuleChange({ updatedMatch, classification })
+      // A4 fix: keep only the pending settings — applied later onto the *current*
+      // match, so concurrent score changes survive the dialog.
+      setPendingRuleChange({ settings: updatedMatch.settings, classification })
     }
   }
+
+  // A4 fix: overlay the pending settings onto the live match (not the snapshot
+  // captured when the dialog opened) so points scored meanwhile are preserved.
+  const buildPendingMatch = () => ({
+    ...match,
+    history: [],
+    settings: { ...pendingRuleChange.settings },
+  })
 
   // Dialog actions for a pending rule change.
   const applyPendingNow = () => {
     ruleChangeHandledRef.current = true
-    if (pendingRuleChange) doCommit(pendingRuleChange.updatedMatch)
+    if (pendingRuleChange) doCommit(buildPendingMatch())
     setPendingRuleChange(null)
   }
   const applyPendingRestart = () => {
     ruleChangeHandledRef.current = true
-    if (pendingRuleChange) doCommit(restartCurrentSet(pendingRuleChange.updatedMatch))
+    if (pendingRuleChange) doCommit(restartCurrentSet(buildPendingMatch()))
     setPendingRuleChange(null)
   }
   const cancelPendingRuleChange = () => {
@@ -243,73 +257,34 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     }
   }
 
-  // Bug #7 fix: save tiebreak score when ending tiebreak manually
+  // Ручное завершение тай-брейка. Запись сета — через единый движковый
+  // commitSetWin (тот же код, что и при обычной игре). confirm() остаётся UI:
+  // отказ от завершения матча отменяет операцию целиком.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const endTiebreak = (winner: any) => {
     if (!match || !updateMatch) return
 
-    const updatedMatch = { ...match }
-    updatedMatch.history = []
+    // Глубокая копия — не мутируем живой match.
+    const prepared = JSON.parse(JSON.stringify(match))
+    prepared.history = []
 
-    const tiebreakScore = {
-      teamA: updatedMatch.score.currentSet.currentGame.teamA,
-      teamB: updatedMatch.score.currentSet.currentGame.teamB,
+    const cs = prepared.score.currentSet
+    cs.tiebreak = { teamA: cs.currentGame.teamA, teamB: cs.currentGame.teamB }
+    cs[winner]++
+    cs.isTiebreak = false
+
+    const result = commitSetWin(prepared, winner)
+
+    // commitSetWin завершает матч, когда победитель набрал setsToWin —
+    // подтверждаем; отказ отменяет всю операцию (match остаётся как был).
+    if (
+      result.isCompleted &&
+      !confirm(t("matchPage.teamWonConfirm", { team: winner === "teamA" ? "A" : "B" }))
+    ) {
+      return
     }
 
-    updatedMatch.score.currentSet[winner]++
-    updatedMatch.score.currentSet.tiebreak = tiebreakScore
-    updatedMatch.score.currentSet.isTiebreak = false
-
-    winSetInSettings(winner, updatedMatch)
-  }
-
-  // Bug #5 fix: single winSet implementation with tiebreak score saving
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const winSetInSettings = (team: any, updatedMatch: any) => {
-    if (!match || !updateMatch) return
-
-    updatedMatch.score[team]++
-
-    const setToSave: any = {
-      teamA: updatedMatch.score.currentSet.teamA,
-      teamB: updatedMatch.score.currentSet.teamB,
-      winner: team,
-    }
-
-    // Bug #7 fix: save tiebreak score
-    if (updatedMatch.score.currentSet.tiebreak) {
-      setToSave.tiebreak = { ...updatedMatch.score.currentSet.tiebreak }
-    }
-
-    updatedMatch.score.sets.push(setToSave)
-
-    const setsToWin = getSetsToWin(updatedMatch.settings)
-    if (updatedMatch.score[team] >= setsToWin) {
-      if (confirm(`Команда ${team === "teamA" ? "A" : "B"} выиграла матч! Завершить матч?`)) {
-        updatedMatch.isCompleted = true
-        updatedMatch.winner = team
-        updateMatch(updatedMatch)
-        return
-      }
-    }
-
-    const nextCurrentSet: any = {
-      teamA: 0,
-      teamB: 0,
-      games: [],
-      currentGame: {
-        teamA: 0,
-        teamB: 0,
-      },
-      isTiebreak: false,
-    }
-    if (shouldStartMatchTiebreakAfterSet(updatedMatch.settings, updatedMatch.score)) {
-      nextCurrentSet.isTiebreak = true
-      nextCurrentSet.isSuperTiebreak = true
-    }
-    updatedMatch.score.currentSet = nextCurrentSet
-
-    updateMatch(updatedMatch)
+    updateMatch(result)
   }
 
   // Bug #6 fix: handle draw properly in endMatch
@@ -692,9 +667,9 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     }
 
     if (teamKey === "teamA") {
-      return "Игрок 1, Игрок 2"
+      return t("matchPage.playerFallbackTeamA")
     } else {
-      return "Игрок 3, Игрок 4"
+      return t("matchPage.playerFallbackTeamB")
     }
   }
 
@@ -716,24 +691,24 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           <AlertDialogHeader>
             <AlertDialogTitle>
               {pendingRuleChange?.classification?.scope === "restart-required"
-                ? "Изменение нельзя применить без потерь"
-                : "Изменение влияет на текущий сет"}
+                ? t("matchPage.ruleChangeNoRestart")
+                : t("matchPage.ruleChangeAffectsSet")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingRuleChange?.classification?.reason
                 ? `${pendingRuleChange.classification.reason}. `
                 : ""}
-              Выберите, как применить это изменение правил.
+              {t("matchPage.ruleChangeDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-            <AlertDialogAction onClick={applyPendingNow}>Применить сейчас</AlertDialogAction>
+            <AlertDialogAction onClick={applyPendingNow}>{t("matchPage.applyNow")}</AlertDialogAction>
             {pendingRuleChange?.classification?.scope === "restart-required" && (
               <AlertDialogAction onClick={applyPendingRestart}>
-                Перезапустить текущий сет с 0:0
+                {t("matchPage.restartSet")}
               </AlertDialogAction>
             )}
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -749,7 +724,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           </div>
 
           <div className="py-4 px-[3px] bg-blue-50 border border-blue-200 rounded-md mt-4">
-            <h3 className="font-medium text-center mb-3">{t("match.editSets") || "Edit Set Scores"}</h3>
+            <h3 className="font-medium text-center mb-3">{t("match.editSets")}</h3>
 
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
@@ -758,13 +733,13 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                     <th className="p-2 border-b-2 border-gray-300"></th>
                     <th className="p-2 border-b-2 border-gray-300 text-center">
                       <div className="font-bold">
-                        {match.teamA?.name || match.teamAName || t("match.teamA") || "Команда A"}
+                        {match.teamA?.name || match.teamAName || t("match.teamA")}
                       </div>
                       <div className="text-xs text-gray-600 mt-1">{teamAPlayerNames}</div>
                     </th>
                     <th className="p-2 border-b-2 border-gray-300 text-center">
                       <div className="font-bold">
-                        {match.teamB?.name || match.teamBName || t("match.teamB") || "Команда B"}
+                        {match.teamB?.name || match.teamBName || t("match.teamB")}
                       </div>
                       <div className="text-xs text-gray-600 mt-1">{teamBPlayerNames}</div>
                     </th>
@@ -836,7 +811,10 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               <Select
                 value={match.settings?.isSuperSet ? "super" : (match.settings?.sets?.toString() || "3")}
                 onValueChange={(value) => {
-                  const updatedMatch = { ...match }
+                  // A1 fix: clone settings so we never mutate match.settings in
+                  // place — otherwise classifyRuleChange diffs an object against
+                  // itself and the confirmation dialog is silently skipped.
+                  const updatedMatch = { ...match, settings: { ...match.settings } }
                   if (value === "super") {
                     updatedMatch.settings.isSuperSet = true
                     updatedMatch.settings.superSetTarget = 8
@@ -864,13 +842,13 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   <SelectValue placeholder={t("newMatch.sets")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1 — normal</SelectItem>
-                  <SelectItem value="2">2 + tiebreak</SelectItem>
-                  <SelectItem value="3">3 — normal</SelectItem>
-                  <SelectItem value="4">4 + tiebreak</SelectItem>
-                  <SelectItem value="5">5 — normal</SelectItem>
-                  <SelectItem value="6">6 + tiebreak</SelectItem>
-                  <SelectItem value="7">7 — normal</SelectItem>
+                  <SelectItem value="1">{t("newMatch.setsNnormal", { n: "1" })}</SelectItem>
+                  <SelectItem value="2">{t("newMatch.setsNplusTiebreak", { n: "2" })}</SelectItem>
+                  <SelectItem value="3">{t("newMatch.setsNnormal", { n: "3" })}</SelectItem>
+                  <SelectItem value="4">{t("newMatch.setsNplusTiebreak", { n: "4" })}</SelectItem>
+                  <SelectItem value="5">{t("newMatch.setsNnormal", { n: "5" })}</SelectItem>
+                  <SelectItem value="6">{t("newMatch.setsNplusTiebreak", { n: "6" })}</SelectItem>
+                  <SelectItem value="7">{t("newMatch.setsNnormal", { n: "7" })}</SelectItem>
                   <SelectItem value="super">
                     <div>
                       <span className="font-medium">{t("newMatch.superSet")}</span>
@@ -917,7 +895,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
               {finalSetTiebreak && (
                 <div className="space-y-2">
-                  <Label>Final set finish</Label>
+                  <Label>{t("newMatch.finalSetFinishLabel")}</Label>
                   <Select
                     value={finalSetFinish}
                     onValueChange={(value) => {
@@ -933,13 +911,13 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="standard-7">Games as normal - tiebreak to 7</SelectItem>
-                      <SelectItem value="standard-10">Games as normal - tiebreak to 10</SelectItem>
-                      <SelectItem value="match-tiebreak-7">No games - match tiebreak to 7</SelectItem>
-                      <SelectItem value="match-tiebreak-10">No games - match tiebreak to 10</SelectItem>
-                      <SelectItem value="games-to-12-7">Games to 12 - tiebreak to 7</SelectItem>
-                      <SelectItem value="games-to-12-10">Games to 12 - tiebreak to 10</SelectItem>
-                      <SelectItem value="no-tiebreak">No tiebreak</SelectItem>
+                      <SelectItem value="standard-7">{t("newMatch.finalSetGamesTiebreak7")}</SelectItem>
+                      <SelectItem value="standard-10">{t("newMatch.finalSetGamesTiebreak10")}</SelectItem>
+                      <SelectItem value="match-tiebreak-7">{t("newMatch.finalSetMatchTiebreak7")}</SelectItem>
+                      <SelectItem value="match-tiebreak-10">{t("newMatch.finalSetMatchTiebreak10")}</SelectItem>
+                      <SelectItem value="games-to-12-7">{t("newMatch.finalSetGamesTo12Tiebreak7")}</SelectItem>
+                      <SelectItem value="games-to-12-10">{t("newMatch.finalSetGamesTo12Tiebreak10")}</SelectItem>
+                      <SelectItem value="no-tiebreak">{t("newMatch.finalSetNoTiebreak")}</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -999,7 +977,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
               {scoringSystem === "classic" && (
                 <div className="mt-4 space-y-2">
-                  <Label>Golden Point</Label>
+                   <Label>{t("newMatch.goldenPoint")}</Label>
                   <Select
                     value={goldenPointFormat}
                     onValueChange={(value) => {
@@ -1012,10 +990,10 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Off</SelectItem>
-                      <SelectItem value="first-deuce">Pro - first deuce</SelectItem>
-                      <SelectItem value="second-deuce">Amateur - second deuce</SelectItem>
-                      <SelectItem value="third-deuce">Star - third deuce</SelectItem>
+                      <SelectItem value="none">{t("newMatch.goldenPointOff")}</SelectItem>
+                      <SelectItem value="first-deuce">{t("newMatch.goldenPointFirstDeuce")}</SelectItem>
+                      <SelectItem value="second-deuce">{t("newMatch.goldenPointSecondDeuce")}</SelectItem>
+                      <SelectItem value="third-deuce">{t("newMatch.goldenPointThirdDeuce")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1024,7 +1002,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
             {/* Games per set — auto-apply on change */}
             <div className="border rounded-md py-3 px-[3px] bg-[#f0f4ff] shadow-md">
-              <Label className="text-base font-medium">Кількість геймів у сеті</Label>
+              <Label className="text-base font-medium">{t("newMatch.gamesPerSet")}</Label>
               <Select
                 value={gamesPerSet}
                 onValueChange={(value) => {
@@ -1042,7 +1020,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                 <SelectContent>
                   {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
                     <SelectItem key={n} value={n.toString()}>
-                      {n} гейм{n === 1 ? "" : n < 5 ? "и" : "ів"}{n === 6 ? " (стандарт)" : ""}{n === 4 ? " (Fast4)" : ""}
+                      {n}{n === 6 ? ` ${t("newMatch.gamesStandard")}` : ""}{n === 4 ? ` ${t("newMatch.gamesFast4")}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1058,14 +1036,14 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                       className="text-sm text-blue-600 hover:text-blue-800 underline"
                       onClick={() => setShowPerSetGames(!showPerSetGames)}
                     >
-                      {showPerSetGames ? "Сховати налаштування для кожного сету" : "Налаштувати для кожного сету окремо"}
+                      {showPerSetGames ? t("newMatch.hidePerSetSettings") : t("newMatch.showPerSetSettings")}
                     </button>
 
                     {showPerSetGames && (
                       <div className="mt-2 space-y-2">
                         {Array.from({ length: totalSets }, (_, i) => i).map((setIdx) => (
                           <div key={setIdx} className="flex items-center gap-2">
-                            <span className="text-sm font-medium w-20 shrink-0">Сет {setIdx + 1}:</span>
+                            <span className="text-sm font-medium w-20 shrink-0">{t("newMatch.setNumber", { n: setIdx + 1 })}:</span>
                             <Select
                               value={gamesPerSetOverrides[setIdx] || gamesPerSet}
                               onValueChange={(v) => {
@@ -1126,7 +1104,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               {tiebreakEnabled && (
                 <>
                   <div>
-                    <Label>{t("match.tiebreakType") || "Кількість очків тай-брейку"}</Label>
+                    <Label>{t("match.tiebreakType")}</Label>
                     <Select
                       value={tiebreakFormat}
                       onValueChange={(value) => {
@@ -1139,15 +1117,15 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="two-clear">Two clear points</SelectItem>
-                        <SelectItem value="receiver-select-1-or-2">Receiver selects 1 or 2</SelectItem>
-                        <SelectItem value="receiver-select-1-2-or-3">Receiver selects 1, 2 or 3</SelectItem>
-                        <SelectItem value="receiver-select-1-or-3">Receiver selects 1 or 3</SelectItem>
-                        <SelectItem value="sudden-death">Sudden death</SelectItem>
+                         <SelectItem value="two-clear">{t("newMatch.tiebreakTwoClear")}</SelectItem>
+                         <SelectItem value="receiver-select-1-or-2">{t("newMatch.tiebreakReceiver12")}</SelectItem>
+                         <SelectItem value="receiver-select-1-2-or-3">{t("newMatch.tiebreakReceiver123")}</SelectItem>
+                         <SelectItem value="receiver-select-1-or-3">{t("newMatch.tiebreakReceiver13")}</SelectItem>
+                         <SelectItem value="sudden-death">{t("newMatch.tiebreakSuddenDeath")}</SelectItem>
                       </SelectContent>
                     </Select>
 
-                    <Label className="mt-4 block">Tiebreak points</Label>
+                     <Label className="mt-4 block">{t("newMatch.tiebreakPoints")}</Label>
                     <Select
                       value={tiebreakLength}
                       onValueChange={(value) => {
@@ -1162,13 +1140,13 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                       <SelectContent>
                         {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
                           <SelectItem key={n} value={n.toString()}>
-                            До {n} очків{n === 7 ? " (стандарт)" : ""}{n === 10 ? " (чемпіонський)" : ""}
+                            {n}{n === 7 ? ` ${t("newMatch.gamesStandard")}` : ""}{n === 10 ? ` (${t("newMatch.gamesStandard").replace("(", "").replace(")", "").trim()})` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {Number.parseInt(tiebreakLength) > 1 ? "З різницею в 2 очки" : ""}
+                      {Number.parseInt(tiebreakLength) > 1 ? t("newMatch.tiebreakWith2Clear") : ""}
                     </p>
                   </div>
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { logEvent } from "@/lib/error-logger"
-import { getTennisPointName } from "@/lib/tennis-utils"
 import { getMatchFromServer } from "@/lib/server-match-storage"
+import { buildVmixFlatData } from "@/lib/match-view"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,59 +23,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Match not found" }, { status: 404 })
     }
 
-    // Получаем текущие сеты для обеих команд
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const teamASets = match.score.sets ? match.score.sets.map((set: any) => set.teamA) : []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const teamBSets = match.score.sets ? match.score.sets.map((set: any) => set.teamB) : []
-
-    // Формируем "плоский" JSON для vMix без вложенных объектов
-    const flatVmixData = {
-      match_id: match.id,
-      court_number: match.courtNumber || "",
-
-      // Данные команды A
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      teamA_name: match.teamA.players.map((p: any) => p.name).join(" / "),
-      teamA_score: match.score.teamA,
-      teamA_game_score: match.score.currentSet
-        ? match.score.currentSet.isTiebreak
-          ? match.score.currentSet.currentGame.teamA
-          : getTennisPointName(match.score.currentSet.currentGame.teamA)
-        : "0",
-      teamA_current_set: match.score.currentSet ? match.score.currentSet.teamA : 0,
-      teamA_serving: match.currentServer && match.currentServer.team === "teamA" ? "True" : "False",
-
-      // Данные команды B
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      teamB_name: match.teamB.players.map((p: any) => p.name).join(" / "),
-      teamB_score: match.score.teamB,
-      teamB_game_score: match.score.currentSet
-        ? match.score.currentSet.isTiebreak
-          ? match.score.currentSet.currentGame.teamB
-          : getTennisPointName(match.score.currentSet.currentGame.teamB)
-        : "0",
-      teamB_current_set: match.score.currentSet ? match.score.currentSet.teamB : 0,
-      teamB_serving: match.currentServer && match.currentServer.team === "teamB" ? "True" : "False",
-
-      // Общие данные матча
-      is_tiebreak: match.score.currentSet ? (match.score.currentSet.isTiebreak ? "True" : "False") : "False",
-      is_completed: match.isCompleted ? "True" : "False",
-      winner: match.winner || "",
-
-      // Данные сетов (до 3-х сетов)
-      teamA_set1: teamASets[0] !== undefined ? teamASets[0] : "",
-      teamA_set2: teamASets[1] !== undefined ? teamASets[1] : "",
-      teamA_set3: teamASets[2] !== undefined ? teamASets[2] : "",
-
-      teamB_set1: teamBSets[0] !== undefined ? teamBSets[0] : "",
-      teamB_set2: teamBSets[1] !== undefined ? teamBSets[1] : "",
-      teamB_set3: teamBSets[2] !== undefined ? teamBSets[2] : "",
-
-      // Служебная информация
-      timestamp: new Date().toISOString(),
-      update_time: new Date().toLocaleTimeString(),
-    }
+    // Stage 2: the flat vMix payload is produced by the shared projection
+    // (lib/match-view), so this endpoint and /api/court can never disagree.
+    const flatVmixData = buildVmixFlatData(match)
 
     // Оборачиваем объект в массив для vMix
     const vmixDataArray = [flatVmixData]

@@ -1,29 +1,11 @@
 import { createServerSupabaseClient } from "./supabase"
 import { logEvent } from "./error-logger"
 import { tSync } from "./log-i18n"
+import { matchFromRow } from "./match-supabase"
 
-// Обновим функцию transformMatchFromSupabase, добавив поле courtNumber
+// Единый источник преобразования row → match — lib/match-supabase.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const transformMatchFromSupabase = (match: any) => {
-  return {
-    id: match.id,
-    type: match.type,
-    format: match.format,
-    createdAt: match.created_at,
-    settings: match.settings,
-    teamA: match.team_a,
-    teamB: match.team_b,
-    score: match.score,
-    currentServer: match.current_server,
-    courtSides: match.court_sides,
-    shouldChangeSides: match.should_change_sides,
-    isCompleted: match.is_completed,
-    winner: match.winner,
-    courtNumber: match.court_number,
-    history: [],
-    created_via_court_link: match.created_via_court_link,
-  }
-}
+const transformMatchFromSupabase = (match: any) => matchFromRow(match)
 
 // Получение конкретного матча по ID (серверная версия)
 export const getMatchFromServer = async (id: string) => {

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { getMatchByCourtNumber } from "@/lib/court-utils"
 import { getImportantPoint, isGamePoint, isSetPoint, isMatchPoint } from "@/lib/scoring-logic"
+import { getGameScoreDisplay, getSetCellDisplay, isPlayerServing } from "@/lib/match-view"
 import { getTennisPointName } from "@/lib/tennis-utils"
 import { logEvent } from "@/lib/error-logger"
 import { subscribeToMatchUpdates } from "@/lib/match-storage"
@@ -705,28 +706,17 @@ export default function CourtVmixPage({ params }: CourtParams) {
     setPrevBreakPoint({ team: currentBreakPoint, count: breakPointCount })
   }, [match, prevBreakPoint.team])
 
-  // Получаем текущий счет в виде строки (0, 15, 30, 40, Ad)
-  const getCurrentGameScore = (team: string) => {
-    if (!match || !match.score || !match.score.currentSet) return ""
+  // Счёт гейма и подача — из общего проектора lib/match-view (единый источник).
+  const getCurrentGameScore = (team: string) =>
+    getGameScoreDisplay(match, team as "teamA" | "teamB")
 
-    const currentSet = match.score.currentSet
+  const isServing = (team: string, playerIndex: number) =>
+    isPlayerServing(match, team as "teamA" | "teamB", playerIndex)
 
-    if (currentSet.isTiebreak) {
-      return currentSet.currentGame[team]
-    }
-
-    return getTennisPointName(currentSet.currentGame[team])
-  }
-
-  // Определяем, кто подает
-  const isServing = (team: string, playerIndex: number) => {
-    if (!match || !match.currentServer) return false
-    return match.currentServer.team === team && match.currentServer.playerIndex === playerIndex
-  }
-
-  // Форматируем счет сета с верхним индексом для тай-брейка
+  // Форматируем счет сета с верхним индексом для тай-брейка.
+  // null/undefined → без индекса; 0 — допустимый индекс (проигрыш тай-брейка всухую).
   const formatSetScore = (score: string | number, tiebreakScore: string | number | null = null) => {
-    if (!tiebreakScore) {
+    if (tiebreakScore === null || tiebreakScore === undefined || tiebreakScore === "") {
       return <span>{score}</span>
     }
 
@@ -848,24 +838,8 @@ export default function CourtVmixPage({ params }: CourtParams) {
     )
   }
 
-  // Получаем данные о тай-брейках
-  const getTiebreakScores = () => {
-    if (!match.score.sets || match.score.sets.length === 0) return {}
-
-    const tiebreakScores: Record<number, any> = {}
-    match.score.sets.forEach((set: any, index: number) => {
-      if (set.tiebreak) {
-        tiebreakScores[index] = {
-          teamA: set.tiebreak.teamA,
-          teamB: set.tiebreak.teamB,
-        }
-      }
-    })
-
-    return tiebreakScores
-  }
-
-  const tiebreakScores = getTiebreakScores()
+  // Счёт сетов (включая тай-брейки) рендерится через getSetCellDisplay
+  // из общего проектора lib/match-view.
 
   // Получаем информацию о важном моменте матча
   const importantPoint = getImportantPoint(match)
@@ -1159,9 +1133,11 @@ export default function CourtVmixPage({ params }: CourtParams) {
             {/* Счет сетов для первого игрока */}
             {showSets && match.score.sets && (
               <>
-                {match.score.sets.map((set: any, idx: number) => (
+                {match.score.sets.map((set: any, idx: number) => {
+                  const cell = getSetCellDisplay(set, "teamA")
+                  return (
                   <div
-                    key={`teamA-set-${idx}-${set.teamA}-${tiebreakScores[idx]?.teamA || ""}`}
+                    key={`teamA-set-${idx}-${set.teamA}-${set.tiebreak?.teamA ?? ""}`}
                     style={{
                       ...(theme === "transparent"
                         ? { background: "transparent" }
@@ -1181,9 +1157,10 @@ export default function CourtVmixPage({ params }: CourtParams) {
                       fontSize: "1.8em",
                     }}
                   >
-                    {tiebreakScores[idx] ? formatSetScore(set.teamA, tiebreakScores[idx].teamA) : set.teamA}
+                    {formatSetScore(cell.main, cell.sup)}
                   </div>
-                ))}
+                  )
+                })}
                 {/* Текущий сет - показываем только если матч не завершен */}
                 {match.score.currentSet && !match.isCompleted && (
                   <div
@@ -1235,8 +1212,10 @@ export default function CourtVmixPage({ params }: CourtParams) {
                       : { background: pointsBgColor }),
                 }}
               >
-                {match.isCompleted && match.winner === "teamA" ? (
-                  <Trophy size={24} />
+                {match.isCompleted ? (
+                  // Завершённый матч: трофей у победителя, у проигравшего — пусто
+                  // (не показываем устаревший счёт последнего гейма/тай-брейка).
+                  match.winner === "teamA" ? <Trophy size={24} /> : null
                 ) : (
                   match.score.currentSet && (
                     <span
@@ -1397,9 +1376,11 @@ export default function CourtVmixPage({ params }: CourtParams) {
             {/* Счет сетов для второго игрока */}
             {showSets && match.score.sets && (
               <>
-                {match.score.sets.map((set: any, idx: number) => (
+                {match.score.sets.map((set: any, idx: number) => {
+                  const cell = getSetCellDisplay(set, "teamB")
+                  return (
                   <div
-                    key={`teamB-set-${idx}-${set.teamB}-${tiebreakScores[idx]?.teamB || ""}`}
+                    key={`teamB-set-${idx}-${set.teamB}-${set.tiebreak?.teamB ?? ""}`}
                     style={{
                       ...(theme === "transparent"
                         ? { background: "transparent" }
@@ -1419,9 +1400,10 @@ export default function CourtVmixPage({ params }: CourtParams) {
                       fontSize: "1.8em",
                     }}
                   >
-                    {tiebreakScores[idx] ? formatSetScore(set.teamB, tiebreakScores[idx].teamB) : set.teamB}
+                    {formatSetScore(cell.main, cell.sup)}
                   </div>
-                ))}
+                  )
+                })}
 
                 {/* Текущий сет - показываем только если матч не завершен */}
                 {match.score.currentSet && !match.isCompleted && (
@@ -1474,8 +1456,9 @@ export default function CourtVmixPage({ params }: CourtParams) {
                       : { background: pointsBgColor }),
                 }}
               >
-                {match.isCompleted && match.winner === "teamB" ? (
-                  <Trophy size={24} />
+                {match.isCompleted ? (
+                  // Завершённый матч: трофей у победителя, у проигравшего — пусто.
+                  match.winner === "teamB" ? <Trophy size={24} /> : null
                 ) : (
                   match.score.currentSet && (
                     <span

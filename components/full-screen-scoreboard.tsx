@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
-import { getTennisPointName } from "@/lib/tennis-utils"
+import { getGameScoreDisplay, isPlayerServing } from "@/lib/match-view"
 import { Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/contexts/language-context"
@@ -101,24 +101,13 @@ export function FullScreenScoreboard({
 
   const { teamA, teamB } = match
   const currentSet = match.score.currentSet
+  // Подача и счёт гейма — из общего проектора lib/match-view (единый источник).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isServing = (team: any, playerIndex: any) => {
-    return (
-      showServerIndicator !== false &&
-      match.currentServer.team === team &&
-      match.currentServer.playerIndex === playerIndex
-    )
-  }
+  const isServing = (team: any, playerIndex: any) =>
+    showServerIndicator !== false && isPlayerServing(match, team, playerIndex)
 
-  // Получаем текущий счет в виде строки (0, 15, 30, 40, Ad)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getCurrentGameScore = (team: any) => {
-    if (currentSet.isTiebreak) {
-      return currentSet.currentGame[team]
-    }
-
-    return getTennisPointName(currentSet.currentGame[team])
-  }
+  const getCurrentGameScore = (team: any) => getGameScoreDisplay(match, team)
 
   // Определяем общее количество сетов в матче
   const totalSets = match.settings.sets

@@ -6,6 +6,20 @@ import { tSync } from "./log-i18n"
 
 export const MAX_COURTS = 10
 
+/**
+ * True for an aborted / timed-out request — an expected, benign condition
+ * (5s query timeout, navigation). Such cases are logged as `warn`, not `error`,
+ * so they do not surface as a red Console Error in dev.
+ */
+function isAbortError(e: any): boolean {
+  if (!e) return false
+  return (
+    e.name === "AbortError" ||
+    /abort/i.test(String(e.name || "")) ||
+    /abort/i.test(String(e.message || ""))
+  )
+}
+
 // Функция для форматирования данных матча для vMix
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const formatVmixData = (match: any) => {
@@ -86,10 +100,13 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
       clearTimeout(timeoutId)
 
       if (error) {
-        logEvent("error", tSync("logMessages.errorMatchFromSupabase", { error: error.message }), "getMatchByCourtNumber", {
-          error,
-          courtNumber,
-        })
+        // Abort/таймаут — ожидаемо, не настоящая ошибка → warn вместо error.
+        logEvent(
+          isAbortError(error) ? "warn" : "error",
+          tSync("logMessages.errorMatchFromSupabase", { error: error.message }),
+          "getMatchByCourtNumber",
+          { error, courtNumber },
+        )
         return null
       }
 
@@ -206,8 +223,9 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
       return match
     } catch (err) {
       const fetchError = err as Error
-      if (fetchError.name === "AbortError") {
-        logEvent("error", tSync("logMessages.timeoutGetMatchByCourt"), "getMatchByCourtNumber", { courtNumber })
+      if (isAbortError(fetchError)) {
+        // Таймаут запроса — ожидаемое поведение, не ошибка.
+        logEvent("warn", tSync("logMessages.timeoutGetMatchByCourt"), "getMatchByCourtNumber", { courtNumber })
       } else {
         logEvent("error", tSync("logMessages.supabaseQueryError", { error: fetchError.message }), "getMatchByCourtNumber", {
           error: fetchError,
@@ -218,14 +236,16 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
     }
   } catch (err) {
     const error = err as Error
-    logEvent("error", tSync("logMessages.errorGetMatchByCourt", { error: error.message }), "getMatchByCourtNumber", {
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
+    // Abort/таймаут — ожидаемо → warn; настоящие сбои → error.
+    logEvent(
+      isAbortError(error) ? "warn" : "error",
+      tSync("logMessages.errorGetMatchByCourt", { error: error.message }),
+      "getMatchByCourtNumber",
+      {
+        error: { name: error.name, message: error.message, stack: error.stack },
+        courtNumber,
       },
-      courtNumber,
-    })
+    )
     return null
   }
 }

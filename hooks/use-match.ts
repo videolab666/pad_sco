@@ -15,6 +15,7 @@ import {
 } from "@/lib/match-storage"
 import { LanguageContext } from "@/contexts/language-context"
 import { translations } from "@/lib/translations"
+import { getMatchSyncState } from "@/lib/match-sync"
 
 export interface UseMatchResult {
   /** The canonical match, or null until the first load completes. */
@@ -71,12 +72,11 @@ export function useMatch(matchId: string): UseMatchResult {
     loadMatch()
 
     // Подписываемся на обновления матча в реальном времени.
-    const unsubscribe = subscribeToMatchUpdates(matchId, async (updatedMatch: any) => {
+    const unsubscribe = subscribeToMatchUpdates(matchId, (updatedMatch: any) => {
       if (updatedMatch) {
-        // Загружаем состояние синхронизации.
+        // Загружаем состояние синхронизации (синхронно).
         let hasPendingOperations = false
         try {
-          const { getMatchSyncState } = await import("@/lib/match-sync")
           const syncState = getMatchSyncState(matchId)
           hasPendingOperations = syncState && syncState.pendingCount > 0
         } catch (e) {

@@ -38,6 +38,7 @@ export default defineConfig({
         "lib/tennis-utils.ts",
         "lib/match-sync.ts",
         "lib/match-supabase.ts",
+        "lib/scoreboard-settings.ts",
       ],
       // No-regression ratchet: gates set just below the current baseline
       // (measured 2026-05-17: stmts 72% / branch 60% / funcs 87% / lines 76%).

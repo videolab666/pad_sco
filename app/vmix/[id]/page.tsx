@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { getMatch, subscribeToMatchUpdates } from "@/lib/match-storage"
 import { getImportantPoint, isGamePoint, isSetPoint, isMatchPoint } from "@/lib/scoring-logic"
 import { getGameScoreDisplay, getSetCellDisplay, isPlayerServing } from "@/lib/match-view"
+import { parseScoreboardSettings } from "@/lib/scoreboard-settings"
 import { getTennisPointName } from "@/lib/tennis-utils"
 import { logEvent } from "@/lib/error-logger"
 import { decompressFromUTF16 } from "lz-string"
@@ -56,13 +57,6 @@ const safeGetLocalStorageItem = (key: string) => {
   }
 }
 
-// Функция для преобразования параметра цвета из URL
-const parseColorParam = (param: string | null, defaultColor: string) => {
-  if (!param) return defaultColor
-  // Если параметр не содержит #, добавляем его
-  return param.startsWith("#") ? param : `#${param}`
-}
-
 // getPointIndex, isGamePoint, isSetPoint, isMatchPoint, getImportantPoint
 // → removed, now imported from @/lib/scoring-logic
 
@@ -92,56 +86,18 @@ export default function VmixPage({ params }: { params: Promise<{ id: string }> }
   const [prevImportantPoint, setPrevImportantPoint] = useState<any>({ type: null, team: null })
   const [indicatorState, setIndicatorState] = useState("hidden") // "entering", "visible", "exiting", "hidden"
 
-  // Параметры отображения из URL
-  const theme = searchParams.get("theme") || "default"
-  const showNames = searchParams.get("showNames") !== "false"
-  const showPoints = searchParams.get("showPoints") !== "false"
-  const showSets = searchParams.get("showSets") !== "false"
-  const showServer = searchParams.get("showServer") !== "false"
-  const showCountry = searchParams.get("showCountry") !== "false"
-  const fontSize = searchParams.get("fontSize") || "normal"
-  const bgOpacity = Number.parseFloat(searchParams.get("bgOpacity") || "0.5")
-  const textColor = parseColorParam(searchParams.get("textColor"), "#ffffff")
-  const accentColor = parseColorParam(searchParams.get("accentColor"), "#a4fb23")
-  const playerNamesFontSize = Number.parseFloat(searchParams.get("playerNamesFontSize") || "1.2")
-  const outputFormat = searchParams.get("format") || "html"
-  const showDebug = searchParams.get("debug") === "true"
-
-  // Цвета с правильной обработкой параметров
-  const namesBgColor = parseColorParam(searchParams.get("namesBgColor"), "#0369a1")
-  const countryBgColor = parseColorParam(searchParams.get("countryBgColor"), "#0369a1")
-  const pointsBgColor = parseColorParam(searchParams.get("pointsBgColor"), "#0369a1")
-  const setsBgColor = parseColorParam(searchParams.get("setsBgColor"), "#ffffff")
-  const setsTextColor = parseColorParam(searchParams.get("setsTextColor"), "#000000")
-
-  // Параметры для индикатора
-  const indicatorBgColor = parseColorParam(searchParams.get("indicatorBgColor"), "#7c2d12")
-  const indicatorTextColor = parseColorParam(searchParams.get("indicatorTextColor"), "#ffffff")
-  // Исправляем чтение булевых параметров
-  const indicatorGradient = searchParams.get("indicatorGradient") === "true"
-  const indicatorGradientFrom = parseColorParam(searchParams.get("indicatorGradientFrom"), "#7c2d12")
-  const indicatorGradientTo = parseColorParam(searchParams.get("indicatorGradientTo"), "#991b1b")
-
-  // Параметры градиентов - исправляем чтение булевых параметров
-  const namesGradient = searchParams.get("namesGradient") === "true"
-  const namesGradientFrom = parseColorParam(searchParams.get("namesGradientFrom"), "#0369a1")
-  const namesGradientTo = parseColorParam(searchParams.get("namesGradientTo"), "#0284c7")
-  const countryGradient = searchParams.get("countryGradient") === "true"
-  const countryGradientFrom = parseColorParam(searchParams.get("countryGradientFrom"), "#0369a1")
-  const countryGradientTo = parseColorParam(searchParams.get("countryGradientTo"), "#0284c7")
-  const pointsGradient = searchParams.get("pointsGradient") === "true"
-  const pointsGradientFrom = parseColorParam(searchParams.get("pointsGradientFrom"), "#0369a1")
-  const pointsGradientTo = parseColorParam(searchParams.get("pointsGradientTo"), "#0284c7")
-  // Параметры для градиента счета в сетах
-  const setsGradient = searchParams.get("setsGradient") === "true"
-  const setsGradientFrom = parseColorParam(searchParams.get("setsGradientFrom"), "#ffffff")
-  const setsGradientTo = parseColorParam(searchParams.get("setsGradientTo"), "#f0f0f0")
-
-  // Обновляем параметры отображения из URL
-  const serveBgColor = parseColorParam(searchParams.get("serveBgColor"), "#000000")
-  const serveGradient = searchParams.get("serveGradient") === "true"
-  const serveGradientFrom = parseColorParam(searchParams.get("serveGradientFrom"), "#000000")
-  const serveGradientTo = parseColorParam(searchParams.get("serveGradientTo"), "#1e1e1e")
+  // Параметры отображения — единый разбор (lib/scoreboard-settings).
+  const {
+    theme, showNames, showPoints, showSets, showServer, showCountry, fontSize,
+    bgOpacity, textColor, accentColor, playerNamesFontSize, outputFormat, showDebug,
+    namesBgColor, countryBgColor, pointsBgColor, setsBgColor, setsTextColor,
+    indicatorBgColor, indicatorTextColor, indicatorGradient, indicatorGradientFrom, indicatorGradientTo,
+    namesGradient, namesGradientFrom, namesGradientTo,
+    countryGradient, countryGradientFrom, countryGradientTo,
+    pointsGradient, pointsGradientFrom, pointsGradientTo,
+    setsGradient, setsGradientFrom, setsGradientTo,
+    serveBgColor, serveGradient, serveGradientFrom, serveGradientTo,
+  } = parseScoreboardSettings(searchParams)
 
   // Загрузка сохраненных настроек из localStorage
   useEffect(() => {

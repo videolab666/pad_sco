@@ -727,3 +727,21 @@ export function getImportantPoint(match: any): { type: string | null; team: stri
 
   return { type: isTiebreak ? "TIEBREAK" : null, team: null };
 }
+
+/**
+ * Break point — a game point held by the *receiving* team (a chance to break
+ * the opponent's serve). Returns the team with the break point, or false.
+ * `isGamePoint` already returns false for a completed match, so this does too.
+ */
+export function isBreakPoint(match: any): TeamKey | "both" | false {
+  if (!match?.score?.currentSet || !match.currentServer) return false;
+  const gp = isGamePoint(match);
+  if (!gp) return false;
+  // Game point is a break point when it is NOT the serving team's.
+  return gp !== match.currentServer.team ? gp : false;
+}
+
+/** Break-point counter for the current game (1/1 when active, else 0/0). */
+export function getBreakPointCount(match: any): { current: number; total: number } {
+  return isBreakPoint(match) ? { current: 1, total: 1 } : { current: 0, total: 0 };
+}

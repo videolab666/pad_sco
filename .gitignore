@@ -37,3 +37,8 @@ next-env.d.ts
 
 # reference material (decompiled APK, analysis dumps) — not project source
 /SCORE TENNIS/
+*.rar
+
+# Playwright MCP browser-session artifacts
+/.playwright-mcp/
+/cur-vmix-default.png

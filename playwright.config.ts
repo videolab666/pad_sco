@@ -13,7 +13,11 @@ export default defineConfig({
   testDir: "./e2e",
   // First-time `next dev` compilation is slow — be generous.
   timeout: 60_000,
-  expect: { timeout: 10_000 },
+  expect: {
+    timeout: 10_000,
+    // Small tolerance for font antialiasing in visual-regression screenshots.
+    toHaveScreenshot: { maxDiffPixelRatio: 0.02 },
+  },
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   workers: 1,

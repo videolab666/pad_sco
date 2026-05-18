@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest"
 import {
   commitSetWin,
+  getBreakPointCount,
   getImportantPoint,
   getPointIndex,
   getTiebreakPointsToWin,
+  isBreakPoint,
   isGamePoint,
   isMatchPoint,
   isSetPoint,
@@ -156,6 +158,30 @@ describe("scoring-logic: commitSetWin", () => {
     const before = JSON.stringify(m)
     commitSetWin(m as any, "teamA")
     expect(JSON.stringify(m)).toBe(before)
+  })
+})
+
+describe("scoring-indicators: isBreakPoint / getBreakPointCount", () => {
+  it("flags a break point when the receiving team holds game point", () => {
+    const m = matchPointMatch()
+    m.currentServer = { team: "teamB", playerIndex: 0 } // teamB serves
+    m.score.currentSet.currentGame = { teamA: 40, teamB: 0 } // teamA at game point
+    expect(isBreakPoint(m)).toBe("teamA")
+    expect(getBreakPointCount(m)).toEqual({ current: 1, total: 1 })
+  })
+
+  it("is not a break point when the serving team holds game point", () => {
+    const m = matchPointMatch()
+    m.currentServer = { team: "teamA", playerIndex: 0 } // teamA serves
+    m.score.currentSet.currentGame = { teamA: 40, teamB: 0 } // teamA at game point
+    expect(isBreakPoint(m)).toBe(false)
+    expect(getBreakPointCount(m)).toEqual({ current: 0, total: 0 })
+  })
+
+  it("is false when there is no game point at all", () => {
+    const m = matchPointMatch()
+    m.score.currentSet.currentGame = { teamA: 15, teamB: 15 }
+    expect(isBreakPoint(m)).toBe(false)
   })
 })
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, ExternalLink, Share2, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getMatchByCourtNumber } from "@/lib/court-utils"
+import { isMatchOnCourt } from "@/lib/court-match-guard"
 import { FullScreenScoreboard } from "@/components/full-screen-scoreboard"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useSoundEffects } from "@/hooks/use-sound-effects"
@@ -25,22 +26,32 @@ export default function CourtViewPage({ params }: { params: Promise<{ number: st
   const courtNumber = Number.parseInt(resolvedParams.number)
 
   useEffect(() => {
+    let cancelled = false
+    let unsubscribe: (() => void) | null = null
+
     const loadMatch = async () => {
       try {
         if (isNaN(courtNumber) || courtNumber < 1 || courtNumber > 10) {
           setError("Некорректный номер корта")
-          setLoading(false)
+          if (!cancelled) setLoading(false)
           return
         }
 
         const matchData = await getMatchByCourtNumber(courtNumber)
+        if (cancelled) return
         if (matchData) {
           setMatch(matchData)
           setError("")
 
           // Подписываемся на обновления матча
-          const unsubscribe = subscribeToMatchUpdates(matchData.id, (updatedMatch: any) => {
+          unsubscribe = subscribeToMatchUpdates(matchData.id, (updatedMatch: any) => {
+            if (cancelled) return
             if (updatedMatch) {
+              if (!isMatchOnCourt(updatedMatch, courtNumber)) {
+                setMatch(null)
+                setError(`На корте ${courtNumber} нет активных матчей`)
+                return
+              }
               setMatch(updatedMatch)
               setError("")
             } else {
@@ -48,11 +59,6 @@ export default function CourtViewPage({ params }: { params: Promise<{ number: st
             }
           })
 
-          return () => {
-            if (unsubscribe) {
-              unsubscribe()
-            }
-          }
         } else {
           setError(`На корте ${courtNumber} нет активных матчей`)
         }
@@ -61,11 +67,15 @@ export default function CourtViewPage({ params }: { params: Promise<{ number: st
         console.error(err)
         logEvent("error", `Ошибка загрузки матча для корта ${courtNumber}`, "CourtViewPage", err)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     loadMatch()
+    return () => {
+      cancelled = true
+      if (unsubscribe) unsubscribe()
+    }
   }, [courtNumber])
 
   const handleShare = () => {

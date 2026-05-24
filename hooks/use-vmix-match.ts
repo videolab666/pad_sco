@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { getMatchByCourtNumber } from "@/lib/court-utils"
+import { isMatchOnCourt } from "@/lib/court-match-guard"
 import { getMatch, subscribeToMatchUpdates } from "@/lib/match-storage"
 import { logEvent } from "@/lib/error-logger"
 import { decompressFromUTF16 } from "lz-string"
@@ -169,15 +170,19 @@ export function useVmixMatch(source: VmixMatchSource): VmixMatchState {
   useEffect(() => {
     if (!match?.id) return
     const unsubscribe = subscribeToMatchUpdates(match.id, (updatedMatch: any) => {
-      if (updatedMatch) {
-        setMatch(updatedMatch)
-        setError("")
+      if (!updatedMatch) return
+      if (isCourt && courtNumber != null && !isMatchOnCourt(updatedMatch, courtNumber)) {
+        setMatch(null)
+        setError(`На корте ${courtNumber} нет активных матчей`)
+        return
       }
+      setMatch(updatedMatch)
+      setError("")
     })
     return () => {
       if (unsubscribe) unsubscribe()
     }
-  }, [match?.id])
+  }, [isCourt, courtNumber, match?.id])
 
   return { match, loading, error }
 }

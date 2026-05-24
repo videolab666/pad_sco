@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { getMatchByCourtNumber } from "@/lib/court-utils"
+import { isMatchOnCourt } from "@/lib/court-match-guard"
 import { logEvent } from "@/lib/error-logger"
 import { subscribeToMatchUpdates } from "@/lib/match-storage"
 import { getMatchSyncState } from "@/lib/match-sync"
@@ -88,7 +89,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
   // Handler to increment score for Team A or B
   const handleIncrementScore = async (team: 'teamA' | 'teamB') => {
-    if (!match || match.isCompleted) return;
+    if (!match || match.isCompleted || !isMatchOnCourt(match, courtNumber)) return;
     // Защита от двойного тапа — иначе одно очко засчитывается дважды.
     if (scoringRef.current) return;
     scoringRef.current = true;
@@ -115,7 +116,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
   // Undo last score change
   const handleUndoScoreChange = async () => {
-    if (!matchHistory.length) return;
+    if (!matchHistory.length || !isMatchOnCourt(match, courtNumber)) return;
     const prevMatch = matchHistory[matchHistory.length - 1];
     setMatch(prevMatch);
     setMatchHistory(history => history.slice(0, -1));
@@ -134,7 +135,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
   // Handler to finish the match
   const handleFinishMatch = async () => {
-    if (!match || match.isCompleted) return;
+    if (!match || match.isCompleted || !isMatchOnCourt(match, courtNumber)) return;
     const updatedMatch = { ...match, isCompleted: true, winner: null };
     setMatch(updatedMatch);
     setIsCompletedMatch(true);
@@ -509,6 +510,16 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           return
         }
 
+        if (!isMatchOnCourt(updatedMatch, courtNumber)) {
+          setMatch(null)
+          setIsCompletedMatch(false)
+          setError(
+            (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", courtNumber) ||
+            `No active matches on court ${courtNumber}`,
+          )
+          return
+        }
+
         let hasPendingOperations = false
         try {
           const syncState = getMatchSyncState(matchData.id)
@@ -582,6 +593,16 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           // Настраиваем новую подписку — синхронный колбэк (см. пояснение выше).
           unsubscribe = subscribeToMatchUpdates(newMatchData.id, (updatedMatch: any) => {
             if (!updatedMatch) return
+
+            if (!isMatchOnCourt(updatedMatch, courtNumber)) {
+              setMatch(null)
+              setIsCompletedMatch(false)
+              setError(
+                (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", courtNumber) ||
+                `No active matches on court ${courtNumber}`,
+              )
+              return
+            }
 
             let hasPendingOperations = false
             try {

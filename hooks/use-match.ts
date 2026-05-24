@@ -141,6 +141,13 @@ export function useMatch(matchId: string): UseMatchResult {
       try {
         // Отключаем undo-историю для экономии места.
         updatedMatch.history = []
+        // Локальный bump ревизии перед записью в стейт. Сама scoring-логика
+        // ревизию не трогает, поэтому без этого щит `updatedMatch.revision <=
+        // prev.revision` в realtime-callback не отсечёт повторное/устаревшее
+        // эхо Supabase, и счёт «откатится» на медленной сети (flicker fix).
+        const prevRevision =
+          typeof updatedMatch.revision === "number" ? updatedMatch.revision : 0
+        updatedMatch.revision = prevRevision + 1
         // Оптимистичное обновление — предотвращает мерцание.
         setMatch(updatedMatch)
         await persistMatch(updatedMatch)

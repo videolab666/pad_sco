@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { ChevronLeft, Loader2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useLanguage } from "@/contexts/language-context"
 import { getMatches } from "@/lib/dy/dy-client"
@@ -138,7 +137,7 @@ export function StepSelectMatch({ tournament, onPickMatch }: StepSelectMatchProp
       {matches.length === 0 ? (
         <p className="py-6 text-center text-muted-foreground">{t("feedImport.noMatches")}</p>
       ) : (
-        <ScrollArea className="max-h-[50vh] pr-2">
+        <div className="max-h-[50vh] overflow-y-auto pr-2">
           <div className="space-y-2">
             {matches.map((m) => (
               <button
@@ -160,7 +159,7 @@ export function StepSelectMatch({ tournament, onPickMatch }: StepSelectMatchProp
               </button>
             ))}
           </div>
-        </ScrollArea>
+        </div>
       )}
     </div>
   )

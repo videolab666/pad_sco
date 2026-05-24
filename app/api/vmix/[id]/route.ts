@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { logEvent } from "@/lib/error-logger"
 import { getMatchFromServer } from "@/lib/server-match-storage"
-import { buildVmixFlatData } from "@/lib/match-view"
+import { buildCourtVmixPayload } from "@/lib/match-view"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,9 +23,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Match not found" }, { status: 404 })
     }
 
-    // Stage 2: the flat vMix payload is produced by the shared projection
-    // (lib/match-view), so this endpoint and /api/court can never disagree.
-    const flatVmixData = buildVmixFlatData(match)
+    // Единый источник плоского payload для vMix — lib/match-view.
+    // Используем тот же билдер, что и /api/court/[number] и /api/match/[id],
+    // чтобы все три endpoint'а возвращали одинаковый набор полей.
+    const flatVmixData = buildCourtVmixPayload(match, null)
 
     // Оборачиваем объект в массив для vMix
     const vmixDataArray = [flatVmixData]

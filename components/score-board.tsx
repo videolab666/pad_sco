@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { getGameScoreDisplay, getImportantEventType, getServeSide as getServeSideView, isPlayerServing } from "@/lib/match-view"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,8 +49,6 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
   const [swappedTeamB, setSwappedTeamB] = useState(false)
 
   // Add state to track if a score button click is being processed
-  const [isProcessingClick, setIsProcessingClick] = useState(false)
-
   // Track which team's score is being processed for visual feedback
   const [processingTeam, setProcessingTeam] = useState(null)
 
@@ -59,20 +57,32 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [localMatchState, setLocalMatchState] = useState<any>(null)
 
+  // Track absolutely latest state perfectly for rapid clicks
+  const latestMatchRef = useRef<any>(null)
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("fixedSidesPreference", fixedSides.toString())
     }
   }, [fixedSides])
 
-  // Keep localMatchState in sync with match
+  // Keep localMatchState in sync with match — но НЕ затираем оптимистичный
+  // локальный счёт устаревшим снапшотом. Если у нас локально более высокая
+  // ревизия (мы только что кликнули и оптимистично обновили), а приходящий
+  // `match` отстаёт (задержавшийся realtime-эхо или отстающий канонический
+  // стейт), игнорируем его — иначе следующий клик возьмёт стейл-базу из
+  // `latestMatchRef.current` и счёт «прыгнет назад» (slow-network flicker).
   useEffect(() => {
-    // Only update localMatchState if we're not currently processing a click
-    // This prevents flickering when receiving updates during click processing
-    if (!isProcessingClick && match) {
-      setLocalMatchState(match)
-    }
-  }, [match, isProcessingClick])
+    if (!match) return
+    const localRev =
+      typeof latestMatchRef.current?.revision === "number"
+        ? latestMatchRef.current.revision
+        : -Infinity
+    const incomingRev = typeof match.revision === "number" ? match.revision : -Infinity
+    if (latestMatchRef.current && incomingRev <= localRev) return
+    setLocalMatchState(match)
+    latestMatchRef.current = match
+  }, [match])
 
   // Task 4, Step 3: when a rule edit lands (match.settings changed) drop the
   // stale click/history buffers and the pending match-end confirmation, then
@@ -82,6 +92,7 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     setSettingsSeen(settingsSignature)
     setMatchHistory([])
     setLocalMatchState(match)
+    latestMatchRef.current = match
     setPendingMatchUpdate(null)
     setPreviousMatchState(null)
     setShowMatchEndDialog(false)
@@ -179,51 +190,40 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
   // Оптимизируем обработчик нажатия на счет для более быстрой работы
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleScoreClick = (team: any) => {
-    if (!updateMatch || displayMatch.isCompleted) {
+    const activeMatchState = latestMatchRef.current || displayMatch
+    if (!updateMatch || activeMatchState.isCompleted) {
       console.log("Cannot update: updateMatch function missing or match completed")
       return
     }
 
-    // Prevent multiple rapid clicks
-    if (isProcessingClick) {
-      return
-    }
-
-    // Set processing flag
-    setIsProcessingClick(true)
-
-    // Debounce window: blocks a second click while the first is processed.
-    setTimeout(() => {
-      setIsProcessingClick(false)
-      setProcessingTeam(null) // Clear the processing team indicator
-    }, 100)
-
     // Set which team is being processed for visual feedback
     setProcessingTeam(team)
-
-    // Use localMatchState if available, otherwise use the match prop
-    const currentMatchState = localMatchState || match
+    setTimeout(() => {
+      setProcessingTeam(null)
+    }, 100)
 
     // Save the current match state before any changes
-    const previousState = JSON.parse(JSON.stringify(currentMatchState))
+    const previousState = JSON.parse(JSON.stringify(activeMatchState))
     // Save to history
     setMatchHistory((prev) => [...prev, previousState])
 
     // Deep copy to avoid mutating state
-    const updatedMatch = JSON.parse(JSON.stringify(currentMatchState))
+    const updatedMatch = JSON.parse(JSON.stringify(activeMatchState))
 
     // Apply score using unified engine
     const resultMatch = applyScoreIncrement(updatedMatch, team)
 
     // If the engine completed the match, show confirmation dialog
-    if (resultMatch.isCompleted && !currentMatchState.isCompleted) {
+    if (resultMatch.isCompleted && !activeMatchState.isCompleted) {
       setPendingMatchUpdate(resultMatch)
       setPreviousMatchState(previousState)
       setLocalMatchState(resultMatch)
+      latestMatchRef.current = resultMatch
       setShowMatchEndDialog(true)
       return
     }
 
+    latestMatchRef.current = resultMatch
     setLocalMatchState(resultMatch)
     updateMatch(resultMatch)
   }
@@ -231,72 +231,64 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
   // Обработчик уменьшения счета
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleScoreDecrease = (team: any) => {
-    if (!updateMatch || displayMatch.isCompleted) {
+    const activeMatchState = latestMatchRef.current || displayMatch
+    if (!updateMatch || activeMatchState.isCompleted) {
       console.log("Cannot update: updateMatch function missing or match completed")
       return
     }
 
-    // Prevent multiple rapid clicks
-    if (isProcessingClick) {
-      return
-    }
-
-    // Set processing flag
-    setIsProcessingClick(true)
-
-    // Debounce window — matches handleScoreClick.
+    // Set which team is being processed for visual feedback
+    setProcessingTeam(team)
     setTimeout(() => {
-      setIsProcessingClick(false)
       setProcessingTeam(null)
     }, 100)
 
-    // Set which team is being processed for visual feedback
-    setProcessingTeam(team)
+    // Save the current match state before any changes
+    const previousState = JSON.parse(JSON.stringify(activeMatchState))
+    // Save to history
+    setMatchHistory((prev) => [...prev, previousState])
 
-    // Use localMatchState if available, otherwise use the match prop
-    const currentMatchState = localMatchState || match
-
-    // The "-1" button decrements the current game score of *this* team only.
-    // It is NOT Undo — the dedicated Undo button rolls back the last action.
-    const updatedMatch = JSON.parse(JSON.stringify(currentMatchState))
-    updatedMatch.history = []
+    // Deep copy to avoid mutating state
+    const updatedMatch = JSON.parse(JSON.stringify(activeMatchState))
 
     const currentSet = updatedMatch.score.currentSet
+    const currentGame = currentSet.currentGame
+    let scoreDecreased = false
 
     if (currentSet.isTiebreak) {
-      if (updatedMatch.score.currentSet.currentGame[team] > 0) {
-        updatedMatch.score.currentSet.currentGame[team]--
+      if (currentGame[team] > 0) {
+        currentGame[team]--
+        scoreDecreased = true
       }
     } else {
-      const currentGame = updatedMatch.score.currentSet.currentGame
-      const scoringSystem = updatedMatch.settings.scoringSystem || "classic"
+      const currentScore = currentGame[team]
 
-      if (scoringSystem === "classic") {
-        if (currentGame[team] === "Ad") {
-          currentGame[team] = 40
-        } else if (currentGame[team] === 40) {
-          currentGame[team] = 30
-        } else if (currentGame[team] === 30) {
-          currentGame[team] = 15
-        } else if (currentGame[team] === 15) {
-          currentGame[team] = 0
+      if (currentScore > 0) {
+        switch (currentScore) {
+          case 15:
+            currentGame[team] = 0
+            scoreDecreased = true
+            break
+          case 30:
+            currentGame[team] = 15
+            scoreDecreased = true
+            break
+          case 40:
+            currentGame[team] = 30
+            scoreDecreased = true
+            break
         }
-        // At 0 there is nothing to decrement — user should use Undo
-      } else if (scoringSystem === "no-ad" || scoringSystem === "fast4") {
-        if (currentGame[team] === 40) {
-          currentGame[team] = 30
-        } else if (currentGame[team] === 30) {
-          currentGame[team] = 15
-        } else if (currentGame[team] === 15) {
-          currentGame[team] = 0
-        }
+      } else if (currentScore === "Ad") {
+        currentGame[team] = 40
+        scoreDecreased = true
       }
     }
 
-    // A6 fix: keep the optimistic local state in sync so the displayed score
-    // does not show the stale value during the processing debounce window.
-    setLocalMatchState(updatedMatch)
-    updateMatch(updatedMatch)
+    if (scoreDecreased) {
+      latestMatchRef.current = updatedMatch
+      setLocalMatchState(updatedMatch)
+      updateMatch(updatedMatch)
+    }
   }
 
   const handleCompleteMatch = () => {
@@ -657,8 +649,7 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
           <div className="grid grid-cols-2 gap-4 items-center">
             <div className="text-center flex flex-col items-center gap-2">
               <button
-                disabled={isProcessingClick}
-                className={`text-6xl font-bold px-8 py-4 rounded-md transition-all transform active:scale-95 active:translate-y-1 active:shadow-inner shadow-md scale-110 ${isProcessingClick && processingTeam === (fixedSides ? (displayMatch.courtSides?.teamA === "left" ? "teamA" : "teamB") : "teamA")
+                className={`text-6xl font-bold px-8 py-4 rounded-md transition-all transform active:scale-95 active:translate-y-1 active:shadow-inner shadow-md scale-110 ${processingTeam === (fixedSides ? (displayMatch.courtSides?.teamA === "left" ? "teamA" : "teamB") : "teamA")
                   ? "bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse opacity-75"
                   : currentSet.isTiebreak
                     ? "bg-gradient-to-br from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 active:from-red-200 active:to-red-300"
@@ -675,8 +666,7 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
                   : getCurrentGameScore("teamA")}
               </button>
               <button
-                disabled={isProcessingClick}
-                className={`text-sm font-medium px-4 py-1 rounded-md transition-all transform active:scale-95 shadow-sm ${isProcessingClick ? 'bg-gray-200 opacity-75' : 'bg-red-100 hover:bg-red-200 active:bg-red-300'}`}
+                className={`text-sm font-medium px-4 py-1 rounded-md transition-all transform active:scale-95 shadow-sm bg-red-100 hover:bg-red-200 active:bg-red-300`}
                 onClick={() =>
                   handleScoreDecrease(fixedSides ? (displayMatch.courtSides?.teamA === "left" ? "teamA" : "teamB") : "teamA")
                 }
@@ -686,8 +676,7 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
             </div>
             <div className="text-center flex flex-col items-center gap-2">
               <button
-                disabled={isProcessingClick}
-                className={`text-6xl font-bold px-8 py-4 rounded-md transition-all transform active:scale-95 active:translate-y-1 active:shadow-inner shadow-md scale-110 ${isProcessingClick && processingTeam === (fixedSides ? (displayMatch.courtSides?.teamA === "right" ? "teamA" : "teamB") : "teamB")
+                className={`text-6xl font-bold px-8 py-4 rounded-md transition-all transform active:scale-95 active:translate-y-1 active:shadow-inner shadow-md scale-110 ${processingTeam === (fixedSides ? (displayMatch.courtSides?.teamA === "right" ? "teamA" : "teamB") : "teamB")
                   ? "bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse opacity-75"
                   : currentSet.isTiebreak
                     ? "bg-gradient-to-br from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 active:from-red-200 active:to-red-300"
@@ -704,8 +693,7 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
                   : getCurrentGameScore("teamB")}
               </button>
               <button
-                disabled={isProcessingClick}
-                className={`text-sm font-medium px-4 py-1 rounded-md transition-all transform active:scale-95 shadow-sm ${isProcessingClick ? 'bg-gray-200 opacity-75' : 'bg-red-100 hover:bg-red-200 active:bg-red-300'}`}
+                className={`text-sm font-medium px-4 py-1 rounded-md transition-all transform active:scale-95 shadow-sm bg-red-100 hover:bg-red-200 active:bg-red-300`}
                 onClick={() =>
                   handleScoreDecrease(fixedSides ? (displayMatch.courtSides?.teamA === "right" ? "teamA" : "teamB") : "teamB")
                 }

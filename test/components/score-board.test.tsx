@@ -97,4 +97,30 @@ describe("ScoreBoard component", () => {
     expect(updated.score.currentSet.currentGame.teamA).toBe(15) // 30 → 15
     expect(updated.score.currentSet.currentGame.teamB).toBe(15) // teamB untouched
   })
+
+  it("ignores a stale match prop whose revision is not newer than the local optimistic state", () => {
+    const updateMatch = vi.fn()
+    // First paint at revision = 10 — latestMatchRef captures this.
+    const initial = makeMatch({ revision: 10 })
+    const { rerender } = render(<ScoreBoard match={initial} updateMatch={updateMatch} />)
+
+    // Click teamA — engine bumps score to 15; component's optimistic local
+    // state shows 15. updateMatch is invoked once with the new snapshot.
+    const zeros = screen.getAllByRole("button", { name: "0" })
+    fireEvent.click(zeros[0])
+    expect(updateMatch).toHaveBeenCalledTimes(1)
+
+    // Simulate a late stale snapshot: parent re-renders with the same revision.
+    // Without the revision guard in
+    // the useEffect this would clobber the optimistic 15 — slow-network
+    // flicker — and the next click would start from a stale base.
+    rerender(<ScoreBoard match={makeMatch({ revision: 10 })} updateMatch={updateMatch} />)
+
+    // Optimistic "15" must remain; stale "0" must not have come back.
+    const fifteen = screen.queryAllByRole("button", { name: "15" })
+    expect(fifteen.length).toBeGreaterThanOrEqual(1)
+    const zerosAfter = screen.queryAllByRole("button", { name: "0" })
+    // Initially two 0 buttons; after the click only teamB's 0 remains.
+    expect(zerosAfter.length).toBeLessThan(2)
+  })
 })

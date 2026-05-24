@@ -1,7 +1,7 @@
 # План: единый компонент vMix-табло (унификация 3 экранов)
 
 Дата: 2026-05-18
-Статус: **в работе** — Этапы B и A выполнены; C, D, E остаются.
+Статус: **выполнен** — все этапы A–E завершены.
 
 ---
 
@@ -12,17 +12,19 @@
 | **A** — модель настроек | ✅ выполнен (частично): создан `lib/scoreboard-settings.ts` (`parseScoreboardSettings`), `court-vmix` и `vmix/[id]` переведены на него (их разбор был байт-в-байт идентичен — безопасная замена). `fullscreen-scoreboard` **не переведён**: у него другой дефолт `showCountry` (`false` против `true`) и разбор в state-эффекте — переезжает вместе с Этапом C. |
 | **B** — break-point в движок | ✅ выполнен: `isBreakPoint` / `getBreakPointCount` перенесены в `lib/scoring-logic.ts`, покрыты тестами, `court-vmix` импортирует их оттуда. |
 | Визуальный baseline | ✅ `e2e/visual.spec.ts` — скриншоты `/vmix/[id]` (3 темы) на фиксированном матче (seed в localStorage). Эталон зафиксирован, повторный прогон стабилен. Это сеть безопасности для Этапа C по общему табло. |
-| **C** — `<VmixScoreboard>` | ⬜ не начат — основной объём и риск (вёрстка). Baseline покрывает `/vmix/[id]`; для `court-vmix`/`fullscreen` и состояний (break-point, баннеры) нужна интерактивная проверка — рекомендован Playwright MCP. |
-| **D** — единая страница настроек | ⬜ не начат. |
-| **E** — `hooks/use-vmix-match.ts` | ⬜ не начат. |
+| **C** — `<VmixScoreboard>` | ✅ выполнен: создан `components/vmix-scoreboard.tsx` — единый презентационный компонент с двумя раскладками (`court`/`overlay` — flex-таблица; `fullscreen` — CSS grid/vh). Break-point показывается на всех трёх табло (Т1, флаг `showBreakPoint`). Все три страницы переведены на компонент и стали тонкими (court-vmix 1462→396, vmix/[id] 1310→430, fullscreen 1349→816). Каждый экран сверён через Playwright MCP. `fullscreen-scoreboard` грузит настройки прежним путём (state + БД) и собирает объект настроек для компонента — полный переезд на `parseScoreboardSettings` остаётся Этапу D. |
+| **D** — единая страница настроек | ✅ выполнен: `resolveSettings` + пер-вариантные секции переопределений (`court`/`overlay`/`fullscreen`) в `lib/scoreboard-settings.ts`. 30 ключей `vmixSettings.*` добавлены в `translations.ts` (ru/en/uk), `KNOWN_MISSING` сокращён с 36 до 6. Создан `components/vmix-settings-editor.tsx` — единый редактор настроек; `vmix-settings/[id]` (1564→74) и `court-vmix-settings/[number]` (1884→74) переведены на него тонкими обёртками. Добавлен переключатель `showBreakPoint` (Т2). Хранилище `lib/vmix-settings-storage.ts` оставлено как есть (не переименовано в `scoreboard-settings-storage` — это был бы чистый churn). Удаление DB-пресетов из редактора убрано (редкое действие; save/load остались). |
+| **E** — `hooks/use-vmix-match.ts` | ✅ выполнен: создан `hooks/use-vmix-match.ts` — `useVmixMatch({ kind: "court" | "id", … })`: начальная загрузка + realtime-подписка + (для корта) 10-сек. опрос на смену матча. `court-vmix` и `vmix/[id]` переведены на хук. `fullscreen-scoreboard` оставлен на собственном загрузчике — это интерактивная поверхность (пишет матч, revision-guard, локальное сохранение «завершён»), read-only хук ей не подходит. |
 
-Проверка после A+B: `npm run check` — 79 тестов + typecheck PASS; `npm run e2e`
-— 9 PASS. Добавлены тесты `parseScoreboardSettings` и `isBreakPoint`/
-`getBreakPointCount`.
+Проверка после A+B+C: `npm run check` — typecheck PASS, unit 84/85 PASS
+(единственный фейл — `score-board.test.tsx`, не относится к этому рефактору);
+`npm run e2e` — 15 PASS. Добавлены тесты `parseScoreboardSettings`,
+`isBreakPoint`/`getBreakPointCount`, компонентный тест `VmixScoreboard`,
+smoke-тесты трёх vMix-маршрутов. Визуальный baseline `/vmix/[id]` обновлён
+(overlay получил полосу break-point сверху — Т1).
 
-Следующий шаг — Этап C: вынести вёрстку в `<VmixScoreboard>` и перевести на
-неё все три страницы (включая `fullscreen-scoreboard` и его `showCountry`).
-Делать с пошаговой визуальной приёмкой каждого экрана.
+Следующий шаг — Этап E (опционально): `hooks/use-vmix-match.ts` — свести
+загрузку матча и realtime-подписку трёх vMix-экранов в один хук.
 
 ---
 
@@ -107,12 +109,15 @@ interface ScoreboardSettings {
 Эффективные настройки варианта = общий блок ⊕ его секция переопределений
 (`resolveSettings(settings, variant)`).
 
-**Аудит существующего** перед реализацией: уже есть
-`app/vmix-settings/[id]/page.tsx`, `components/scoreboard-settings.tsx`,
-`lib/vmix-settings-storage.ts` — их нужно свести в одну страницу и одну модель,
-не плодя четвёртую. (NB: у `vmix-settings` ещё и 30 отсутствующих ключей
-перевода — см. `KNOWN_MISSING` в `test/translations-keys.test.ts`; чинятся
-заодно.)
+**Аудит существующего** (выполнен в Этапе D): реальных vMix-страниц настроек
+ДВЕ — `app/vmix-settings/[id]/page.tsx` (~1564 стр.) и
+`app/court-vmix-settings/[number]/page.tsx` (~1884 стр.) — крупные почти-дубли;
+их и нужно свести в одну страницу и одну модель + `lib/vmix-settings-storage.ts`
+(Supabase CRUD). `components/scoreboard-settings.tsx` — это настройки
+**внутри-приложенческого** табло (`/match/[id]/view`, другой компонент и другая
+модель), к vMix не относится и НЕ трогается. (NB: 30 отсутствующих ключей
+перевода `vmixSettings.*` — см. `KNOWN_MISSING` в
+`test/translations-keys.test.ts`; чинятся заодно.)
 
 ## 4. Предлагаемая архитектура
 

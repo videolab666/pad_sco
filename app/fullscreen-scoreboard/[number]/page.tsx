@@ -6,11 +6,13 @@ import Link from "next/link"
 import { getMatchByCourtNumber } from "@/lib/court-utils"
 import { logEvent } from "@/lib/error-logger"
 import { subscribeToMatchUpdates } from "@/lib/match-storage"
+import { getMatchSyncState } from "@/lib/match-sync"
 import { applyScoreIncrement } from "@/lib/scoring-logic"
-import { getGameScoreDisplay, getImportantEventType, getSetCellDisplay, isPlayerServing } from "@/lib/match-view"
-import { Maximize2, Minimize2, Trophy, ArrowLeft, Clock } from "lucide-react"
+import { Maximize2, Minimize2, ArrowLeft, Clock } from "lucide-react"
 import { translations, type Language } from "@/lib/translations"
 import { getDefaultVmixSettings } from "@/lib/vmix-settings-storage"
+import { VmixScoreboard } from "@/components/vmix-scoreboard"
+import type { ScoreboardSettings } from "@/lib/scoreboard-settings"
 
 type FullscreenScoreboardParams = {
   params: Promise<{
@@ -23,13 +25,6 @@ const parseColorParam = (param: string | null, defaultColor: string) => {
   if (!param) return defaultColor
   // Если параметр не содержит #, добавляем его
   return param.startsWith("#") ? param : `#${param}`
-}
-
-// Получаем страну игрока
-const getPlayerCountryDisplay = (team: 'teamA' | 'teamB', playerIndex: number, matchData: any) => {
-  if (!matchData) return " "
-  const player = matchData[team]?.players[playerIndex]
-  return player?.country || " "
 }
 
 export default function FullscreenScoreboard({ params }: FullscreenScoreboardParams) {
@@ -88,6 +83,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   const [indicatorGradientTo, setIndicatorGradientTo] = useState("#991b1b");
   const [language, setLanguage] = useState<Language>("ru");
   const showDebug = searchParams.get("debug") === "true";
+  // Break-point indicator — shown on every scoreboard (Т1). Default on.
+  const showBreakPoint = searchParams.get("showBreakPoint") !== "false";
 
   // Handler to increment score for Team A or B
   const handleIncrementScore = async (team: 'teamA' | 'teamB') => {
@@ -450,11 +447,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
       const matchData = await getMatchByCourtNumber(courtNumber)
 
       if (matchData) {
-        console.log("Loaded match data:", JSON.stringify(matchData, null, 2))
-
         // Проверяем, изменился ли ID матча
         if (lastMatchId !== matchData.id) {
-          console.log(`New match detected! Previous ID: ${lastMatchId}, New ID: ${matchData.id}`)
           setLastMatchId(matchData.id)
         }
 
@@ -502,60 +496,64 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
       if (!matchData) return
 
-      // Настраиваем подписку на обновления матча
-      unsubscribe = subscribeToMatchUpdates(matchData.id, async (updatedMatch: any) => {
-        if (updatedMatch) {
-          // Загружаем состояние синхронизации
-          let hasPendingOperations = false;
-          try {
-            const { getMatchSyncState } = await import("@/lib/match-sync");
-            const syncState = getMatchSyncState(matchData.id);
-            hasPendingOperations = syncState && syncState.pendingCount > 0;
-          } catch (e) {
-            console.error("Ошибка при получении состояния синхронизации:", e);
-          }
-
-          if (hasPendingOperations) {
-            return;
-          }
-
-          console.log("Match update received:", JSON.stringify(updatedMatch, null, 2))
-          setMatch((prev: any) => {
-            if (
-              prev &&
-              typeof prev.revision === "number" &&
-              typeof updatedMatch.revision === "number" &&
-              updatedMatch.revision <= prev.revision
-            ) {
-              return prev;
-            }
-            return updatedMatch;
-          })
-          setError("")
-
-          // Preserve local completed state if we've already finished the match
-          if (isCompletedMatch && updatedMatch.isCompleted !== true) {
-            // Prevent rollback of completion status
-            setIsCompletedMatch(true);
-            // Optionally, merge isCompleted into match object for UI
-            setMatch((prev: any) => prev ? { ...prev, isCompleted: true } : updatedMatch);
-            logEvent("warn", "Realtime update tried to reset isCompleted to false, preserving local completed state", "fullscreen-scoreboard", {
-              matchId: updatedMatch.id,
-            });
-          } else {
-            setIsCompletedMatch(updatedMatch.isCompleted === true);
-          }
-
-          logEvent("debug", "Fullscreen Scoreboard: получено обновление матча", "fullscreen-scoreboard", {
-            matchId: updatedMatch.id,
-            scoreA: updatedMatch.score.teamA,
-            scoreB: updatedMatch.score.teamB,
-            isCompleted: updatedMatch.isCompleted,
-          })
-        } else {
+      // Настраиваем подписку на обновления матча.
+      // ВАЖНО: колбэк должен быть СИНХРОННЫМ. На медленном интернете `await
+      // import(...)` отдаёт управление event loop'у; за это время drain успевает
+      // завершиться, `pendingCount` падает до 0, и щит против эха ломается —
+      // устаревший снапшот с сервера затирает локальный оптимистичный счёт
+      // ("откат" счёта при slow 3G). Импорт `getMatchSyncState` поднят на верх.
+      unsubscribe = subscribeToMatchUpdates(matchData.id, (updatedMatch: any) => {
+        if (!updatedMatch) {
           // Если матч не найден, пробуем загрузить новый матч
           loadMatch()
+          return
         }
+
+        let hasPendingOperations = false
+        try {
+          const syncState = getMatchSyncState(matchData.id)
+          hasPendingOperations = syncState && syncState.pendingCount > 0
+        } catch (e) {
+          console.error("Ошибка при получении состояния синхронизации:", e)
+        }
+
+        if (hasPendingOperations) return
+
+        setMatch((prev: any) => {
+          if (
+            prev &&
+            typeof prev.revision === "number" &&
+            typeof updatedMatch.revision === "number" &&
+            updatedMatch.revision <= prev.revision
+          ) {
+            return prev
+          }
+          return updatedMatch
+        })
+        setError("")
+
+        // Preserve local completed state if we've already finished the match
+        if (isCompletedMatch && updatedMatch.isCompleted !== true) {
+          // Prevent rollback of completion status
+          setIsCompletedMatch(true)
+          // Optionally, merge isCompleted into match object for UI
+          setMatch((prev: any) => (prev ? { ...prev, isCompleted: true } : updatedMatch))
+          logEvent(
+            "warn",
+            "Realtime update tried to reset isCompleted to false, preserving local completed state",
+            "fullscreen-scoreboard",
+            { matchId: updatedMatch.id },
+          )
+        } else {
+          setIsCompletedMatch(updatedMatch.isCompleted === true)
+        }
+
+        logEvent("debug", "Fullscreen Scoreboard: получено обновление матча", "fullscreen-scoreboard", {
+          matchId: updatedMatch.id,
+          scoreA: updatedMatch.score.teamA,
+          scoreB: updatedMatch.score.teamB,
+          isCompleted: updatedMatch.isCompleted,
+        })
       })
     }
 
@@ -566,13 +564,10 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
     checkInterval = setInterval(async () => {
       // Если текущий матч завершен, проверяем наличие нового матча
       if (isCompletedMatch) {
-        console.log("Checking for new match on court", courtNumber)
         const newMatchData = await getMatchByCourtNumber(courtNumber)
 
         // Если найден новый матч с другим ID
         if (newMatchData && newMatchData.id !== lastMatchId) {
-          console.log("New match found on court", courtNumber, "ID:", newMatchData.id)
-
           // Отписываемся от старого матча
           if (unsubscribe) {
             unsubscribe()
@@ -584,37 +579,33 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           setIsCompletedMatch(newMatchData.isCompleted === true)
           setError("")
 
-          // Настраиваем новую подписку
-          unsubscribe = subscribeToMatchUpdates(newMatchData.id, async (updatedMatch: any) => {
-            if (updatedMatch) {
-              // Загружаем состояние синхронизации
-              let hasPendingOperations = false;
-              try {
-                const { getMatchSyncState } = await import("@/lib/match-sync");
-                const syncState = getMatchSyncState(newMatchData.id);
-                hasPendingOperations = syncState && syncState.pendingCount > 0;
-              } catch (e) {
-                console.error("Ошибка при получении состояния синхронизации:", e);
-              }
+          // Настраиваем новую подписку — синхронный колбэк (см. пояснение выше).
+          unsubscribe = subscribeToMatchUpdates(newMatchData.id, (updatedMatch: any) => {
+            if (!updatedMatch) return
 
-              if (hasPendingOperations) {
-                return;
-              }
-
-              setMatch((prev: any) => {
-                if (
-                  prev &&
-                  typeof prev.revision === "number" &&
-                  typeof updatedMatch.revision === "number" &&
-                  updatedMatch.revision <= prev.revision
-                ) {
-                  return prev;
-                }
-                return updatedMatch;
-              })
-              setIsCompletedMatch(updatedMatch.isCompleted === true)
-              setError("")
+            let hasPendingOperations = false
+            try {
+              const syncState = getMatchSyncState(newMatchData.id)
+              hasPendingOperations = syncState && syncState.pendingCount > 0
+            } catch (e) {
+              console.error("Ошибка при получении состояния синхронизации:", e)
             }
+
+            if (hasPendingOperations) return
+
+            setMatch((prev: any) => {
+              if (
+                prev &&
+                typeof prev.revision === "number" &&
+                typeof updatedMatch.revision === "number" &&
+                updatedMatch.revision <= prev.revision
+              ) {
+                return prev
+              }
+              return updatedMatch
+            })
+            setIsCompletedMatch(updatedMatch.isCompleted === true)
+            setError("")
           })
         }
       }
@@ -630,105 +621,6 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
       }
     }
   }, [courtNumber, language, lastMatchId, isCompletedMatch])
-
-  // Счёт гейма и подача — из общего проектора lib/match-view (единый источник).
-  const getCurrentGameScore = (team: 'teamA' | 'teamB') => getGameScoreDisplay(match, team)
-
-  const isServing = (team: 'teamA' | 'teamB', playerIndex: number) =>
-    isPlayerServing(match, team, playerIndex)
-
-  // Форматируем счет сета с верхним индексом для тай-брейка
-  const formatSetScore = (score: any, tiebreakScore: any = null) => {
-    if (tiebreakScore === null || tiebreakScore === undefined || tiebreakScore === "") {
-      return <span>{score}</span>
-    }
-
-    return (
-      <span className="relative">
-        {score}
-        <span className="absolute -top-[12px] -right-4 text-[0.45em] font-bold" style={{ color: "inherit" }}>
-          {tiebreakScore}
-        </span>
-      </span>
-    )
-  }
-
-  // Ячейка счёта сета через общий проектор: супер-тай-брейк → очки тай-брейка,
-  // обычный тай-брейк → индекс только у проигравшего сет.
-  const renderSetCell = (set: any, team: "teamA" | "teamB") => {
-    const cell = getSetCellDisplay(set, team)
-    return formatSetScore(cell.main, cell.sup)
-  }
-
-  // Счёт сетов рендерится через renderSetCell / getSetCellDisplay.
-
-  // getPointIndex, isGamePoint, isSetPoint, isMatchPoint, getImportantPoint
-  // → removed, now imported from @/lib/scoring-logic
-
-  const getImportantEvent = () =>
-    getImportantEventType(
-      match,
-      (translations[language] as any).scoreboard.matchCompleted || "MATCH IS OVER",
-    )
-
-  // Получаем стиль градиента для фона
-  const getGradientStyle = (useGradient: boolean, fromColor: string, toColor: string) => {
-    if (!useGradient) return {}
-    return {
-      background: `linear-gradient(to bottom, ${fromColor}, ${toColor})`,
-    }
-  }
-
-  // Определяем победителя матча
-  const getMatchWinner = () => {
-    if (!match || !match.isCompleted || !match.score || !match.score.sets) return null
-
-    const setsWonA = match.score.sets.filter((set: any) => set.teamA > set.teamB).length
-    const setsWonB = match.score.sets.filter((set: any) => set.teamB > set.teamA).length
-
-    if (setsWonA > setsWonB) return "teamA"
-    if (setsWonB > setsWonA) return "teamB"
-    return null // ничья (не должно происходить в теннисе/паделе)
-  }
-
-  // Добавить в начало функции render (перед return)
-  if (showDebug) {
-    console.log("Current language:", language)
-    console.log("Available translations:", Object.keys(translations))
-    console.log("Checking translations for current language:")
-    const translationsToCheck = [
-      "common.back",
-      "common.loading",
-      "common.error",
-      "common.exitFullscreen",
-      "common.enterFullscreen",
-      "scoreboard.tennis",
-      "scoreboard.padel",
-      "scoreboard.singles",
-      "scoreboard.doubles",
-      "scoreboard.court",
-      "scoreboard.invalidCourt",
-      "scoreboard.noActiveMatches",
-      "scoreboard.loadError",
-      "scoreboard.matchCompleted",
-    ]
-
-    translationsToCheck.forEach((key) => {
-      const parts = key.split(".")
-      let result: any = translations[language]
-      let exists = true
-
-      for (const part of parts) {
-        if (!result || !result[part]) {
-          exists = false
-          break
-        }
-        result = result[part]
-      }
-
-      console.log(`Translation '${key}': ${exists ? "EXISTS" : "MISSING"}`)
-    })
-  }
 
   if (loading || loadingSettings) {
     return (
@@ -752,6 +644,52 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   }
 
   if (!match || !settingsLoaded) return null
+
+  // Сборка единой модели настроек для <VmixScoreboard>. Поля, не влияющие на
+  // полноэкранную раскладку (fontSize/bgOpacity/playerNamesFontSize/outputFormat),
+  // заполнены безопасными значениями по умолчанию.
+  const settings: ScoreboardSettings = {
+    theme,
+    showNames,
+    showPoints,
+    showSets,
+    showServer,
+    showCountry,
+    showBreakPoint,
+    fontSize: "normal",
+    bgOpacity: 0.5,
+    textColor,
+    accentColor,
+    playerNamesFontSize: 1.2,
+    outputFormat: "html",
+    showDebug,
+    namesBgColor,
+    countryBgColor,
+    pointsBgColor,
+    setsBgColor,
+    setsTextColor,
+    indicatorBgColor,
+    indicatorTextColor,
+    indicatorGradient,
+    indicatorGradientFrom,
+    indicatorGradientTo,
+    namesGradient,
+    namesGradientFrom,
+    namesGradientTo,
+    countryGradient,
+    countryGradientFrom,
+    countryGradientTo,
+    pointsGradient,
+    pointsGradientFrom,
+    pointsGradientTo,
+    setsGradient,
+    setsGradientFrom,
+    setsGradientTo,
+    serveBgColor,
+    serveGradient,
+    serveGradientFrom,
+    serveGradientTo,
+  }
 
   return (
     <>
@@ -810,206 +748,6 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
         .fullscreen-button:hover {
           background: rgba(255, 255, 255, 0.3);
         }
-
-        .scoreboard {
-          display: grid;
-          grid-template-rows: 1fr 1fr;
-          height: 100%;
-          width: 100%;
-          gap: 2px;
-          margin: 0;
-          padding: 0;
-          overflow: hidden;
-        }
-
-        .team-row {
-          display: grid;
-          grid-template-columns: ${showNames ? "4.6fr " : ""}${showCountry ? "1fr " : ""}${showServer ? "0.5fr " : ""}${showSets ? `repeat(${(match.score.sets?.length || 0) + (match.score.currentSet ? 1 : 0)}, 0.8fr) ` : ""}${showPoints ? "1.4fr 0fr" : ""};
-          height: 100%;
-          width: 100%;
-          gap: 0;
-          max-width: 100vw;
-          margin: 0;
-          padding: 0;
-        }
-
-        .cell {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          position: relative;
-          padding: 0;
-        }
-
-        .player-name-container {
-          width: 100%;
-          height: ${match.format === "doubles" ? "50%" : "100%"};
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          position: relative;
-          z-index: 1;
-        }
-
-        .player-divider {
-          height: 1px;
-          background-color: rgba(192, 192, 192, 0.5);
-          width: 100%;
-          position: absolute;
-          left: 0;
-          top: 50%;
-          transform: translateY(-50%);
-          margin: 0;
-        }
-
-        .names-cell {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-around;
-          padding: 3px;
-          height: 100%;
-          position: relative;
-        }
-
-        .player-name {
-          white-space: normal;
-          overflow: hidden;
-          word-wrap: break-word;
-          font-weight: bold;
-          width: 100%;
-          text-align: left;
-          font-size: clamp(1.9vh, 9.5vh, 19vh); /* Увеличено в 1.9 раза */
-          line-height: 1.1;
-          display: -webkit-box;
-          -webkit-line-clamp: ${match.format === "doubles" ? "2" : "3"}; /* Ограничение количества строк */
-          -webkit-box-orient: vertical;
-        }
-
-        .server-cell {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-around;
-          align-items: center;
-          padding: 0;
-          margin: 0;
-        }
-
-        .server-indicator {
-          font-size: 15vh; /* Увеличено в 3 раза */
-          line-height: 1;
-          padding: 0;
-          margin: 0;
-        }
-
-        .set-cell {
-          font-weight: bold;
-          font-size: 10vh; /* Увеличено в 2 раза */
-          padding: 0 0.5vw; /* Уменьшенные отступы по бокам */
-        }
-
-        .points-cell {
-          font-weight: bold;
-          font-size: 19.2vh;
-          width: 100%;
-          text-align: center;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          padding: 0;
-          margin: 0;
-          flex-grow: 1;
-          box-sizing: border-box;
-          min-width: 0;
-        }
-
-        .points-cell span {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          font-size: 0.9em;
-        }
-
-        .points-cell .trophy-icon {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          width: 100%;
-          height: 100%;
-        }
-
-        .important-event {
-          color: ${indicatorTextColor};
-          font-weight: bold;
-          text-align: center;
-          padding: 3px;
-          font-size: 4vh;
-          height: 6vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: opacity 0.5s ease; /* Добавлен плавный переход */
-          z-index: 10;
-          ${indicatorGradient
-          ? `background: linear-gradient(to bottom, ${indicatorGradientFrom}, ${indicatorGradientTo});`
-          : `background-color: ${indicatorBgColor};`
-        }
-        }
-
-        /* Responsive font sizes */
-        @media (max-width: 768px) {
-          .server-indicator {
-            font-size: 12vh; /* Увеличено в 3 раза */
-          }
-          .set-cell {
-            font-size: 8vh; /* Увеличено в 2 раза */
-          }
-          .points-cell {
-            font-size: 14.4vh; /* Уменьшено на 40% от 24vh */
-          }
-          .important-event {
-            font-size: 3vh;
-          }
-        }
-
-        @media (min-width: 769px) and (max-width: 1200px) {
-          .server-indicator {
-            font-size: 15vh; /* Увеличено в 3 раза */
-          }
-          .set-cell {
-            font-size: 10vh; /* Увеличено в 2 раза */
-          }
-          .points-cell {
-            font-size: 16.8vh; /* Уменьшено на 40% от 28vh */
-          }
-          .important-event {
-            font-size: 3.5vh;
-          }
-        }
-
-        @media (min-width: 1201px) {
-          .server-indicator {
-            font-size: 18vh; /* Увеличено в 3 раза */
-          }
-          .set-cell {
-            font-size: 12vh; /* Увеличено в 2 раза */
-          }
-          .points-cell {
-            font-size: 21.6vh; /* Уменьшено на 40% от 36vh */
-          }
-          .important-event {
-            font-size: 4vh;
-          }
-        }
-
-        sup {
-          font-size: 0.45em;
-          position: relative;
-          top: -0.49em; /* Moved higher by 20% of font size */
-          margin-left: 0.6em; /* Moved further right */
-        }
       `}</style>
 
       <div className="fullscreen-container" ref={containerRef}>
@@ -1051,281 +789,12 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           </div>
         </div>
 
-        <div className="scoreboard">
-          {/* Команда A */}
-          <div className="team-row">
-            {showNames && (
-              <div
-                className="cell names-cell"
-                style={{
-                  color: theme === "transparent" ? textColor : "white",
-                  ...(theme === "transparent"
-                    ? { background: "transparent" }
-                    : namesGradient
-                      ? getGradientStyle(true, namesGradientFrom, namesGradientTo)
-                      : { background: namesBgColor }),
-                }}
-              >
-                {match.teamA.players.map((player: any, idx: number) => (
-                  <div key={idx} className="player-name-container">
-                    <div className="player-name pl-6" title={player.name}>
-                      {player.name}
-                    </div>
-                  </div>
-                ))}
-                {match.format === "doubles" && <div className="player-divider"></div>}
-              </div>
-            )}
-
-            {showCountry && (
-              <div
-                className="cell country-cell"
-                style={{
-                  color: theme === "transparent" ? textColor : "white",
-                  ...(theme === "transparent"
-                    ? { background: "transparent" }
-                    : countryGradient
-                      ? getGradientStyle(true, countryGradientFrom, countryGradientTo)
-                      : { background: countryBgColor }),
-                }}
-              >
-                {match.teamA.players.map((player: any, idx: number) => (
-                  <div
-                    key={idx}
-                    style={{ height: `${100 / match.teamA.players.length}%`, display: "flex", alignItems: "center" }}
-                  >
-                    {getPlayerCountryDisplay("teamA", idx, match)}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {showServer && (
-              <div
-                className="cell server-cell"
-                style={{
-                  color: theme === "transparent" ? accentColor : accentColor,
-                  ...(theme === "transparent"
-                    ? { background: "transparent" }
-                    : serveGradient
-                      ? getGradientStyle(true, serveGradientFrom, serveGradientTo)
-                      : { background: serveBgColor }),
-                }}
-              >
-                {match.teamA.players.map((player: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className="server-indicator"
-                    style={{ visibility: isServing("teamA", idx) ? "visible" : "hidden" }}
-                  >
-                    •
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {showSets &&
-              match.score.sets &&
-              match.score.sets.map((set: any, idx: number) => (
-                <div
-                  key={idx}
-                  className="cell set-cell"
-                  style={{
-                    ...(theme === "transparent"
-                      ? { background: "transparent" }
-                      : setsGradient
-                        ? getGradientStyle(true, setsGradientFrom, setsGradientTo)
-                        : { background: setsBgColor }),
-                    color: theme === "transparent" ? textColor : setsTextColor,
-                  }}
-                >
-                  {renderSetCell(set, "teamA")}
-                </div>
-              ))}
-
-            {showSets && match.score.currentSet && !match.isCompleted && (
-              <div
-                className="cell set-cell"
-                style={{
-                  ...(theme === "transparent"
-                    ? { background: "transparent" }
-                    : setsGradient
-                      ? getGradientStyle(true, setsGradientFrom, setsGradientTo)
-                      : { background: setsBgColor }),
-                  color: theme === "transparent" ? textColor : setsTextColor,
-                }}
-              >
-                {match.score.currentSet.teamA}
-              </div>
-            )}
-
-            {showPoints && (
-              <>
-                <div
-                  className="cell points-cell"
-                  style={{
-                    color: theme === "transparent" ? textColor : "white",
-                    ...(theme === "transparent"
-                      ? { background: "transparent" }
-                      : pointsGradient
-                        ? getGradientStyle(true, pointsGradientFrom, pointsGradientTo)
-                        : { background: pointsBgColor }),
-                  }}
-                >
-                  {!match.isCompleted ? (
-                    <span>{getCurrentGameScore("teamA")}</span>
-                  ) : getMatchWinner() === "teamA" ? (
-                    <div className="trophy-icon">
-                      <Trophy size={48} />
-                    </div>
-                  ) : null}
-                </div>
-                <div style={{ width: 0, padding: 0, margin: 0 }}></div>
-              </>
-            )}
-          </div>
-
-          {/* Команда B */}
-          <div className="team-row">
-            {showNames && (
-              <div
-                className="cell names-cell"
-                style={{
-                  color: theme === "transparent" ? textColor : "white",
-                  ...(theme === "transparent"
-                    ? { background: "transparent" }
-                    : namesGradient
-                      ? getGradientStyle(true, namesGradientFrom, namesGradientTo)
-                      : { background: namesBgColor }),
-                }}
-              >
-                {match.teamB.players.map((player: any, idx: number) => (
-                  <div key={idx} className="player-name-container">
-                    <div className="player-name pl-6" title={player.name}>
-                      {player.name}
-                    </div>
-                  </div>
-                ))}
-                {match.format === "doubles" && <div className="player-divider"></div>}
-              </div>
-            )}
-
-            {showCountry && (
-              <div
-                className="cell country-cell"
-                style={{
-                  color: theme === "transparent" ? textColor : "white",
-                  ...(theme === "transparent"
-                    ? { background: "transparent" }
-                    : countryGradient
-                      ? getGradientStyle(true, countryGradientFrom, countryGradientTo)
-                      : { background: countryBgColor }),
-                }}
-              >
-                {match.teamB.players.map((player: any, idx: number) => (
-                  <div
-                    key={idx}
-                    style={{ height: `${100 / match.teamB.players.length}%`, display: "flex", alignItems: "center" }}
-                  >
-                    {getPlayerCountryDisplay("teamB", idx, match)}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {showServer && (
-              <div
-                className="cell server-cell"
-                style={{
-                  color: theme === "transparent" ? accentColor : accentColor,
-                  ...(theme === "transparent"
-                    ? { background: "transparent" }
-                    : serveGradient
-                      ? getGradientStyle(true, serveGradientFrom, serveGradientTo)
-                      : { background: serveBgColor }),
-                }}
-              >
-                {match.teamB.players.map((player: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className="server-indicator"
-                    style={{ visibility: isServing("teamB", idx) ? "visible" : "hidden" }}
-                  >
-                    •
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {showSets &&
-              match.score.sets &&
-              match.score.sets.map((set: any, idx: number) => (
-                <div
-                  key={idx}
-                  className="cell set-cell"
-                  style={{
-                    ...(theme === "transparent"
-                      ? { background: "transparent" }
-                      : setsGradient
-                        ? getGradientStyle(true, setsGradientFrom, setsGradientTo)
-                        : { background: setsBgColor }),
-                    color: theme === "transparent" ? textColor : setsTextColor,
-                  }}
-                >
-                  {renderSetCell(set, "teamB")}
-                </div>
-              ))}
-
-            {showSets && match.score.currentSet && !match.isCompleted && (
-              <div
-                className="cell set-cell"
-                style={{
-                  ...(theme === "transparent"
-                    ? { background: "transparent" }
-                    : setsGradient
-                      ? getGradientStyle(true, setsGradientFrom, setsGradientTo)
-                      : { background: setsBgColor }),
-                  color: theme === "transparent" ? textColor : setsTextColor,
-                }}
-              >
-                {match.score.currentSet.teamB}
-              </div>
-            )}
-
-            {showPoints && (
-              <>
-                <div
-                  className="cell points-cell"
-                  style={{
-                    color: theme === "transparent" ? textColor : "white",
-                    ...(theme === "transparent"
-                      ? { background: "transparent" }
-                      : pointsGradient
-                        ? getGradientStyle(true, pointsGradientFrom, pointsGradientTo)
-                        : { background: pointsBgColor }),
-                  }}
-                >
-                  {!match.isCompleted ? (
-                    <span>{getCurrentGameScore("teamB")}</span>
-                  ) : getMatchWinner() === "teamB" ? (
-                    <div className="trophy-icon">
-                      <Trophy size={48} />
-                    </div>
-                  ) : null}
-                </div>
-                <div style={{ width: 0, padding: 0, margin: 0 }}></div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Строка важных событий - всегда видима, но прозрачна когда нет событий */}
-        <div
-          className="important-event"
-          style={{ opacity: getImportantEvent() ? 1 : 0, display: getImportantEvent() ? "flex" : "flex" }}
-        >
-          {getImportantEvent() || ""}
-        </div>
+        <VmixScoreboard
+          match={match}
+          settings={settings}
+          variant="fullscreen"
+          matchOverLabel={getTranslation("scoreboard.matchCompleted", "MATCH IS OVER", language)}
+        />
       </div>
     </>
   )

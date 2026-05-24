@@ -139,6 +139,13 @@ export type TranslationKeys = {
     goldenGame: string
     windbreak: string
     applySettings: string
+    apply: string
+    unsavedChanges: string
+    savedLabel: string
+    savedAtTime: string
+    matchRules: string
+    court: string
+    noCourt: string
     unlockMatch: string
     endMatch: string
     confirmEndMatch: string
@@ -589,6 +596,39 @@ export type TranslationKeys = {
     accentColor: string
     previewWithCurrentSettings: string
     matchInfo: string
+    // Keys used by the vMix settings page — added in Этап D (Т2).
+    showPlayerNames: string
+    showCurrentPoints: string
+    showSetScore: string
+    showServingPlayer: string
+    showCountries: string
+    nameGradientStartColor: string
+    nameGradientEndColor: string
+    countryGradientStartColor: string
+    countryGradientEndColor: string
+    scoreGradientStartColor: string
+    scoreGradientEndColor: string
+    setScoreBlock: string
+    setScoreBgColor: string
+    setScoreTextColor: string
+    setScoreGradientStartColor: string
+    setScoreGradientEndColor: string
+    useGradientForScore: string
+    useGradientForSetScore: string
+    servingIndicatorBlock: string
+    servingIndicatorBgColor: string
+    servingIndicatorColor: string
+    servingIndicatorExample: string
+    servingIndicatorGradientStartColor: string
+    servingIndicatorGradientEndColor: string
+    useGradientForServingIndicator: string
+    importantMomentIndicator: string
+    extraLarge: string
+    courtPageActions: string
+    usageInstructions: string
+    usingInTitleDesigner: string
+    showBreakPoint: string
+    saveToDatabase: string
   }
   courtVmixSettings: {
     title: string
@@ -1119,6 +1159,13 @@ export const translations: { [key in Language]: TranslationKeys } = {
       goldenGame: "Золотой гейм (падел)",
       windbreak: "Виндрейк (подача через гейм)",
       applySettings: "Применить настройки",
+      apply: "Применить",
+      unsavedChanges: "Не сохранено",
+      savedLabel: "Сохранено",
+      savedAtTime: "Сохранено в {{time}}",
+      matchRules: "Правила матча",
+      court: "Корт",
+      noCourt: "Без корта",
       unlockMatch: "Разблокировать матч",
       endMatch: "Завершить матч",
       confirmEndMatch: "Вы уверены, что хотите завершить матч? Вы сможете разблокировать его позже, если потребуется.",
@@ -1570,6 +1617,38 @@ export const translations: { [key in Language]: TranslationKeys } = {
       accentColor: "Цвет акцента",
       previewWithCurrentSettings: "Предпросмотр с текущими настройками",
       matchInfo: "Информация о матче",
+      showPlayerNames: "Показывать имена игроков",
+      showCurrentPoints: "Показывать текущие очки",
+      showSetScore: "Показывать счёт по сетам",
+      showServingPlayer: "Показывать подающего",
+      showCountries: "Показывать страны",
+      nameGradientStartColor: "Начальный цвет градиента имен",
+      nameGradientEndColor: "Конечный цвет градиента имен",
+      countryGradientStartColor: "Начальный цвет градиента стран",
+      countryGradientEndColor: "Конечный цвет градиента стран",
+      scoreGradientStartColor: "Начальный цвет градиента счета",
+      scoreGradientEndColor: "Конечный цвет градиента счета",
+      setScoreBlock: "Блок счета в сетах",
+      setScoreBgColor: "Цвет фона счета сетов",
+      setScoreTextColor: "Цвет текста счета сетов",
+      setScoreGradientStartColor: "Начальный цвет градиента счета в сетах",
+      setScoreGradientEndColor: "Конечный цвет градиента счета в сетах",
+      useGradientForScore: "Использовать градиент для счета",
+      useGradientForSetScore: "Использовать градиент для счета в сетах",
+      servingIndicatorBlock: "Блок индикатора подачи",
+      servingIndicatorBgColor: "Цвет фона индикатора подачи",
+      servingIndicatorColor: "Цвет индикатора подачи",
+      servingIndicatorExample: "Пример индикатора подачи",
+      servingIndicatorGradientStartColor: "Начальный цвет градиента фона индикатора",
+      servingIndicatorGradientEndColor: "Конечный цвет градиента фона индикатора",
+      useGradientForServingIndicator: "Использовать градиент для фона индикатора подачи",
+      importantMomentIndicator: "Индикатор важных моментов",
+      extraLarge: "Очень большой",
+      courtPageActions: "Действия для страницы корта:",
+      usageInstructions: "Инструкция по использованию в vMix",
+      usingInTitleDesigner: "Использование в Title Designer:",
+      showBreakPoint: "Показывать брейк-поинт",
+      saveToDatabase: "Сохранить в базу данных",
     },
     courtVmixSettings: {
       title: "Настройки vMix для корта",
@@ -2098,6 +2177,13 @@ export const translations: { [key in Language]: TranslationKeys } = {
       goldenGame: "Golden Game (Padel)",
       windbreak: "Windbreak (serve every other game)",
       applySettings: "Apply Settings",
+      apply: "Apply",
+      unsavedChanges: "Unsaved",
+      savedLabel: "Saved",
+      savedAtTime: "Saved at {{time}}",
+      matchRules: "Match Rules",
+      court: "Court",
+      noCourt: "No court",
       unlockMatch: "Unlock Match",
       endMatch: "End Match",
       confirmEndMatch: "Are you sure you want to end the match? You can unlock it later if needed.",
@@ -2549,6 +2635,38 @@ export const translations: { [key in Language]: TranslationKeys } = {
       accentColor: "Accent Color",
       previewWithCurrentSettings: "Preview with current settings",
       matchInfo: "Match Info",
+      showPlayerNames: "Show Player Names",
+      showCurrentPoints: "Show Current Points",
+      showSetScore: "Show Set Score",
+      showServingPlayer: "Show Serving Player",
+      showCountries: "Show Countries",
+      nameGradientStartColor: "Names Gradient Start Color",
+      nameGradientEndColor: "Names Gradient End Color",
+      countryGradientStartColor: "Countries Gradient Start Color",
+      countryGradientEndColor: "Countries Gradient End Color",
+      scoreGradientStartColor: "Score Gradient Start Color",
+      scoreGradientEndColor: "Score Gradient End Color",
+      setScoreBlock: "Sets Score Block",
+      setScoreBgColor: "Sets Score Background Color",
+      setScoreTextColor: "Sets Score Text Color",
+      setScoreGradientStartColor: "Sets Score Gradient Start Color",
+      setScoreGradientEndColor: "Sets Score Gradient End Color",
+      useGradientForScore: "Use gradient for score",
+      useGradientForSetScore: "Use gradient for sets score",
+      servingIndicatorBlock: "Serve Indicator Block",
+      servingIndicatorBgColor: "Serve Indicator Background Color",
+      servingIndicatorColor: "Serve Indicator Color",
+      servingIndicatorExample: "Serve Indicator Example",
+      servingIndicatorGradientStartColor: "Serve Indicator Background Gradient Start Color",
+      servingIndicatorGradientEndColor: "Serve Indicator Background Gradient End Color",
+      useGradientForServingIndicator: "Use gradient for serve indicator background",
+      importantMomentIndicator: "Important Moments Indicator",
+      extraLarge: "Extra Large",
+      courtPageActions: "Actions for Court Page:",
+      usageInstructions: "Instructions for vMix",
+      usingInTitleDesigner: "Usage in Title Designer:",
+      showBreakPoint: "Show Break Point",
+      saveToDatabase: "Save to Database",
     },
     courtVmixSettings: {
       title: "vMix Settings for Court",
@@ -3077,6 +3195,13 @@ export const translations: { [key in Language]: TranslationKeys } = {
       goldenGame: "Золотий гейм (Падел)",
       windbreak: "Віндбрейк (подача через гейм)",
       applySettings: "Застосувати налаштування",
+      apply: "Застосувати",
+      unsavedChanges: "Не збережено",
+      savedLabel: "Збережено",
+      savedAtTime: "Збережено о {{time}}",
+      matchRules: "Правила матчу",
+      court: "Корт",
+      noCourt: "Без корту",
       unlockMatch: "Розблокувати матч",
       endMatch: "Завершити матч",
       confirmEndMatch: "Ви впевнені, що хочете завершити матч? Ви зможете розблокувати його пізніше, якщо потрібно.",
@@ -3528,6 +3653,38 @@ export const translations: { [key in Language]: TranslationKeys } = {
       accentColor: "Колір акценту",
       previewWithCurrentSettings: "Попередній перегляд з поточними налаштуваннями",
       matchInfo: "Інформація про матч",
+      showPlayerNames: "Показувати імена гравців",
+      showCurrentPoints: "Показувати поточні очки",
+      showSetScore: "Показувати рахунок по сетах",
+      showServingPlayer: "Показувати подавача",
+      showCountries: "Показувати країни",
+      nameGradientStartColor: "Початковий колір градієнта імен",
+      nameGradientEndColor: "Кінцевий колір градієнта імен",
+      countryGradientStartColor: "Початковий колір градієнта країн",
+      countryGradientEndColor: "Кінцевий колір градієнта країн",
+      scoreGradientStartColor: "Початковий колір градієнта рахунку",
+      scoreGradientEndColor: "Кінцевий колір градієнта рахунку",
+      setScoreBlock: "Блок рахунку в сетах",
+      setScoreBgColor: "Колір фону рахунку сетів",
+      setScoreTextColor: "Колір тексту рахунку сетів",
+      setScoreGradientStartColor: "Початковий колір градієнта рахунку в сетах",
+      setScoreGradientEndColor: "Кінцевий колір градієнта рахунку в сетах",
+      useGradientForScore: "Використовувати градієнт для рахунку",
+      useGradientForSetScore: "Використовувати градієнт для рахунку в сетах",
+      servingIndicatorBlock: "Блок індикатора подачі",
+      servingIndicatorBgColor: "Колір фону індикатора подачі",
+      servingIndicatorColor: "Колір індикатора подачі",
+      servingIndicatorExample: "Приклад індикатора подачі",
+      servingIndicatorGradientStartColor: "Початковий колір градієнта фону індикатора",
+      servingIndicatorGradientEndColor: "Кінцевий колір градієнта фону індикатора",
+      useGradientForServingIndicator: "Використовувати градієнт для фону індикатора подачі",
+      importantMomentIndicator: "Індикатор важливих моментів",
+      extraLarge: "Дуже великий",
+      courtPageActions: "Дії для сторінки корту:",
+      usageInstructions: "Інструкція з використання у vMix",
+      usingInTitleDesigner: "Використання в Title Designer:",
+      showBreakPoint: "Показувати брейк-поінт",
+      saveToDatabase: "Зберегти в базу даних",
     },
     courtVmixSettings: {
       title: "Налаштування vMix для корту",

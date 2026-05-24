@@ -11,6 +11,8 @@ import { defineConfig, devices } from "@playwright/test"
 //   npm run e2e:report     # open the last HTML report
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.mjs",
+  globalTeardown: "./e2e/global-teardown.mjs",
   // First-time `next dev` compilation is slow — be generous.
   timeout: 60_000,
   expect: {
@@ -37,12 +39,4 @@ export default defineConfig({
   },
 
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-
-  // Auto-starts the app for the test run; reuses an already-running dev server.
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    timeout: 120_000,
-    reuseExistingServer: !process.env.CI,
-  },
 })

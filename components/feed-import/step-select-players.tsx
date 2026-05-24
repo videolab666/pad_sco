@@ -5,7 +5,6 @@ import { ChevronLeft, Loader2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useLanguage } from "@/contexts/language-context"
 import { getTournamentPlayers } from "@/lib/dy/dy-client"
@@ -144,7 +143,7 @@ export function StepSelectPlayers({ tournament, onImported }: StepSelectPlayersP
       {players.length === 0 ? (
         <p className="py-6 text-center text-muted-foreground">{t("feedImport.noPlayers")}</p>
       ) : (
-        <ScrollArea className="max-h-[45vh] pr-2">
+        <div className="max-h-[45vh] overflow-y-auto pr-2">
           <div className="space-y-1">
             {players.map((p) => {
               const id = String(p.id)
@@ -159,7 +158,7 @@ export function StepSelectPlayers({ tournament, onImported }: StepSelectPlayersP
               )
             })}
           </div>
-        </ScrollArea>
+        </div>
       )}
 
       <Button

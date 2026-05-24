@@ -23,6 +23,7 @@ export interface ScoreboardSettings {
   showSets: boolean
   showServer: boolean
   showCountry: boolean
+  showBreakPoint: boolean
   fontSize: string
   bgOpacity: number
   textColor: string
@@ -56,7 +57,17 @@ export interface ScoreboardSettings {
   serveGradient: boolean
   serveGradientFrom: string
   serveGradientTo: string
+  // Per-variant overrides (Т2). The common block above applies to every
+  // scoreboard variant; these optional sections override individual fields for
+  // one variant only. Intentionally minimal for now — populated incrementally
+  // as variant-specific options appear. `resolveSettings` flattens them.
+  court?: Partial<ScoreboardSettings>
+  overlay?: Partial<ScoreboardSettings>
+  fullscreen?: Partial<ScoreboardSettings>
 }
+
+/** The three scoreboard variants a settings object can be resolved for. */
+export type ScoreboardVariant = "court" | "overlay" | "fullscreen"
 
 /**
  * Parses the scoreboard display settings out of the URL query parameters.
@@ -72,6 +83,8 @@ export function parseScoreboardSettings(searchParams: ParamSource): ScoreboardSe
     showSets: get("showSets") !== "false",
     showServer: get("showServer") !== "false",
     showCountry: get("showCountry") !== "false",
+    // Break-point indicator — shown on every scoreboard (Т1). Default on.
+    showBreakPoint: get("showBreakPoint") !== "false",
     fontSize: get("fontSize") || "normal",
     bgOpacity: Number.parseFloat(get("bgOpacity") || "0.5"),
     textColor: parseColorParam(get("textColor"), "#ffffff"),
@@ -106,4 +119,19 @@ export function parseScoreboardSettings(searchParams: ParamSource): ScoreboardSe
     serveGradientFrom: parseColorParam(get("serveGradientFrom"), "#000000"),
     serveGradientTo: parseColorParam(get("serveGradientTo"), "#1e1e1e"),
   }
+}
+
+/**
+ * Effective settings for one scoreboard variant: the common block with that
+ * variant's override section applied on top (Т2). The `court`/`overlay`/
+ * `fullscreen` sub-sections are stripped from the result — it is a flat,
+ * ready-to-render settings object.
+ */
+export function resolveSettings(
+  settings: ScoreboardSettings,
+  variant: ScoreboardVariant,
+): ScoreboardSettings {
+  const { court, overlay, fullscreen, ...common } = settings
+  const override = variant === "court" ? court : variant === "overlay" ? overlay : fullscreen
+  return { ...common, ...(override ?? {}) }
 }

@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useState, useEffect, useRef } from "react"
-import { LockOpenIcon } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Check, CircleAlert, Loader2, LockOpenIcon } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -45,8 +45,73 @@ type MatchSettingsProps = {
   onChange?: (settings: any) => void
 }
 
+const COURT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
+
+/**
+ * Apply-bar shown at the bottom of each draft section: clean / dirty / saved
+ * indicator + the "Apply" button. The section is "dirty" when any draft value
+ * differs from the persisted snapshot; on Apply we commit the whole section in
+ * one updateMatch call so the user knows their changes were sent.
+ */
+function SectionApplyBar({
+  isDirty,
+  savedAt,
+  onApply,
+  disabled,
+  applyLabel,
+  savedLabel,
+  unsavedLabel,
+  savedAtLabel,
+}: {
+  isDirty: boolean
+  savedAt: number | null
+  onApply: () => void
+  disabled?: boolean
+  applyLabel: string
+  savedLabel: string
+  unsavedLabel: string
+  savedAtLabel: (time: string) => string
+}) {
+  const timeStr = savedAt ? new Date(savedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : ""
+  return (
+    <div className="mt-3 flex items-center justify-between gap-2 rounded-md border bg-white/60 px-3 py-2">
+      <div className="flex items-center gap-2 text-sm">
+        {isDirty ? (
+          <>
+            <CircleAlert className="h-4 w-4 text-amber-600" aria-hidden="true" />
+            <span className="font-medium text-amber-700">{unsavedLabel}</span>
+          </>
+        ) : savedAt ? (
+          <>
+            <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
+            <span className="text-green-700">{savedAtLabel(timeStr)}</span>
+          </>
+        ) : (
+          <>
+            <Check className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <span className="text-muted-foreground">{savedLabel}</span>
+          </>
+        )}
+      </div>
+      <Button
+        size="sm"
+        onClick={onApply}
+        disabled={disabled || !isDirty}
+        className="bg-[#019fe3] text-white hover:bg-[#00336d] disabled:opacity-50"
+      >
+        {applyLabel}
+      </Button>
+    </div>
+  )
+}
+
 export function MatchSettings({ match, updateMatch, type, settings, onChange }: MatchSettingsProps) {
   const { t } = useLanguage()
+
+  // ─── Rules draft (local form state mirrors match.settings; commit on Apply) ─
+  const [setsCount, setSetsCount] = useState<string>(
+    match?.settings?.isSuperSet ? "super" : (match?.settings?.sets?.toString() || "3"),
+  )
   const [tiebreakEnabled, setTiebreakEnabled] = useState(match?.settings?.tiebreakEnabled)
   const [tiebreakFormat, setTiebreakFormat] = useState(match?.settings?.tiebreakFormat || "two-clear")
   const [tiebreakLength, setTiebreakLength] = useState(match?.settings?.tiebreakLength?.toString() || "7")
@@ -58,17 +123,36 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   const [goldenPointFormat, setGoldenPointFormat] = useState(match?.settings?.goldenPointFormat || "none")
   const [gamesPerSet, setGamesPerSet] = useState(match?.settings?.gamesPerSet?.toString() || "6")
   const [gamesPerSetOverrides, setGamesPerSetOverrides] = useState<Record<number, string>>(
-    match?.settings?.gamesPerSetOverrides ? Object.fromEntries(
-      Object.entries(match.settings.gamesPerSetOverrides).map(([k, v]) => [k, String(v)])
-    ) : {}
+    match?.settings?.gamesPerSetOverrides
+      ? Object.fromEntries(
+          Object.entries(match.settings.gamesPerSetOverrides).map(([k, v]) => [k, String(v)]),
+        )
+      : {},
   )
   const [showPerSetGames, setShowPerSetGames] = useState(false)
   const [goldenGame, setGoldenGame] = useState(match?.settings?.goldenGame || false)
   const [windbreak, setWindbreak] = useState(match?.settings?.windbreak || false)
 
-  const [editSetIndex, setEditSetIndex] = useState(null)
-  const [editSetScoreA, setEditSetScoreA] = useState(0)
-  const [editSetScoreB, setEditSetScoreB] = useState(0)
+  // ─── Court draft ────────────────────────────────────────────────────────────
+  const [courtDraft, setCourtDraft] = useState<number | null>(match?.courtNumber ?? null)
+  const [courtSavedAt, setCourtSavedAt] = useState<number | null>(null)
+
+  // ─── Score-editing draft (per-set teamA/teamB; index 0..N-1 = completed sets,
+  //     index N = current set) ────────────────────────────────────────────────
+  type ScoreCell = { teamA: number; teamB: number }
+  const buildScoreFromMatch = (m: any): ScoreCell[] => {
+    if (!m?.score) return []
+    const cells: ScoreCell[] = (m.score.sets || []).map((s: any) => ({ teamA: s.teamA, teamB: s.teamB }))
+    if (m.score.currentSet) {
+      cells.push({ teamA: m.score.currentSet.teamA, teamB: m.score.currentSet.teamB })
+    }
+    return cells
+  }
+  const [scoreDraft, setScoreDraft] = useState<ScoreCell[]>(() => buildScoreFromMatch(match))
+  const [scoreSavedAt, setScoreSavedAt] = useState<number | null>(null)
+
+  // ─── savedAt for rules ──────────────────────────────────────────────────────
+  const [rulesSavedAt, setRulesSavedAt] = useState<number | null>(null)
 
   // Task 5 / A4: a rule edit awaiting a scope decision. Only the pending
   // `settings` are stored (plus the classification) — never a whole match
@@ -81,6 +165,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   // Pushes match.settings into the local form state.
   const syncLocalSettings = (s: any) => {
     if (!s) return
+    setSetsCount(s.isSuperSet ? "super" : (s.sets?.toString() || "3"))
     setTiebreakEnabled(s.tiebreakEnabled)
     setTiebreakFormat(s.tiebreakFormat || "two-clear")
     setTiebreakLength(s.tiebreakLength?.toString() || "7")
@@ -100,10 +185,14 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     setWindbreak(s.windbreak || false)
   }
 
-  // Bug #9 fix: sync local state when match.settings changes externally
+  // Re-sync rules form when match.settings changes externally (real-time sync
+  // from another device, or after our own Apply commit). If the user has an
+  // uncommitted draft, the sync overwrites it — accepted edge case for v1.
   useEffect(() => {
     syncLocalSettings(match?.settings)
   }, [
+    match?.settings?.isSuperSet,
+    match?.settings?.sets,
     match?.settings?.tiebreakEnabled,
     match?.settings?.tiebreakFormat,
     match?.settings?.tiebreakLength,
@@ -119,11 +208,92 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     match?.settings?.windbreak,
   ])
 
-  const handleChange = (key: string, value: any) => {
-    if (onChange && settings) {
-      onChange({ ...settings, [key]: value })
+  // Re-sync court draft when match.courtNumber changes externally / after Apply.
+  useEffect(() => {
+    setCourtDraft(match?.courtNumber ?? null)
+  }, [match?.courtNumber])
+
+  // Re-sync score draft when match.score changes externally / after Apply.
+  // Building from the current match preserves the invariant that scoreDraft has
+  // exactly (sets.length + 1) entries while the match is live.
+  useEffect(() => {
+    setScoreDraft(buildScoreFromMatch(match))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match?.score?.sets?.length, match?.score?.currentSet?.teamA, match?.score?.currentSet?.teamB, JSON.stringify(match?.score?.sets)])
+
+  // Build the settings object from the current draft (used by Apply for rules).
+  const buildSettingsFromDraft = () => {
+    const base = { ...(match?.settings || {}) }
+    if (setsCount === "super") {
+      base.isSuperSet = true
+      base.superSetTarget = base.superSetTarget ?? 8
+      base.superSetTiebreakAt = base.superSetTiebreakAt ?? 8
+      base.sets = 1
+      base.tiebreakEnabled = true
+      base.tiebreakAt = "8-8"
+      base.finalSetTiebreak = false
+      base.finalSetFinish = "standard-7"
+    } else {
+      base.isSuperSet = false
+      base.sets = Number.parseInt(setsCount)
+      base.tiebreakEnabled = tiebreakEnabled
+      base.tiebreakFormat = tiebreakFormat
+      base.tiebreakLength = Number.parseInt(tiebreakLength)
+      base.tiebreakAt = tiebreakAt
+      base.finalSetTiebreak = finalSetTiebreak
+      base.finalSetFinish = finalSetFinish
+      base.finalSetTiebreakLength = Number.parseInt(finalSetTiebreakLength)
     }
+    base.scoringSystem = scoringSystem
+    base.goldenPointFormat = goldenPointFormat
+    base.gamesPerSet = Number.parseInt(gamesPerSet)
+    base.gamesPerSetOverrides = Object.fromEntries(
+      Object.entries(gamesPerSetOverrides).map(([k, v]) => [k, Number.parseInt(v as string)]),
+    )
+    base.goldenGame = goldenGame
+    base.windbreak = windbreak
+    return base
   }
+
+  // True when any draft-managed settings field differs from the saved value.
+  // JSON.stringify per-key avoids key-order pitfalls of comparing whole objects.
+  const isRulesDirty = useMemo(() => {
+    if (!match?.settings) return false
+    const draft = buildSettingsFromDraft()
+    for (const key of Object.keys(draft)) {
+      if (JSON.stringify(draft[key]) !== JSON.stringify((match.settings as any)[key])) return true
+    }
+    return false
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    match?.settings,
+    setsCount,
+    tiebreakEnabled,
+    tiebreakFormat,
+    tiebreakLength,
+    tiebreakAt,
+    finalSetTiebreak,
+    finalSetFinish,
+    finalSetTiebreakLength,
+    scoringSystem,
+    goldenPointFormat,
+    gamesPerSet,
+    gamesPerSetOverrides,
+    goldenGame,
+    windbreak,
+  ])
+
+  const isCourtDirty = (match?.courtNumber ?? null) !== courtDraft
+
+  const isScoreDirty = useMemo(() => {
+    if (!match?.score) return false
+    const current = buildScoreFromMatch(match)
+    if (current.length !== scoreDraft.length) return false
+    for (let i = 0; i < current.length; i++) {
+      if (current[i].teamA !== scoreDraft[i].teamA || current[i].teamB !== scoreDraft[i].teamB) return true
+    }
+    return false
+  }, [scoreDraft, match])
 
   // Task 4: every rule change repairs already-started game/set state for the
   // new rules and stamps a rule revision so the scoreboard can drop its stale
@@ -139,10 +309,12 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     return recomputed
   }
 
-  // Persists a rule change, with the legacy storage-quota fallback.
+  // Persists a rule change, with the legacy storage-quota fallback. Sets the
+  // saved-at timestamp so the Apply-bar flips to "✓ Saved at HH:MM".
   const doCommit = (updatedMatch: any) => {
     try {
       updateMatch(commitRuleChange(updatedMatch))
+      setRulesSavedAt(Date.now())
     } catch (error) {
       console.error("Ошибка при обновлении настроек:", error)
       const minimalMatch = { ...updatedMatch, history: [] }
@@ -155,6 +327,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
         }))
       }
       updateMatch(commitRuleChange(minimalMatch))
+      setRulesSavedAt(Date.now())
     }
   }
 
@@ -198,47 +371,68 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     syncLocalSettings(match?.settings)
   }
 
-  // Bug #10 fix: auto-apply settings on every change
-  const applySettingsAuto = (overrides: Record<string, any> = {}) => {
+  // ─── Apply handlers (one per section) ───────────────────────────────────────
+
+  const applyCourt = () => {
     if (!match || !updateMatch) return
+    if (!isCourtDirty) return
+    updateMatch({ ...match, courtNumber: courtDraft, history: [] })
+    setCourtSavedAt(Date.now())
+  }
 
-    const updatedMatch = { ...match }
-    updatedMatch.history = []
-
-    updatedMatch.settings = {
-      ...updatedMatch.settings,
-      tiebreakEnabled: overrides.tiebreakEnabled !== undefined ? overrides.tiebreakEnabled : tiebreakEnabled,
-      tiebreakFormat: overrides.tiebreakFormat !== undefined ? overrides.tiebreakFormat : tiebreakFormat,
-      tiebreakLength: overrides.tiebreakLength !== undefined ? overrides.tiebreakLength : Number.parseInt(tiebreakLength),
-      tiebreakAt: overrides.tiebreakAt !== undefined ? overrides.tiebreakAt : tiebreakAt,
-      finalSetTiebreak: overrides.finalSetTiebreak !== undefined ? overrides.finalSetTiebreak : finalSetTiebreak,
-      finalSetFinish: overrides.finalSetFinish !== undefined ? overrides.finalSetFinish : finalSetFinish,
-      finalSetTiebreakLength: overrides.finalSetTiebreakLength !== undefined ? overrides.finalSetTiebreakLength : Number.parseInt(finalSetTiebreakLength),
-      scoringSystem: overrides.scoringSystem !== undefined ? overrides.scoringSystem : scoringSystem,
-      goldenPointFormat: overrides.goldenPointFormat !== undefined ? overrides.goldenPointFormat : goldenPointFormat,
-      gamesPerSet: overrides.gamesPerSet !== undefined ? overrides.gamesPerSet : Number.parseInt(gamesPerSet),
-      gamesPerSetOverrides: overrides.gamesPerSetOverrides !== undefined ? overrides.gamesPerSetOverrides : Object.fromEntries(
-        Object.entries(gamesPerSetOverrides).map(([k, v]) => [k, Number.parseInt(v as string)])
-      ),
-      goldenGame: overrides.goldenGame !== undefined ? overrides.goldenGame : goldenGame,
-      windbreak: overrides.windbreak !== undefined ? overrides.windbreak : windbreak,
-    }
-
+  const applyRules = () => {
+    if (!match || !updateMatch) return
+    if (!isRulesDirty) return
+    const updatedMatch = { ...match, history: [], settings: buildSettingsFromDraft() }
     requestRuleChange(updatedMatch)
   }
 
-  const startTiebreak = () => {
-    if (!match || !updateMatch) return
-
-    const updatedMatch = { ...match }
+  const applyScoreEdits = () => {
+    if (!match || !updateMatch || !isScoreDirty) return
+    const updatedMatch = JSON.parse(JSON.stringify(match))
     updatedMatch.history = []
 
-    updatedMatch.score.currentSet.isTiebreak = true
-    updatedMatch.score.currentSet.currentGame = {
-      teamA: 0,
-      teamB: 0,
+    const lastIdx = scoreDraft.length - 1
+    // Completed sets: write new values, recompute per-set winner (>0 only).
+    for (let i = 0; i < lastIdx; i++) {
+      const cell = scoreDraft[i]
+      updatedMatch.score.sets[i].teamA = cell.teamA
+      updatedMatch.score.sets[i].teamB = cell.teamB
+      if (cell.teamA > cell.teamB) updatedMatch.score.sets[i].winner = "teamA"
+      else if (cell.teamB > cell.teamA) updatedMatch.score.sets[i].winner = "teamB"
+      else updatedMatch.score.sets[i].winner = null
     }
+    // Current set: only the score (winner is decided by the engine).
+    if (lastIdx >= 0 && updatedMatch.score.currentSet) {
+      updatedMatch.score.currentSet.teamA = scoreDraft[lastIdx].teamA
+      updatedMatch.score.currentSet.teamB = scoreDraft[lastIdx].teamB
+    }
+    // Total sets won + match outcome from setsToWin.
+    updatedMatch.score.teamA = updatedMatch.score.sets.filter((s: any) => s.winner === "teamA").length
+    updatedMatch.score.teamB = updatedMatch.score.sets.filter((s: any) => s.winner === "teamB").length
+    const setsToWin = getSetsToWin(updatedMatch.settings)
+    if (updatedMatch.score.teamA >= setsToWin) {
+      updatedMatch.isCompleted = true
+      updatedMatch.winner = "teamA"
+    } else if (updatedMatch.score.teamB >= setsToWin) {
+      updatedMatch.isCompleted = true
+      updatedMatch.winner = "teamB"
+    } else {
+      updatedMatch.isCompleted = false
+      updatedMatch.winner = null
+    }
+    updateMatch(updatedMatch)
+    setScoreSavedAt(Date.now())
+  }
 
+  // ─── Tiebreak start/end + match end/unlock (instant, no draft) ──────────────
+
+  const startTiebreak = () => {
+    if (!match || !updateMatch) return
+    const updatedMatch = { ...match }
+    updatedMatch.history = []
+    updatedMatch.score.currentSet.isTiebreak = true
+    updatedMatch.score.currentSet.currentGame = { teamA: 0, teamB: 0 }
     try {
       updateMatch(updatedMatch)
     } catch (error) {
@@ -257,14 +451,12 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     }
   }
 
-  // Ручное завершение тай-брейка. Запись сета — через единый движковый
-  // commitSetWin (тот же код, что и при обычной игре). confirm() остаётся UI:
-  // отказ от завершения матча отменяет операцию целиком.
+  // Manual tiebreak finish — score logging via the shared engine (commitSetWin).
+  // confirm() stays UI: declining to end the match aborts the operation.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const endTiebreak = (winner: any) => {
     if (!match || !updateMatch) return
 
-    // Глубокая копия — не мутируем живой match.
     const prepared = JSON.parse(JSON.stringify(match))
     prepared.history = []
 
@@ -275,8 +467,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
     const result = commitSetWin(prepared, winner)
 
-    // commitSetWin завершает матч, когда победитель набрал setsToWin —
-    // подтверждаем; отказ отменяет всю операцию (match остаётся как был).
     if (
       result.isCompleted &&
       !confirm(t("matchPage.teamWonConfirm", { team: winner === "teamA" ? "A" : "B" }))
@@ -290,8 +480,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   // Bug #6 fix: handle draw properly in endMatch
   const endMatch = () => {
     if (!match || !updateMatch) return
-
-    console.log("endMatch function called")
 
     const updatedMatch = { ...match }
     updatedMatch.isCompleted = true
@@ -311,172 +499,40 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           ? updatedMatch.score.currentSet.currentGame.teamA : 0
         const gb = typeof updatedMatch.score.currentSet.currentGame.teamB === "number"
           ? updatedMatch.score.currentSet.currentGame.teamB : 0
-        if (ga > gb) {
-          updatedMatch.winner = "teamA"
-        } else if (gb > ga) {
-          updatedMatch.winner = "teamB"
-        } else {
-          updatedMatch.winner = null
-        }
+        if (ga > gb) updatedMatch.winner = "teamA"
+        else if (gb > ga) updatedMatch.winner = "teamB"
+        else updatedMatch.winner = null
       }
     }
 
-    console.log("Updating match with:", updatedMatch)
     updateMatch(updatedMatch)
   }
 
   const unlockMatch = () => {
     if (!match || !updateMatch) return
-
     const updatedMatch = { ...match }
     updatedMatch.isCompleted = false
     updatedMatch.history = []
     updateMatch(updatedMatch)
   }
 
-  // Bug #8 fix: recalculate isCompleted and winner after set score edit
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateSetScore = (index: any, team: any, delta: any) => {
-    if (!match || !updateMatch) return
+  // ─── Score-editing helpers (now mutate scoreDraft instead of match) ─────────
 
-    const updatedMatch = { ...match }
-    updatedMatch.history = []
-
-    if (index === match.score.sets.length) {
-      if (delta > 0 || updatedMatch.score.currentSet[team] > 0) {
-        updatedMatch.score.currentSet[team] += delta
-        if (updatedMatch.score.currentSet[team] < 0) {
-          updatedMatch.score.currentSet[team] = 0
-        }
-      }
-    } else if (index < match.score.sets.length) {
-      if (delta > 0 || updatedMatch.score.sets[index][team] > 0) {
-        updatedMatch.score.sets[index][team] += delta
-        if (updatedMatch.score.sets[index][team] < 0) {
-          updatedMatch.score.sets[index][team] = 0
-        }
-      }
-
-      const set = updatedMatch.score.sets[index]
-      if (set.teamA > set.teamB) {
-        set.winner = "teamA"
-      } else if (set.teamB > set.teamA) {
-        set.winner = "teamB"
-      } else {
-        set.winner = null
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      updatedMatch.score.teamA = updatedMatch.score.sets.filter((s: any) => s.winner === "teamA").length
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      updatedMatch.score.teamB = updatedMatch.score.sets.filter((s: any) => s.winner === "teamB").length
-
-      // Bug #8 fix: recalculate isCompleted and winner
-      const setsToWin = getSetsToWin(updatedMatch.settings)
-      if (updatedMatch.score.teamA >= setsToWin) {
-        updatedMatch.isCompleted = true
-        updatedMatch.winner = "teamA"
-      } else if (updatedMatch.score.teamB >= setsToWin) {
-        updatedMatch.isCompleted = true
-        updatedMatch.winner = "teamB"
-      } else {
-        updatedMatch.isCompleted = false
-        updatedMatch.winner = null
-      }
-    }
-
-    updateMatch(updatedMatch)
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const startEditSet = (index: any) => {
-    if (!match) return
-
-    if (index < match.score.sets.length) {
-      const set = match.score.sets[index]
-      setEditSetScoreA(set.teamA)
-      setEditSetScoreB(set.teamB)
-      setEditSetIndex(index)
-    } else if (index === match.score.sets.length) {
-      setEditSetScoreA(match.score.currentSet.teamA)
-      setEditSetScoreB(match.score.currentSet.teamB)
-      setEditSetIndex(index)
-    }
-  }
-
-  const saveSetScore = () => {
-    if (editSetIndex === null || !match || !updateMatch) return
-
-    const updatedMatch = { ...match }
-    updatedMatch.history = []
-
-    if (editSetIndex < match.score.sets.length) {
-      updatedMatch.score.sets[editSetIndex].teamA = editSetScoreA
-      updatedMatch.score.sets[editSetIndex].teamB = editSetScoreB
-
-      if (editSetScoreA > editSetScoreB) {
-        updatedMatch.score.sets[editSetIndex].winner = "teamA"
-      } else if (editSetScoreB > editSetScoreA) {
-        updatedMatch.score.sets[editSetIndex].winner = "teamB"
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      updatedMatch.score.teamA = updatedMatch.score.sets.filter((set: any) => set.winner === "teamA").length
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      updatedMatch.score.teamB = updatedMatch.score.sets.filter((set: any) => set.winner === "teamB").length
-
-      // Recalculate isCompleted/winner
-      const setsToWin = getSetsToWin(updatedMatch.settings)
-      if (updatedMatch.score.teamA >= setsToWin) {
-        updatedMatch.isCompleted = true
-        updatedMatch.winner = "teamA"
-      } else if (updatedMatch.score.teamB >= setsToWin) {
-        updatedMatch.isCompleted = true
-        updatedMatch.winner = "teamB"
-      } else {
-        updatedMatch.isCompleted = false
-        updatedMatch.winner = null
-      }
-    } else if (editSetIndex === match.score.sets.length) {
-      updatedMatch.score.currentSet.teamA = editSetScoreA
-      updatedMatch.score.currentSet.teamB = editSetScoreB
-    }
-
-    updateMatch(updatedMatch)
-    setEditSetIndex(null)
-  }
-
-  const totalSets = match?.settings?.sets || 3
-  const allSetsArray = []
-
-  if (match && match.score && match.score.sets) {
-    for (let i = 0; i < match.score.sets.length; i++) {
-      allSetsArray.push({
-        index: i,
-        isCompleted: true,
-        isCurrent: false,
-        teamA: match.score.sets[i].teamA,
-        teamB: match.score.sets[i].teamB,
-      })
-    }
-
-    allSetsArray.push({
-      index: match.score.sets.length,
-      isCompleted: false,
-      isCurrent: true,
-      teamA: match.score.currentSet.teamA,
-      teamB: match.score.currentSet.teamB,
+  const bumpDraftScore = (index: number, team: "teamA" | "teamB", delta: number) => {
+    setScoreDraft((prev) => {
+      const next = prev.map((c) => ({ ...c }))
+      if (index < 0 || index >= next.length) return prev
+      const cur = next[index][team]
+      const after = cur + delta
+      next[index][team] = after < 0 ? 0 : after
+      return next
     })
+  }
 
-    for (let i = match.score.sets.length + 1; i < totalSets; i++) {
-      allSetsArray.push({
-        index: i,
-        isCompleted: false,
-        isCurrent: false,
-        teamA: 0,
-        teamB: 0,
-      })
-    }
+  // ─── New-match preview branch (no live match supplied) ──────────────────────
+
+  const handleNewMatchSettingChange = (key: string, value: any) => {
+    if (onChange && settings) onChange({ ...settings, [key]: value })
   }
 
   if (!match && settings && onChange) {
@@ -489,7 +545,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
             <Label htmlFor="sets">{t("newMatch.sets")}</Label>
             <Select
               value={settings.sets.toString()}
-              onValueChange={(value) => handleChange("sets", Number.parseInt(value))}
+              onValueChange={(value) => handleNewMatchSettingChange("sets", Number.parseInt(value))}
             >
               <SelectTrigger id="sets">
                 <SelectValue placeholder={t("newMatch.sets")} />
@@ -506,7 +562,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
             <Label htmlFor="games">{t("newMatch.games")}</Label>
             <Select
               value={settings.games.toString()}
-              onValueChange={(value) => handleChange("games", Number.parseInt(value))}
+              onValueChange={(value) => handleNewMatchSettingChange("games", Number.parseInt(value))}
             >
               <SelectTrigger id="games">
                 <SelectValue placeholder={t("newMatch.games")} />
@@ -525,7 +581,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
             <Switch
               id="tiebreak"
               checked={settings.tiebreak}
-              onCheckedChange={(checked) => handleChange("tiebreak", checked)}
+              onCheckedChange={(checked) => handleNewMatchSettingChange("tiebreak", checked)}
             />
             <Label htmlFor="tiebreak">{t("newMatch.tiebreak")}</Label>
           </div>
@@ -534,7 +590,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
             <Switch
               id="finalSetTiebreak"
               checked={settings.finalSetTiebreak}
-              onCheckedChange={(checked) => handleChange("finalSetTiebreak", checked)}
+              onCheckedChange={(checked) => handleNewMatchSettingChange("finalSetTiebreak", checked)}
             />
             <Label htmlFor="finalSetTiebreak">{t("newMatch.finalSetTiebreak")}</Label>
           </div>
@@ -544,7 +600,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           <Label>{t("newMatch.servingSide")}</Label>
           <RadioGroup
             value={settings.servingSide}
-            onValueChange={(value) => handleChange("servingSide", value)}
+            onValueChange={(value) => handleNewMatchSettingChange("servingSide", value)}
             className="flex space-x-4"
           >
             <div className="flex items-center space-x-2">
@@ -562,7 +618,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           <Label>{t("newMatch.servingTeam")}</Label>
           <RadioGroup
             value={settings.servingTeam.toString()}
-            onValueChange={(value) => handleChange("servingTeam", Number.parseInt(value) as 1 | 2)}
+            onValueChange={(value) => handleNewMatchSettingChange("servingTeam", Number.parseInt(value) as 1 | 2)}
             className="flex space-x-4"
           >
             <div className="flex items-center space-x-2">
@@ -580,7 +636,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           <Label>{t("newMatch.servingPlayer")}</Label>
           <RadioGroup
             value={settings.servingPlayer.toString()}
-            onValueChange={(value) => handleChange("servingPlayer", Number.parseInt(value) as 1 | 2 | 3 | 4)}
+            onValueChange={(value) => handleNewMatchSettingChange("servingPlayer", Number.parseInt(value) as 1 | 2 | 3 | 4)}
             className="flex flex-wrap gap-4"
           >
             <div className="flex items-center space-x-2">
@@ -614,7 +670,6 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getTeamPlayerNames = (teamKey: any) => {
     if (match[teamKey]?.players && Array.isArray(match[teamKey].players)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return match[teamKey].players
         .map((p: any) => p.name || p.firstName || p.lastName || "")
         .filter(Boolean)
@@ -630,12 +685,10 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       ]
 
       const teamPlayers = match.players.filter(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (p: any) => teamIdentifiers.includes(p.team) || teamIdentifiers.includes(p.teamId),
       )
 
       if (teamPlayers.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return teamPlayers
           .map((p: any) => p.name || p.firstName || p.lastName || "")
           .filter(Boolean)
@@ -646,7 +699,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     const playersKey = `${teamKey}Players`
     if (match[playersKey] && Array.isArray(match[playersKey])) {
       return match[playersKey]
-        .map((p) => p.name || p.firstName || p.lastName || "")
+        .map((p: any) => p.name || p.firstName || p.lastName || "")
         .filter(Boolean)
         .join(", ")
     }
@@ -662,19 +715,34 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
     const playerNames = [player1Name, player2Name].filter(Boolean)
 
-    if (playerNames.length > 0) {
-      return playerNames.join(", ")
-    }
+    if (playerNames.length > 0) return playerNames.join(", ")
 
-    if (teamKey === "teamA") {
-      return t("matchPage.playerFallbackTeamA")
-    } else {
-      return t("matchPage.playerFallbackTeamB")
-    }
+    return teamKey === "teamA" ? t("matchPage.playerFallbackTeamA") : t("matchPage.playerFallbackTeamB")
   }
 
   const teamAPlayerNames = getTeamPlayerNames("teamA")
   const teamBPlayerNames = getTeamPlayerNames("teamB")
+
+  // Build the table rows directly from scoreDraft (which mirrors match.score
+  // until the user edits a cell). Highlights cells that differ from saved.
+  const draftRows = scoreDraft.map((cell, i) => ({
+    index: i,
+    isCurrent: i === scoreDraft.length - 1,
+    teamA: cell.teamA,
+    teamB: cell.teamB,
+  }))
+
+  // Padding rows for future (unplayed) sets — purely display, not editable.
+  const totalSetsConfigured = match?.settings?.sets || 3
+  const futureRows: Array<{ index: number; isCurrent: false; teamA: number; teamB: number }> = []
+  for (let i = scoreDraft.length; i < totalSetsConfigured; i++) {
+    futureRows.push({ index: i, isCurrent: false, teamA: 0, teamB: 0 })
+  }
+
+  const savedAtFormatter = (time: string) => t("match.savedAtTime", { time })
+  const t_apply = t("match.apply")
+  const t_saved = t("match.savedLabel")
+  const t_unsaved = t("match.unsavedChanges")
 
   return (
     <>
@@ -704,16 +772,53 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
             <AlertDialogAction onClick={applyPendingNow}>{t("matchPage.applyNow")}</AlertDialogAction>
             {pendingRuleChange?.classification?.scope === "restart-required" && (
-              <AlertDialogAction onClick={applyPendingRestart}>
-                {t("matchPage.restartSet")}
-              </AlertDialogAction>
+              <AlertDialogAction onClick={applyPendingRestart}>{t("matchPage.restartSet")}</AlertDialogAction>
             )}
             <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Score Editing Card */}
+      {/* ─── Section 1: Court ──────────────────────────────────────────────── */}
+      <Card className="w-full mb-4 bg-gradient-to-b from-[#019fe3] to-[#00336d]">
+        <CardHeader>
+          <CardTitle className="text-white">{t("match.court")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-gray-800 px-[3px]">
+          <div className="border rounded-md py-3 px-[3px] bg-[#f8fdf9] shadow-md">
+            <Label>{t("match.courtNumber")}</Label>
+            <Select
+              value={courtDraft === null ? "none" : String(courtDraft)}
+              onValueChange={(value) => setCourtDraft(value === "none" ? null : Number.parseInt(value))}
+              disabled={match.isCompleted}
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue placeholder={t("match.selectCourt")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("match.noCourt")}</SelectItem>
+                {COURT_OPTIONS.map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {t("match.court")} {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <SectionApplyBar
+              isDirty={isCourtDirty}
+              savedAt={courtSavedAt}
+              onApply={applyCourt}
+              disabled={match.isCompleted}
+              applyLabel={t_apply}
+              savedLabel={t_saved}
+              unsavedLabel={t_unsaved}
+              savedAtLabel={savedAtFormatter}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ─── Section 2: Score Editing ──────────────────────────────────────── */}
       <Card className="w-full mb-4 bg-gradient-to-b from-[#019fe3] to-[#00336d]">
         <CardHeader>
           <CardTitle className="text-white">{t("match.scoreEditing")}</CardTitle>
@@ -746,95 +851,113 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   </tr>
                 </thead>
                 <tbody>
-                  {allSetsArray.map((set, idx) => (
-                    <tr key={idx} className={set.isCurrent ? "bg-blue-100" : ""}>
+                  {draftRows.map((set, idx) => {
+                    const saved = buildScoreFromMatch(match)[set.index] ?? { teamA: 0, teamB: 0 }
+                    const aDirty = saved.teamA !== set.teamA
+                    const bDirty = saved.teamB !== set.teamB
+                    return (
+                      <tr key={idx} className={set.isCurrent ? "bg-blue-100" : ""}>
+                        <td className="p-2 border-r border-gray-300 text-[13px] text-center" style={{ fontSize: "13px" }}>
+                          <span className="font-bold">{t("match.set")}</span> {idx + 1}
+                        </td>
+                        <td className="p-2 border-r border-gray-300">
+                          <div className="flex items-center justify-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              onClick={() => bumpDraftScore(set.index, "teamA", -1)}
+                              disabled={match.isCompleted}
+                            >
+                              -
+                            </Button>
+                            <span className={`mx-3 font-bold text-lg ${aDirty ? "text-amber-600" : ""}`}>{set.teamA}</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              onClick={() => bumpDraftScore(set.index, "teamA", 1)}
+                              disabled={match.isCompleted}
+                            >
+                              +
+                            </Button>
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="flex items-center justify-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              onClick={() => bumpDraftScore(set.index, "teamB", -1)}
+                              disabled={match.isCompleted}
+                            >
+                              -
+                            </Button>
+                            <span className={`mx-3 font-bold text-lg ${bDirty ? "text-amber-600" : ""}`}>{set.teamB}</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              onClick={() => bumpDraftScore(set.index, "teamB", 1)}
+                              disabled={match.isCompleted}
+                            >
+                              +
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {futureRows.map((set) => (
+                    <tr key={`future-${set.index}`} className="opacity-50">
                       <td className="p-2 border-r border-gray-300 text-[13px] text-center" style={{ fontSize: "13px" }}>
-                        <span className="font-bold">{t("match.set")}</span> {idx + 1}
+                        <span className="font-bold">{t("match.set")}</span> {set.index + 1}
                       </td>
-                      <td className="p-2 border-r border-gray-300">
-                        <div className="flex items-center justify-center">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 w-8 p-0"
-                            onClick={() => updateSetScore(set.index, "teamA", -1)}
-                            disabled={match.isCompleted}
-                          >
-                            -
-                          </Button>
-                          <span className="mx-3 font-bold text-lg">{set.teamA}</span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 w-8 p-0"
-                            onClick={() => updateSetScore(set.index, "teamA", 1)}
-                            disabled={match.isCompleted}
-                          >
-                            +
-                          </Button>
-                        </div>
-                      </td>
-                      <td className="p-2">
-                        <div className="flex items-center justify-center">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 w-8 p-0"
-                            onClick={() => updateSetScore(set.index, "teamB", -1)}
-                            disabled={match.isCompleted}
-                          >
-                            -
-                          </Button>
-                          <span className="mx-3 font-bold text-lg">{set.teamB}</span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 w-8 p-0"
-                            onClick={() => updateSetScore(set.index, "teamB", 1)}
-                            disabled={match.isCompleted}
-                          >
-                            +
-                          </Button>
-                        </div>
-                      </td>
+                      <td className="p-2 border-r border-gray-300 text-center">{set.teamA}</td>
+                      <td className="p-2 text-center">{set.teamB}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
 
+            <SectionApplyBar
+              isDirty={isScoreDirty}
+              savedAt={scoreSavedAt}
+              onApply={applyScoreEdits}
+              disabled={match.isCompleted}
+              applyLabel={t_apply}
+              savedLabel={t_saved}
+              unsavedLabel={t_unsaved}
+              savedAtLabel={savedAtFormatter}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ─── Section 3: Match Rules ────────────────────────────────────────── */}
+      <Card className="w-full mb-4 bg-gradient-to-b from-[#019fe3] to-[#00336d]">
+        <CardHeader>
+          <CardTitle className="text-white">{t("match.matchRules")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-gray-800 px-[3px]">
           <div className="space-y-4">
             {/* Sets selection */}
             <div className="border rounded-md py-3 px-[3px] bg-[#f8fdf9] shadow-md">
               <Label>{t("newMatch.sets")}</Label>
               <Select
-                value={match.settings?.isSuperSet ? "super" : (match.settings?.sets?.toString() || "3")}
+                value={setsCount}
                 onValueChange={(value) => {
-                  // A1 fix: clone settings so we never mutate match.settings in
-                  // place — otherwise classifyRuleChange diffs an object against
-                  // itself and the confirmation dialog is silently skipped.
-                  const updatedMatch = { ...match, settings: { ...match.settings } }
                   if (value === "super") {
-                    updatedMatch.settings.isSuperSet = true
-                    updatedMatch.settings.superSetTarget = 8
-                    updatedMatch.settings.superSetTiebreakAt = 8
-                    updatedMatch.settings.sets = 1
-                    updatedMatch.settings.tiebreakEnabled = true
-                    updatedMatch.settings.tiebreakAt = "8-8"
-                    updatedMatch.settings.finalSetTiebreak = false
-                    updatedMatch.settings.finalSetFinish = "standard-7"
+                    setSetsCount("super")
                     setFinalSetTiebreak(false)
                     setFinalSetFinish("standard-7")
                   } else {
-                    updatedMatch.settings.isSuperSet = false
-                    updatedMatch.settings.sets = Number.parseInt(value)
-                    updatedMatch.settings.finalSetTiebreak = getDefaultFinalSetTiebreakForSelection(value)
-                    updatedMatch.settings.finalSetFinish = getDefaultFinalSetFinishForSelection(value)
-                    setFinalSetTiebreak(updatedMatch.settings.finalSetTiebreak)
-                    setFinalSetFinish(updatedMatch.settings.finalSetFinish)
+                    setSetsCount(value)
+                    setFinalSetTiebreak(getDefaultFinalSetTiebreakForSelection(value))
+                    setFinalSetFinish(getDefaultFinalSetFinishForSelection(value))
                   }
-                  requestRuleChange(updatedMatch)
                 }}
                 disabled={match.isCompleted}
               >
@@ -859,7 +982,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               </Select>
             </div>
 
-            {/* Final Set Tiebreak — auto-apply on change */}
+            {/* Final Set Tiebreak */}
             <div className="border border-green-200 rounded-md py-3 px-[3px] bg-green-50 shadow-md mt-4">
               <div className="flex items-center justify-between mb-3">
                 <Label>{t("newMatch.finalSetTiebreak")}</Label>
@@ -868,25 +991,16 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   checked={finalSetTiebreak}
                   onCheckedChange={(checked) => {
                     setFinalSetTiebreak(checked)
-                    if (!match.settings?.isSuperSet) {
-                      const num = match.settings?.sets || 3
+                    if (setsCount !== "super") {
+                      const num = Number.parseInt(setsCount) || 3
                       if (checked && num % 2 !== 0) {
-                        const updatedMatch = { ...match }
-                        const nextFinish = getDefaultFinalSetFinishForSelection((num - 1).toString())
-                        updatedMatch.settings = { ...updatedMatch.settings, sets: num - 1, finalSetTiebreak: checked, finalSetFinish: nextFinish }
-                        setFinalSetFinish(nextFinish)
-                        requestRuleChange(updatedMatch)
-                        return
+                        setSetsCount((num - 1).toString())
+                        setFinalSetFinish(getDefaultFinalSetFinishForSelection((num - 1).toString()))
                       } else if (!checked && num % 2 === 0) {
-                        const updatedMatch = { ...match }
-                        const nextFinish = getDefaultFinalSetFinishForSelection((num + 1).toString())
-                        updatedMatch.settings = { ...updatedMatch.settings, sets: num + 1, finalSetTiebreak: checked, finalSetFinish: nextFinish }
-                        setFinalSetFinish(nextFinish)
-                        requestRuleChange(updatedMatch)
-                        return
+                        setSetsCount((num + 1).toString())
+                        setFinalSetFinish(getDefaultFinalSetFinishForSelection((num + 1).toString()))
                       }
                     }
-                    applySettingsAuto({ finalSetTiebreak: checked })
                   }}
                   disabled={match.isCompleted}
                   className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
@@ -900,10 +1014,8 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                     value={finalSetFinish}
                     onValueChange={(value) => {
                       setFinalSetFinish(value)
-                      const nextLength = value.endsWith("-7") ? 7 : value.endsWith("-10") ? 10 : Number.parseInt(finalSetTiebreakLength)
                       if (value.endsWith("-7")) setFinalSetTiebreakLength("7")
                       if (value.endsWith("-10")) setFinalSetTiebreakLength("10")
-                      applySettingsAuto({ finalSetFinish: value, finalSetTiebreakLength: nextLength })
                     }}
                     disabled={match.isCompleted}
                   >
@@ -924,10 +1036,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   <Label>{t("newMatch.finalSetTiebreakLength")}</Label>
                   <Select
                     value={finalSetTiebreakLength}
-                    onValueChange={(value) => {
-                      setFinalSetTiebreakLength(value)
-                      applySettingsAuto({ finalSetTiebreakLength: Number.parseInt(value) })
-                    }}
+                    onValueChange={(value) => setFinalSetTiebreakLength(value)}
                     disabled={match.isCompleted}
                   >
                     <SelectTrigger>
@@ -947,21 +1056,15 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               )}
             </div>
 
-            {/* Scoring System — auto-apply on change */}
+            {/* Scoring System */}
             <div className="border rounded-md py-3 px-[3px] bg-[#f8fdf9] shadow-md">
               <Label>{t("match.scoringSystem")}</Label>
               <Select
                 value={scoringSystem}
                 onValueChange={(value) => {
                   setScoringSystem(value)
-                  const nextGoldenPoint = getDefaultGoldenPointForScoringSystem(value)
-                  setGoldenPointFormat(nextGoldenPoint)
-                  if (value === "fast4") {
-                    setGamesPerSet("4")
-                    applySettingsAuto({ scoringSystem: value, gamesPerSet: 4, goldenPointFormat: nextGoldenPoint })
-                  } else {
-                    applySettingsAuto({ scoringSystem: value, goldenPointFormat: nextGoldenPoint })
-                  }
+                  setGoldenPointFormat(getDefaultGoldenPointForScoringSystem(value))
+                  if (value === "fast4") setGamesPerSet("4")
                 }}
                 disabled={match.isCompleted}
               >
@@ -977,13 +1080,10 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
               {scoringSystem === "classic" && (
                 <div className="mt-4 space-y-2">
-                   <Label>{t("newMatch.goldenPoint")}</Label>
+                  <Label>{t("newMatch.goldenPoint")}</Label>
                   <Select
                     value={goldenPointFormat}
-                    onValueChange={(value) => {
-                      setGoldenPointFormat(value)
-                      applySettingsAuto({ goldenPointFormat: value })
-                    }}
+                    onValueChange={(value) => setGoldenPointFormat(value)}
                     disabled={match.isCompleted}
                   >
                     <SelectTrigger>
@@ -1000,17 +1100,14 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               )}
             </div>
 
-            {/* Games per set — auto-apply on change */}
+            {/* Games per set */}
             <div className="border rounded-md py-3 px-[3px] bg-[#f0f4ff] shadow-md">
               <Label className="text-base font-medium">{t("newMatch.gamesPerSet")}</Label>
               <Select
                 value={gamesPerSet}
                 onValueChange={(value) => {
                   setGamesPerSet(value)
-                  if (value === "4") {
-                    setScoringSystem("fast4")
-                  }
-                  applySettingsAuto({ gamesPerSet: Number.parseInt(value) })
+                  if (value === "4") setScoringSystem("fast4")
                 }}
                 disabled={match.isCompleted}
               >
@@ -1026,8 +1123,8 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                 </SelectContent>
               </Select>
 
-              {!match.settings?.isSuperSet && (() => {
-                const totalSets = match.settings?.sets || 3
+              {setsCount !== "super" && (() => {
+                const totalSets = Number.parseInt(setsCount) || 3
                 if (!totalSets || totalSets < 2) return null
                 return (
                   <div className="mt-3">
@@ -1046,25 +1143,14 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                             <span className="text-sm font-medium w-20 shrink-0">{t("newMatch.setNumber", { n: setIdx + 1 })}:</span>
                             <Select
                               value={gamesPerSetOverrides[setIdx] || gamesPerSet}
-                              onValueChange={(v) => {
+                              onValueChange={(v) =>
                                 setGamesPerSetOverrides((prev) => {
                                   const next = { ...prev }
-                                  if (v === gamesPerSet) {
-                                    delete next[setIdx]
-                                  } else {
-                                    next[setIdx] = v
-                                  }
+                                  if (v === gamesPerSet) delete next[setIdx]
+                                  else next[setIdx] = v
                                   return next
                                 })
-                                const updatedOverrides = { ...gamesPerSetOverrides }
-                                if (v === gamesPerSet) {
-                                  delete updatedOverrides[setIdx]
-                                } else {
-                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                  ; (updatedOverrides as any)[setIdx] = Number.parseInt(v)
-                                }
-                                applySettingsAuto({ gamesPerSetOverrides: updatedOverrides })
-                              }}
+                              }
                               disabled={match.isCompleted}
                             >
                               <SelectTrigger className="flex-1">
@@ -1085,17 +1171,14 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               })()}
             </div>
 
-            {/* Tiebreak settings — auto-apply on change */}
+            {/* Tiebreak settings */}
             <div className="border rounded-md py-4 px-[3px] bg-[#f3f5f7] shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <Label>{t("newMatch.tiebreak")}</Label>
                 <Switch
                   id="tiebreak-enabled"
                   checked={tiebreakEnabled}
-                  onCheckedChange={(checked) => {
-                    setTiebreakEnabled(checked)
-                    applySettingsAuto({ tiebreakEnabled: checked })
-                  }}
+                  onCheckedChange={(checked) => setTiebreakEnabled(checked)}
                   disabled={match.isCompleted}
                   className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                 />
@@ -1107,31 +1190,25 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                     <Label>{t("match.tiebreakType")}</Label>
                     <Select
                       value={tiebreakFormat}
-                      onValueChange={(value) => {
-                        setTiebreakFormat(value)
-                        applySettingsAuto({ tiebreakFormat: value })
-                      }}
+                      onValueChange={(value) => setTiebreakFormat(value)}
                       disabled={match.isCompleted}
                     >
                       <SelectTrigger className="mt-2">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                         <SelectItem value="two-clear">{t("newMatch.tiebreakTwoClear")}</SelectItem>
-                         <SelectItem value="receiver-select-1-or-2">{t("newMatch.tiebreakReceiver12")}</SelectItem>
-                         <SelectItem value="receiver-select-1-2-or-3">{t("newMatch.tiebreakReceiver123")}</SelectItem>
-                         <SelectItem value="receiver-select-1-or-3">{t("newMatch.tiebreakReceiver13")}</SelectItem>
-                         <SelectItem value="sudden-death">{t("newMatch.tiebreakSuddenDeath")}</SelectItem>
+                        <SelectItem value="two-clear">{t("newMatch.tiebreakTwoClear")}</SelectItem>
+                        <SelectItem value="receiver-select-1-or-2">{t("newMatch.tiebreakReceiver12")}</SelectItem>
+                        <SelectItem value="receiver-select-1-2-or-3">{t("newMatch.tiebreakReceiver123")}</SelectItem>
+                        <SelectItem value="receiver-select-1-or-3">{t("newMatch.tiebreakReceiver13")}</SelectItem>
+                        <SelectItem value="sudden-death">{t("newMatch.tiebreakSuddenDeath")}</SelectItem>
                       </SelectContent>
                     </Select>
 
-                     <Label className="mt-4 block">{t("newMatch.tiebreakPoints")}</Label>
+                    <Label className="mt-4 block">{t("newMatch.tiebreakPoints")}</Label>
                     <Select
                       value={tiebreakLength}
-                      onValueChange={(value) => {
-                        setTiebreakLength(value)
-                        applySettingsAuto({ tiebreakLength: Number.parseInt(value) })
-                      }}
+                      onValueChange={(value) => setTiebreakLength(value)}
                       disabled={match.isCompleted}
                     >
                       <SelectTrigger className="mt-2">
@@ -1154,10 +1231,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                     <Label>{t("match.tiebreakAt")}</Label>
                     <Select
                       value={tiebreakAt}
-                      onValueChange={(value) => {
-                        setTiebreakAt(value)
-                        applySettingsAuto({ tiebreakAt: value })
-                      }}
+                      onValueChange={(value) => setTiebreakAt(value)}
                       disabled={match.isCompleted}
                     >
                       <SelectTrigger>
@@ -1180,7 +1254,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               )}
             </div>
 
-            {/* Additional settings — auto-apply on change */}
+            {/* Additional */}
             <div className="border rounded-md py-4 px-[3px] bg-[#f8fdf9] shadow-md">
               <Label className="text-base font-medium">{t("match.additional")}</Label>
               <div className="space-y-2 mt-3">
@@ -1188,10 +1262,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   <Checkbox
                     id="golden-game"
                     checked={goldenGame}
-                    onCheckedChange={(checked) => {
-                      setGoldenGame(checked as boolean)
-                      applySettingsAuto({ goldenGame: checked })
-                    }}
+                    onCheckedChange={(checked) => setGoldenGame(checked as boolean)}
                     disabled={match.isCompleted}
                   />
                   <Label htmlFor="golden-game" className="text-sm">
@@ -1203,10 +1274,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   <Checkbox
                     id="windbreak"
                     checked={windbreak}
-                    onCheckedChange={(checked) => {
-                      setWindbreak(checked as boolean)
-                      applySettingsAuto({ windbreak: checked })
-                    }}
+                    onCheckedChange={(checked) => setWindbreak(checked as boolean)}
                     disabled={match.isCompleted}
                   />
                   <Label htmlFor="windbreak" className="text-sm">
@@ -1216,6 +1284,17 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               </div>
             </div>
           </div>
+
+          <SectionApplyBar
+            isDirty={isRulesDirty}
+            savedAt={rulesSavedAt}
+            onApply={applyRules}
+            disabled={match.isCompleted}
+            applyLabel={t_apply}
+            savedLabel={t_saved}
+            unsavedLabel={t_unsaved}
+            savedAtLabel={savedAtFormatter}
+          />
 
           <div className="pt-2 border-t">
             {match.isCompleted ? (
@@ -1232,9 +1311,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                 variant="destructive"
                 className="w-full mt-2 shadow-md transition-all duration-200 active:scale-95 bg-gradient-to-b from-[#ff6b6b] to-[#dc3545] hover:from-[#ff8585] hover:to-[#ff6b6b] text-white"
                 onClick={() => {
-                  if (confirm(t("match.confirmEndMatch"))) {
-                    endMatch()
-                  }
+                  if (confirm(t("match.confirmEndMatch"))) endMatch()
                 }}
               >
                 {t("match.endMatch")}

@@ -69,8 +69,26 @@ describe("useMatch hook", () => {
       await result.current.updateMatch(sampleMatch({ revision: 2 }))
     })
 
-    expect(result.current.match.revision).toBe(2)
+    // Local optimistic apply bumps revision so a stale realtime echo with the
+    // server's old number is filtered out by the revision guard (slow-network
+    // flicker fix). The caller's revision is the floor, not the final value.
+    expect(result.current.match.revision).toBeGreaterThanOrEqual(3)
     expect(persistMatch).toHaveBeenCalledTimes(1)
+  })
+
+  it("bumps revision locally on optimistic update so stale realtime echoes are ignored", async () => {
+    getMatch.mockResolvedValue(sampleMatch({ revision: 5 }))
+    persistMatch.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useMatch("m1"))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // The scoring engine does not touch revision — caller passes the previous
+    // revision through. The hook must bump it locally.
+    await act(async () => {
+      await result.current.updateMatch(sampleMatch({ revision: 5 }))
+    })
+
+    expect(result.current.match.revision).toBeGreaterThan(5)
   })
 
   it("subscribes to realtime updates for the match id", async () => {

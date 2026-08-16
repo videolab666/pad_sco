@@ -4,6 +4,7 @@ import { logEvent } from "@/lib/error-logger"
 import { buildCourtVmixPayload } from "@/lib/match-view"
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { matchToRow } from "@/lib/match-supabase"
+import { isAuthorizedApiRequest } from "@/lib/api-auth"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -82,6 +83,12 @@ const toMatchRow = (match: any): Record<string, any> => matchToRow(match)
  */
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    // Whole-snapshot writes mutate matches — require the API key (this route
+    // used to be a public write hole; nothing in the app calls it).
+    if (!isAuthorizedApiRequest(request)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const resolvedParams = await params
     const matchId = resolvedParams.id
     if (!matchId) {

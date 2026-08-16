@@ -6,9 +6,16 @@
 // copies had quietly diverged: server-match-storage dropped `code` and
 // `revision`. Both directions now live here so they can never drift again.
 
+import { backfillExtendedMatchState, pickExtras, spreadExtras } from "./match-extended-state"
+
 /**
  * In-app match snapshot → Supabase `matches` row (snake_case).
  * `code` is intentionally omitted — there is no `code` column in the table.
+ *
+ * Extended-state fields (events / timing / rally stats / toss / …) are packed
+ * into the `extras` jsonb column so older deployments without that column
+ * simply ignore the field (Postgres rejects unknown columns; callers handle
+ * that by retrying without `extras` — see migrations/<ts>_extras.sql).
  */
 export function matchToRow(match: any): Record<string, any> {
   return {
@@ -27,6 +34,7 @@ export function matchToRow(match: any): Record<string, any> {
     winner: match.winner || null,
     court_number: match.courtNumber,
     created_via_court_link: match.created_via_court_link,
+    extras: pickExtras(match),
   }
 }
 
@@ -34,9 +42,13 @@ export function matchToRow(match: any): Record<string, any> {
  * Supabase `matches` row → in-app match snapshot (camelCase).
  * Returns the full superset of fields (`code`, `revision`,
  * `created_via_court_link`) so every caller gets a complete object.
+ *
+ * Extended-state fields (events / timing / …) are read back from the `extras`
+ * jsonb column. Missing `extras` (older row, un-migrated database) is fine:
+ * `backfillExtendedMatchState` populates the defaults.
  */
 export function matchFromRow(row: any): any {
-  return {
+  const match: any = {
     id: row.id,
     code: row.code,
     type: row.type,
@@ -56,4 +68,7 @@ export function matchFromRow(row: any): any {
     revision: typeof row.revision === "number" ? row.revision : 0,
     history: [],
   }
+  spreadExtras(match, row.extras)
+  backfillExtendedMatchState(match)
+  return match
 }

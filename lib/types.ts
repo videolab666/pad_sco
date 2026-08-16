@@ -1,3 +1,6 @@
+/** Canonical team identifier used across the scoring engine and the UI. */
+export type TeamKey = "teamA" | "teamB";
+
 export interface Player {
   id: string;
   name: string;
@@ -5,6 +8,13 @@ export interface Player {
   color?: string;
   local_expire_at?: number; // ms since epoch, for temporary local-only players
   dyId?: string; // external id from a double-yellow.be feed, for import dedup
+  // ─── Extended fields (Task 0, sourced from APK player metadata) ──────────────
+  country?: string;
+  club?: string;
+  avatar?: string;
+  seed?: string;
+  abbreviation?: string;
+  teamId?: string;
 }
 
 export interface AddPlayerOptions {
@@ -23,42 +33,62 @@ export interface Team {
   name?: string;
 }
 
+// ─── Score shape (unified with the live scoring engine) ───────────────────────
+//
+// The runtime engine (lib/scoring-logic.ts) operates on `score.sets`,
+// `score.currentSet` — these types make that shape part of the canonical
+// contract instead of leaving it as `any[]`.
+
+export interface SavedSet {
+  teamA: number;
+  teamB: number;
+  winner: TeamKey;
+  tiebreak?: { teamA: number; teamB: number };
+}
+
+export interface CurrentGame {
+  teamA: number | string;
+  teamB: number | string;
+  deuceCount?: number;
+}
+
+export interface CurrentSet {
+  teamA: number;
+  teamB: number;
+  games: { winner: TeamKey }[];
+  currentGame: CurrentGame;
+  isTiebreak: boolean;
+  isSuperTiebreak?: boolean;
+  tiebreak?: { teamA: number; teamB: number };
+}
+
+export interface MatchScore {
+  teamA: number;
+  teamB: number;
+  sets: SavedSet[];
+  currentSet: CurrentSet;
+}
+
 export interface Match {
   created_via_court_link?: boolean;
   id: string;
   isCompleted: boolean;
   createdAt: string;
   type: string;
+  format?: string;
   code?: string;
   courtNumber: number;
   teamA: Team;
   teamB: Team;
-  sets: {
-    number: number;
-    pointsA: number;
-    pointsB: number;
-  }[];
-  currentSet: number;
-  currentPoint: number;
-  score: {
-    teamA: number;
-    teamB: number;
-    sets?: any[]; // Use any[] as placeholder for set structure
-    currentSet?: any; // Use any as placeholder for currentSet structure
-  };
-  settings: {
-    theme: string;
-    colors: {
-      teamA: string;
-      teamB: string;
-      court: string;
-    };
-  };
+  score: MatchScore;
+  settings: Record<string, any>;
   currentServer: {
-    team: "teamA" | "teamB";
+    team: TeamKey;
     playerIndex: number;
   };
-  courtSides?: any;
+  courtSides?: { teamA: string; teamB: string };
+  shouldChangeSides?: boolean;
+  winner?: TeamKey | null;
   /** Tournament round / stage label (metadata only — never affects the score). */
   round?: string;
   /** Monotonic write counter used for optimistic-concurrency sync. */
@@ -71,6 +101,232 @@ export interface Match {
   ruleChangeScope?: RuleChangeScope;
   /** Human-readable classification / reason of the last rule change. */
   ruleChangeReason?: string;
+  // ─── Task 1 extended state (all optional, populated by backfill) ─────────────
+  events?: MatchEvent[];
+  timing?: MatchTiming;
+  rallyStats?: RallyStat[];
+  newBalls?: NewBallsState;
+  handicap?: HandicapState;
+  toss?: TossState;
+  powerPlay?: PowerPlayState;
+  timeouts?: Record<TeamKey, TimeoutRecord[]>;
+  officialCalls?: OfficialCall[];
+  endMatchReason?: EndMatchReason;
+  shareUrl?: string;
+  matchMetadata?: MatchMetadata;
+  pendingTiebreakChoice?: PendingTiebreakChoice;
+  /** Original snapshot used as the replay seed for richer undo. */
+  seedSnapshot?: any;
+}
+
+// ─── Extended state (Task 1) ──────────────────────────────────────────────────
+
+export type NewBallsMode =
+  | "off"
+  | "after-first-7-then-each-9"
+  | "after-first-9-then-each-11"
+  | "after-first-11-then-each-13"
+  | "before-set-3";
+
+export interface NewBallsState {
+  mode: NewBallsMode;
+  lastChangeAtStartOfGame: number;
+  pendingInGames: number | null;
+}
+
+export type HandicapFormat = "none" | "same-for-all-games" | "different-for-all-games";
+
+export interface HandicapState {
+  format: HandicapFormat;
+  sameForAllGames?: { teamA: number; teamB: number };
+  perGame?: Record<string, { teamA: number; teamB: number }>;
+}
+
+export type TiebreakFormatExt =
+  | "two-clear"
+  | "sudden-death"
+  | "receiver-select-1-or-2"
+  | "receiver-select-1-2-or-3"
+  | "receiver-select-1-or-3";
+
+export interface PendingTiebreakChoice {
+  baseTarget: number;
+  options: number[];
+  receiverTeam: TeamKey;
+}
+
+export type DoublesServeSequence =
+  | "A1B1A2B2"
+  | "A1A2B1B2"
+  | "A1B1A1B1"
+  | "A2B1B2_then_A1A2B1B2"
+  | "A1B1B2_then_A1A2B1B2";
+
+export type EndMatchReason = "completed" | "retired-injury" | "conduct" | "time-up";
+
+export type MatchEventType =
+  | "point"
+  | "undo"
+  | "manual-score-edit"
+  | "timer"
+  | "timeout"
+  | "new-balls"
+  | "toss"
+  | "rally-stat"
+  | "conduct"
+  | "appeal"
+  | "power-play"
+  | "broken-equipment"
+  | "end-match-manual"
+  | "match-end"
+  | "result-poster";
+
+/**
+ * Settings block for Task 16 ResultPoster. Lives under `match.settings.resultPoster`
+ * so it is preserved across reloads / Supabase sync like every other setting.
+ */
+export interface ResultPosterConfig {
+  url?: string;
+  basicAuth?: {
+    username: string;
+    password?: string;
+  };
+  /**
+   * When true, the orchestrator auto-posts the result the first time the
+   * match transitions to `isCompleted = true`. When false the operator must
+   * fire it manually.
+   */
+  autoOnComplete?: boolean;
+}
+
+export interface MatchEvent {
+  id: string;
+  type: MatchEventType;
+  at: string;
+  setIndex: number;
+  gameIndex: number;
+  pointIndex?: number;
+  actor?: TeamKey;
+  payload: Record<string, unknown>;
+}
+
+// ─── Timing ───────────────────────────────────────────────────────────────────
+
+export interface GameTiming {
+  setIndex: number;
+  gameIndex: number;
+  startedAt: string;
+  endedAt?: string;
+  scoreTimingsSec: number[];
+  startTimeIsManual?: boolean;
+}
+
+export type MatchTimerType =
+  | "warmup"
+  | "pause-before-first-game"
+  | "pause-between-games"
+  | "self-inflicted-injury"
+  | "self-inflicted-blood-injury"
+  | "contributed-injury"
+  | "opponent-inflicted-injury"
+  | "toweling-down"
+  | "timeout";
+
+export interface MatchTimer {
+  id: string;
+  type: MatchTimerType;
+  team?: TeamKey;
+  startedAt: string;
+  durationSec: number;
+  pausedAt?: string;
+  remainingSec?: number;
+}
+
+export interface MatchTiming {
+  matchStartedAt?: string;
+  matchEndedAt?: string;
+  games: GameTiming[];
+  activeTimer?: MatchTimer;
+}
+
+// ─── Toss ─────────────────────────────────────────────────────────────────────
+
+export type TossChoice = "serve" | "receive";
+export type TossSide = "left" | "right";
+
+export interface TossState {
+  winner?: TeamKey;
+  winnerChoice?: TossChoice;
+  receiverSide?: TossSide | null;
+  completedAt?: string;
+}
+
+// ─── Power play ───────────────────────────────────────────────────────────────
+
+export interface PowerPlayState {
+  maxPerTeam: number;
+  used: { teamA: number; teamB: number };
+  activeFor: TeamKey[];
+}
+
+// ─── Timeouts ─────────────────────────────────────────────────────────────────
+
+export interface TimeoutRecord {
+  at: string;
+  setScore: { teamA: number; teamB: number };
+  gameScore: { teamA: number | string; teamB: number | string };
+}
+
+// ─── Rally stats ──────────────────────────────────────────────────────────────
+
+export type RallyEndKind = "winner" | "error";
+export type RacketSide = "forehand" | "backhand" | "unknown";
+export type StrikePosition = "front" | "middle" | "back" | "unknown";
+export type BallDirection = "cross" | "down-line" | "middle" | "unknown";
+export type BallTrajectory = "lob" | "drive" | "drop" | "volley" | "smash" | "unknown";
+
+export interface RallyStat {
+  id: string;
+  pointEventId?: string;
+  at: string;
+  scoringTeam: TeamKey;
+  creditedTeam: TeamKey;
+  kind: RallyEndKind;
+  racketSide?: RacketSide;
+  position?: StrikePosition;
+  direction?: BallDirection;
+  trajectory?: BallTrajectory;
+}
+
+// ─── Official calls (conduct / appeal / broken-equipment) ─────────────────────
+
+export type OfficialCallType = "appeal" | "conduct" | "broken-equipment";
+export type AppealDecision = "let" | "no-let" | "stroke" | "yes-let";
+export type ConductPenalty = "warning" | "stroke" | "game" | "match";
+
+export interface OfficialCall {
+  id: string;
+  at: string;
+  type: OfficialCallType;
+  team: TeamKey;
+  decision?: AppealDecision;
+  penalty?: ConductPenalty;
+  equipment?: "racket" | "string" | "ball" | "other";
+  note?: string;
+}
+
+// ─── Metadata ─────────────────────────────────────────────────────────────────
+
+export interface MatchMetadata {
+  eventName?: string;
+  eventDivision?: string;
+  eventRound?: string;
+  eventLocation?: string;
+  referee?: string;
+  marker?: string;
+  assessor?: string;
+  source?: string;
+  sourceId?: string;
 }
 
 /**

@@ -9,6 +9,12 @@
 import { getTennisPointName } from "./tennis-utils"
 import { getImportantPoint, isGamePoint, isSetPoint, isMatchPoint } from "./scoring-logic"
 import { getSetsToWin as getConfiguredSetsToWin } from "./match-format-rules"
+import {
+  formatDurationMs,
+  getCurrentGameDurationMs,
+  getMatchDurationMs,
+} from "./match-timing"
+import { newBallsInXGames } from "./new-balls"
 
 type TeamKey = "teamA" | "teamB"
 
@@ -229,6 +235,27 @@ export function buildVmixFlatData(match: any): Record<string, any> {
     is_completed: match?.isCompleted ? "True" : "False",
     winner: match?.winner || "",
 
+    // ─── Task 14 extras (always emitted, safely 0 / "" for old matches) ─────
+    match_duration: formatDurationMs(getMatchDurationMs(match)),
+    match_duration_ms: getMatchDurationMs(match),
+    current_game_duration: formatDurationMs(getCurrentGameDurationMs(match)),
+    current_game_duration_ms: getCurrentGameDurationMs(match),
+    active_timer_type: match?.timing?.activeTimer?.type ?? "",
+    active_timer_remaining: deriveTimerRemainingSec(match?.timing?.activeTimer),
+    new_balls_in_games: newBallsInXGames(match) ?? -1,
+    new_balls_now: newBallsInXGames(match) === 0 ? "True" : "False",
+    last_event_type: lastEventType(match),
+    teamA_winners: countRallyStats(match, "teamA", "winner"),
+    teamB_winners: countRallyStats(match, "teamB", "winner"),
+    teamA_errors: countRallyStats(match, "teamA", "error"),
+    teamB_errors: countRallyStats(match, "teamB", "error"),
+    teamA_timeouts: (match?.timeouts?.teamA?.length ?? 0),
+    teamB_timeouts: (match?.timeouts?.teamB?.length ?? 0),
+    toss_winner: match?.toss?.winner ?? "",
+    toss_choice: match?.toss?.winnerChoice ?? "",
+    power_play_active_for: (match?.powerPlay?.activeFor ?? []).join(",") || "",
+    end_match_reason: match?.endMatchReason ?? "",
+
     timestamp: new Date().toISOString(),
     update_time: new Date().toLocaleTimeString(),
   }
@@ -296,4 +323,32 @@ export function buildCourtVmixPayload(match: any, courtNumber: number | null): R
     data[`teamB_set${i + 1}`] = setsB[i] !== undefined ? setsB[i] : ""
   }
   return data
+}
+
+// ─── Task 14 helpers (private to match-view) ──────────────────────────────────
+
+function deriveTimerRemainingSec(timer: any): number {
+  if (!timer?.startedAt) return 0
+  const duration = Number(timer.durationSec) || 0
+  // When paused, the engine writes a `remainingSec` snapshot — honour it.
+  if (typeof timer.remainingSec === "number") return Math.max(0, Math.floor(timer.remainingSec))
+  const startedMs = new Date(timer.startedAt).getTime()
+  const elapsedSec = Math.floor((Date.now() - startedMs) / 1000)
+  return Math.max(0, duration - elapsedSec)
+}
+
+function lastEventType(match: any): string {
+  const events = match?.events
+  if (!Array.isArray(events) || events.length === 0) return ""
+  return String(events[events.length - 1]?.type ?? "")
+}
+
+function countRallyStats(match: any, team: TeamKey, kind: "winner" | "error"): number {
+  const stats = match?.rallyStats
+  if (!Array.isArray(stats)) return 0
+  let n = 0
+  for (const s of stats) {
+    if (s?.creditedTeam === team && s?.kind === kind) n++
+  }
+  return n
 }

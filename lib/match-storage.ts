@@ -8,6 +8,7 @@ import { syncMatchToServer, initSyncRecovery, reconcileServerSnapshot } from "./
 import { clearSyncRecord } from "./match-operation-log"
 import { backfillRuleMetadata } from "./match-rule-change"
 import { matchToRow, matchFromRow } from "./match-supabase"
+import { backfillExtendedMatchState } from "./match-extended-state"
 
 // Максимальное количество хранимых матчей в локальном хранилище
 const MAX_MATCHES = 10
@@ -474,6 +475,8 @@ export const getMatch = async (idOrCode: string) => {
 
       // Бэкфилл недостающих правил для старых матчей (Task 7).
       backfillRuleMetadata(match)
+      // Бэкфилл extended-state полей (Task 1: events / timing / newBalls / …).
+      backfillExtendedMatchState(match)
 
       // Сохраняем в кэш
       matchCache.set(idOrCode, { data: match, timestamp: Date.now() })
@@ -507,6 +510,8 @@ export const getMatch = async (idOrCode: string) => {
 
       // Бэкфилл недостающих правил для старых матчей (Task 7).
       backfillRuleMetadata(foundMatch)
+      // Бэкфилл extended-state полей (Task 1).
+      backfillExtendedMatchState(foundMatch)
 
       // Сохраняем в кэш
       matchCache.set(idOrCode, { data: foundMatch, timestamp: Date.now() })

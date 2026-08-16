@@ -89,6 +89,14 @@ export type TranslationKeys = {
     teamB: string
     serve: string
     undo: string
+    undoPoint: string
+    undoGame: string
+    undoSet: string
+    undoUnavailable: string
+    reopenSet: string
+    reopenSetTitle: string
+    reopenSetDescription: string
+    reopenSetConfirm: string
     settings: string
     scoreCard: string
     scoreControls: string
@@ -137,6 +145,8 @@ export type TranslationKeys = {
     selectTiebreakScore: string
     additional: string
     goldenGame: string
+    goldenGameDescription: string
+    goldenGameTiebreakOff: string
     windbreak: string
     applySettings: string
     apply: string
@@ -363,6 +373,8 @@ export type TranslationKeys = {
     finalSetTiebreakLengthDescription: string
     finalSetTiebreakNote: string
     goldenGame: string
+    goldenGameDescription: string
+    goldenGameTiebreakOff: string
     windbreak: string
     format: string
     selectFormat: string
@@ -425,6 +437,7 @@ export type TranslationKeys = {
     goldenPointFirstDeuce: string
     goldenPointSecondDeuce: string
     goldenPointThirdDeuce: string
+    goldenPointDescription: string
     tiebreakPoints: string
     tiebreakTwoClear: string
     tiebreakReceiver12: string
@@ -779,6 +792,7 @@ export type TranslationKeys = {
     search: string
     selectAll: string
     import: string
+    translitNames: string
     changePlatform: string
     changeTournament: string
     startOver: string
@@ -1022,6 +1036,96 @@ export type TranslationKeys = {
     vmixDeleted: string
     vmixDeleteException: string
   }
+  extras: {
+    newBalls: string
+    newBallsIn: string
+    matchDuration: string
+    gameDuration: string
+    timerWarmup: string
+    timerPause: string
+    timerTimeout: string
+    timerInjury: string
+    timerTowel: string
+    toss: string
+    tossTitle: string
+    tossWhoWon: string
+    tossChose: string
+    tossWhichLeft: string
+    tossRandom: string
+    tossServe: string
+    tossReceive: string
+    tossWins: string
+    tossOnLeft: string
+    tossRestart: string
+    endMatch: string
+    endMatchTitle: string
+    endMatchPickReason: string
+    endMatchWhoWins: string
+    endMatchRetired: string
+    endMatchRetiredDesc: string
+    endMatchConduct: string
+    endMatchConductDesc: string
+    endMatchTime: string
+    endMatchTimeDesc: string
+    adjust: string
+    adjustTitle: string
+    adjustDescription: string
+    adjustGamePoints: string
+    adjustSetGames: string
+    adjustServingTeam: string
+    teamA: string
+    teamB: string
+    cancel: string
+    apply: string
+    back: string
+    history: string
+    historyAll: string
+    historyPoints: string
+    historyEdits: string
+    historyTimer: string
+    historyTimeouts: string
+    historyConduct: string
+    historyRally: string
+    historyUndo: string
+    historyEmpty: string
+    historyLocation: string
+    tiebreakChoiceTitle: string
+    tiebreakChoiceDescription: string
+    tiebreakChoiceOption: string
+    call: string
+    callTitle: string
+    callDescription: string
+    callType: string
+    callTeam: string
+    callConduct: string
+    callAppeal: string
+    callBroken: string
+    callPenalty: string
+    callDecision: string
+    callEquipment: string
+    powerPlay: string
+    rally: string
+    rallyTitle: string
+    rallyDescription: string
+    rallyScoredBy: string
+    rallyKind: string
+    rallyRacketSide: string
+    rallyPosition: string
+    rallyDirection: string
+    rallyTrajectory: string
+    rallyRecord: string
+    rallyOptional: string
+    handicap: string
+    handicapNextGame: string
+    handicapClear: string
+    handicapApplySame: string
+    resultPoster: string
+    resultPosterUrl: string
+    resultPosterUsername: string
+    resultPosterPassword: string
+    resultPosterAuto: string
+    resultPosterPostNow: string
+  }
 }
 
 export const translations: { [key in Language]: TranslationKeys } = {
@@ -1108,6 +1212,14 @@ export const translations: { [key in Language]: TranslationKeys } = {
       teamB: "Команда B",
       serve: "Подача",
       undo: "Отменить",
+      undoPoint: "Очко",
+      undoGame: "Гейм",
+      undoSet: "Сет",
+      undoUnavailable: "Точный откат недоступен: журнал событий расходится со счетом. Используйте «Переиграть сет» (↩) в редактировании счета.",
+      reopenSet: "Переиграть сет",
+      reopenSetTitle: "Переиграть сет {n}?",
+      reopenSetDescription: "Сет {n} снова станет текущим — со счетом из строки выше (исправьте его кнопками ±). Прогресс текущего и следующих сетов будет удален.",
+      reopenSetConfirm: "Переиграть сет",
       settings: "Настройки",
       scoreCard: "Табло счета",
       scoreControls: "Управление счетом",
@@ -1157,6 +1269,8 @@ export const translations: { [key in Language]: TranslationKeys } = {
       selectTiebreakScore: "Выберите счет для тай-брейка",
       additional: "Дополнительно",
       goldenGame: "Золотой гейм (падел)",
+      goldenGameDescription: "Решающий гейм при 5:5: следующий выигранный гейм забирает сет (6:5), отрыв в два гейма не требуется",
+      goldenGameTiebreakOff: "Золотой гейм включён — тай-брейк отключён: сет завершается при 6:5, счёт 6:6 не наступает",
       windbreak: "Виндрейк (подача через гейм)",
       applySettings: "Применить настройки",
       apply: "Применить",
@@ -1383,6 +1497,8 @@ export const translations: { [key in Language]: TranslationKeys } = {
       finalSetTiebreakLengthDescription: "Выберите длину тай-брейка в решающем сете",
       finalSetTiebreakNote: "Эта настройка влияет только на завершающий сет и не связана с обычными тайбрейками.",
       goldenGame: "Золотой гейм (падел)",
+      goldenGameDescription: "Решающий гейм при 5:5: следующий выигранный гейм забирает сет (6:5), отрыв в два гейма не требуется",
+      goldenGameTiebreakOff: "Золотой гейм включён — тай-брейк отключён: сет завершается при 6:5, счёт 6:6 не наступает",
       windbreak: "Виндрейк (подача через гейм)",
       format: "Формат игры",
       selectFormat: "Выберите формат",
@@ -1445,6 +1561,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       goldenPointFirstDeuce: "Про - первый ровно",
       goldenPointSecondDeuce: "Любитель - второй ровно",
       goldenPointThirdDeuce: "Звезда - третий ровно",
+      goldenPointDescription: "При ровно (40:40) следующий выигранный мяч забирает гейм: «Про» — с первого ровно, «Любитель» — со второго, «Звезда» — с третьего. «Выкл» — классическая игра через «больше/меньше».",
       tiebreakPoints: "Очки тайбрейка",
       tiebreakTwoClear: "С разницей в 2 очка",
       tiebreakReceiver12: "Принимающий выбирает 1 или 2",
@@ -1800,6 +1917,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       search: "Поиск...",
       selectAll: "Выбрать все",
       import: "Импортировать",
+      translitNames: "Транслитерация имён (кириллица → латиница)",
       changePlatform: "Сменить платформу",
       changeTournament: "Сменить турнир",
       startOver: "В начало",
@@ -2043,6 +2161,96 @@ export const translations: { [key in Language]: TranslationKeys } = {
       vmixDeleted: "Удалены настройки vMix: {id}",
       vmixDeleteException: "Исключение при удалении настроек vMix",
     },
+    extras: {
+      newBalls: "НОВЫЕ МЯЧИ",
+      newBallsIn: "Мячи через {count}",
+      matchDuration: "Матч",
+      gameDuration: "Гейм",
+      timerWarmup: "Разминка",
+      timerPause: "Пауза",
+      timerTimeout: "Таймаут",
+      timerInjury: "Травма",
+      timerTowel: "Полотенце",
+      toss: "Жребий",
+      tossTitle: "Розыгрыш жребия",
+      tossWhoWon: "Кто выиграл жребий?",
+      tossChose: "{name} выбирает…",
+      tossWhichLeft: "Какая команда на левой стороне корта?",
+      tossRandom: "Случайно",
+      tossServe: "Подавать",
+      tossReceive: "Принимать",
+      tossWins: "{name} выиграл",
+      tossOnLeft: "{name} ← Слева",
+      tossRestart: "Сбросить",
+      endMatch: "Завершить матч",
+      endMatchTitle: "Завершить матч вручную",
+      endMatchPickReason: "Выберите причину досрочного завершения.",
+      endMatchWhoWins: "Кому присуждается победа?",
+      endMatchRetired: "Снялся (травма)",
+      endMatchRetiredDesc: "Игрок снялся из-за травмы — побеждает другая команда.",
+      endMatchConduct: "Дисквалификация",
+      endMatchConductDesc: "Матч завершён из-за нарушения поведения.",
+      endMatchTime: "Время вышло",
+      endMatchTimeDesc: "Достигнут лимит времени матча.",
+      adjust: "Правка",
+      adjustTitle: "Скорректировать счёт",
+      adjustDescription: "Ручная корректировка текущего гейма / сета / подающего.",
+      adjustGamePoints: "Очки в гейме",
+      adjustSetGames: "Геймы в сете",
+      adjustServingTeam: "Подающая команда",
+      teamA: "Команда A",
+      teamB: "Команда B",
+      cancel: "Отмена",
+      apply: "Применить",
+      back: "Назад",
+      history: "История",
+      historyAll: "Все",
+      historyPoints: "Очки",
+      historyEdits: "Правки",
+      historyTimer: "Таймеры",
+      historyTimeouts: "Таймауты",
+      historyConduct: "Поведение",
+      historyRally: "Розыгрыши",
+      historyUndo: "Отмены",
+      historyEmpty: "Событий пока нет.",
+      historyLocation: "сет {set}, гейм {game}",
+      tiebreakChoiceTitle: "Цель тай-брейка",
+      tiebreakChoiceDescription: "{name} выбирает, сколько очков нужно выиграть. База: {base}.",
+      tiebreakChoiceOption: "+{offset} (цель {target})",
+      call: "Вызов",
+      callTitle: "Решение судьи",
+      callDescription: "Записать решение судьи. Conduct stroke автоматически присуждает очко.",
+      callType: "Тип",
+      callTeam: "Команда",
+      callConduct: "Поведение",
+      callAppeal: "Апелляция",
+      callBroken: "Сломан инвентарь",
+      callPenalty: "Санкция",
+      callDecision: "Решение",
+      callEquipment: "Инвентарь",
+      powerPlay: "Power Play",
+      rally: "Розыгрыш",
+      rallyTitle: "Исход розыгрыша",
+      rallyDescription: "Записать детали розыгрыша. Счёт не меняется.",
+      rallyScoredBy: "Очко выиграла",
+      rallyKind: "Тип",
+      rallyRacketSide: "Сторона ракетки",
+      rallyPosition: "Позиция",
+      rallyDirection: "Направление",
+      rallyTrajectory: "Траектория",
+      rallyRecord: "Записать",
+      rallyOptional: "(опционально)",
+      handicap: "Гандикап",
+      handicapNextGame: "Каждый новый гейм начнётся со счёта {a}-{b}.",
+      handicapClear: "Сбросить",
+      handicapApplySame: "Применить ко всем геймам",
+      resultPoster: "Отправка результата",
+      resultPosterUrl: "URL приёмника",
+      resultPosterUsername: "Логин",
+      resultPosterPassword: "Пароль",
+      resultPosterAuto: "Авто-отправка при завершении матча",
+      resultPosterPostNow: "Отправить сейчас",
+    },
   },
   en: {
     common: {
@@ -2127,6 +2335,14 @@ export const translations: { [key in Language]: TranslationKeys } = {
       teamB: "Team B",
       serve: "Serve",
       undo: "Undo",
+      undoPoint: "Point",
+      undoGame: "Game",
+      undoSet: "Set",
+      undoUnavailable: "Exact undo unavailable: the event journal diverges from the score. Use 'Reopen set' (↩) in score editing.",
+      reopenSet: "Reopen set",
+      reopenSetTitle: "Reopen set {n}?",
+      reopenSetDescription: "Set {n} becomes the current set again — with the score from the row above (fix it with the ± buttons). Progress of the current and following sets will be deleted.",
+      reopenSetConfirm: "Reopen set",
       settings: "Settings",
       scoreCard: "Score Card",
       scoreControls: "Score Controls",
@@ -2175,6 +2391,8 @@ export const translations: { [key in Language]: TranslationKeys } = {
       selectTiebreakScore: "Select tiebreak score",
       additional: "Additional",
       goldenGame: "Golden Game (Padel)",
+      goldenGameDescription: "Decisive game at 5-5: the next game won takes the set (6-5), no two-game margin required",
+      goldenGameTiebreakOff: "Golden game is on — tiebreak disabled: the set ends at 6-5, 6-6 never occurs",
       windbreak: "Windbreak (serve every other game)",
       applySettings: "Apply Settings",
       apply: "Apply",
@@ -2401,6 +2619,8 @@ export const translations: { [key in Language]: TranslationKeys } = {
       finalSetTiebreakLengthDescription: "Select the length of the tiebreak in the deciding set",
       finalSetTiebreakNote: "This setting only affects the final set and is not related to regular tiebreaks.",
       goldenGame: "Golden Game (Padel)",
+      goldenGameDescription: "Decisive game at 5-5: the next game won takes the set (6-5), no two-game margin required",
+      goldenGameTiebreakOff: "Golden game is on — tiebreak disabled: the set ends at 6-5, 6-6 never occurs",
       windbreak: "Windbreak (serve every other game)",
       format: "Game Format",
       selectFormat: "Select Format",
@@ -2463,6 +2683,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       goldenPointFirstDeuce: "Pro - first deuce",
       goldenPointSecondDeuce: "Amateur - second deuce",
       goldenPointThirdDeuce: "Star - third deuce",
+      goldenPointDescription: "At deuce (40-40) the next point won takes the game: Pro — from the first deuce, Amateur — from the second, Star — from the third. Off — classic advantage play.",
       tiebreakPoints: "Tiebreak points",
       tiebreakTwoClear: "Two clear points",
       tiebreakReceiver12: "Receiver selects 1 or 2",
@@ -2818,6 +3039,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       search: "Search...",
       selectAll: "Select all",
       import: "Import",
+      translitNames: "Transliterate names (Cyrillic → Latin)",
       changePlatform: "Change platform",
       changeTournament: "Change tournament",
       startOver: "Start over",
@@ -3061,6 +3283,96 @@ export const translations: { [key in Language]: TranslationKeys } = {
       vmixDeleted: "Deleted vMix settings: {id}",
       vmixDeleteException: "Exception deleting vMix settings",
     },
+    extras: {
+      newBalls: "NEW BALLS",
+      newBallsIn: "Balls in {count}",
+      matchDuration: "Match",
+      gameDuration: "Game",
+      timerWarmup: "Warmup",
+      timerPause: "Pause",
+      timerTimeout: "Timeout",
+      timerInjury: "Injury",
+      timerTowel: "Towel",
+      toss: "Toss",
+      tossTitle: "Coin toss",
+      tossWhoWon: "Who won the toss?",
+      tossChose: "{name} chose to…",
+      tossWhichLeft: "Which team is on the left side of the court?",
+      tossRandom: "Random",
+      tossServe: "Serve",
+      tossReceive: "Receive",
+      tossWins: "{name} wins",
+      tossOnLeft: "{name} ← Left",
+      tossRestart: "Restart",
+      endMatch: "End match",
+      endMatchTitle: "End match manually",
+      endMatchPickReason: "Pick the reason this match is ending early.",
+      endMatchWhoWins: "Who is awarded the win?",
+      endMatchRetired: "Retired (injury)",
+      endMatchRetiredDesc: "A player retires due to injury — the other team wins.",
+      endMatchConduct: "Conduct disqualification",
+      endMatchConductDesc: "Match ended by a conduct match penalty.",
+      endMatchTime: "Time up",
+      endMatchTimeDesc: "Match ended because the time limit was reached.",
+      adjust: "Adjust",
+      adjustTitle: "Adjust current score",
+      adjustDescription: "Manually correct the current game / set / serving team.",
+      adjustGamePoints: "Game points",
+      adjustSetGames: "Set games",
+      adjustServingTeam: "Serving team",
+      teamA: "Team A",
+      teamB: "Team B",
+      cancel: "Cancel",
+      apply: "Apply",
+      back: "Back",
+      history: "History",
+      historyAll: "All",
+      historyPoints: "Points",
+      historyEdits: "Edits",
+      historyTimer: "Timers",
+      historyTimeouts: "Timeouts",
+      historyConduct: "Conduct",
+      historyRally: "Rally",
+      historyUndo: "Undo",
+      historyEmpty: "No events yet.",
+      historyLocation: "set {set}, game {game}",
+      tiebreakChoiceTitle: "Tiebreak target",
+      tiebreakChoiceDescription: "{name} chooses how many points must be won. Base: {base}.",
+      tiebreakChoiceOption: "+{offset} (target {target})",
+      call: "Call",
+      callTitle: "Official call",
+      callDescription: "Record a referee call. Conduct strokes award a point automatically.",
+      callType: "Type",
+      callTeam: "Team",
+      callConduct: "Conduct",
+      callAppeal: "Appeal",
+      callBroken: "Broken equipment",
+      callPenalty: "Penalty",
+      callDecision: "Decision",
+      callEquipment: "Equipment",
+      powerPlay: "Power Play",
+      rally: "Rally",
+      rallyTitle: "Rally outcome",
+      rallyDescription: "Record rally details. Score is not changed.",
+      rallyScoredBy: "Scored by",
+      rallyKind: "Kind",
+      rallyRacketSide: "Racket side",
+      rallyPosition: "Position",
+      rallyDirection: "Direction",
+      rallyTrajectory: "Trajectory",
+      rallyRecord: "Record",
+      rallyOptional: "(optional)",
+      handicap: "Handicap",
+      handicapNextGame: "Each new game starts at {a}-{b}.",
+      handicapClear: "Clear",
+      handicapApplySame: "Apply same-for-all-games",
+      resultPoster: "Result posting",
+      resultPosterUrl: "Endpoint URL",
+      resultPosterUsername: "Username",
+      resultPosterPassword: "Password",
+      resultPosterAuto: "Auto-post when the match ends",
+      resultPosterPostNow: "Post now",
+    },
   },
   uk: {
     common: {
@@ -3145,6 +3457,14 @@ export const translations: { [key in Language]: TranslationKeys } = {
       teamB: "Команда B",
       serve: "Подача",
       undo: "Скасувати",
+      undoPoint: "Очко",
+      undoGame: "Гейм",
+      undoSet: "Сет",
+      undoUnavailable: "Точний відкат недоступний: журнал подій розходиться з рахунком. Використайте «Переграти сет» (↩) у редагуванні рахунку.",
+      reopenSet: "Переграти сет",
+      reopenSetTitle: "Переграти сет {n}?",
+      reopenSetDescription: "Сет {n} знову стане поточним — з рахунком з рядка вище (виправте його кнопками ±). Прогрес поточного та наступних сетів буде видалено.",
+      reopenSetConfirm: "Переграти сет",
       settings: "Налаштування",
       scoreCard: "Табло рахунку",
       scoreControls: "Керування рахунком",
@@ -3193,6 +3513,8 @@ export const translations: { [key in Language]: TranslationKeys } = {
       selectTiebreakScore: "Виберіть рахунок для тай-брейку",
       additional: "Додатково",
       goldenGame: "Золотий гейм (Падел)",
+      goldenGameDescription: "Вирішальний гейм при 5:5: наступний виграний гейм забирає сет (6:5), відрив у два гейми не потрібен",
+      goldenGameTiebreakOff: "Золотий гейм увімкнено — тай-брейк вимкнено: сет завершується при 6:5, рахунок 6:6 не настане",
       windbreak: "Віндбрейк (подача через гейм)",
       applySettings: "Застосувати налаштування",
       apply: "Застосувати",
@@ -3419,6 +3741,8 @@ export const translations: { [key in Language]: TranslationKeys } = {
       finalSetTiebreakLengthDescription: "Оберіть довжину тай-брейку у вирішальному сеті",
       finalSetTiebreakNote: "Це налаштування впливає лише на заключний сет і не пов'язане зі звичайними тай-брейками.",
       goldenGame: "Золотий гейм (Падел)",
+      goldenGameDescription: "Вирішальний гейм при 5:5: наступний виграний гейм забирає сет (6:5), відрив у два гейми не потрібен",
+      goldenGameTiebreakOff: "Золотий гейм увімкнено — тай-брейк вимкнено: сет завершується при 6:5, рахунок 6:6 не настане",
       windbreak: "Віндбрейк (подача через гейм)",
       format: "Формат гри",
       selectFormat: "Виберіть формат",
@@ -3481,6 +3805,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       goldenPointFirstDeuce: "Про - перший рівно",
       goldenPointSecondDeuce: "Аматор - другий рівно",
       goldenPointThirdDeuce: "Зірка - третій рівно",
+      goldenPointDescription: "При рівно (40:40) наступний виграний м'яч забирає гейм: «Про» — з першого рівно, «Аматор» — з другого, «Зірка» — з третього. «Вимк» — класична гра через «більше/менше».",
       tiebreakPoints: "Очки тайбрейку",
       tiebreakTwoClear: "З різницею в 2 очки",
       tiebreakReceiver12: "Приймаючий обирає 1 або 2",
@@ -3836,6 +4161,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       search: "Пошук...",
       selectAll: "Вибрати всіх",
       import: "Імпортувати",
+      translitNames: "Транслітерація імен (кирилиця → латиниця)",
       changePlatform: "Змінити платформу",
       changeTournament: "Змінити турнір",
       startOver: "На початок",
@@ -4078,6 +4404,96 @@ export const translations: { [key in Language]: TranslationKeys } = {
       vmixDeleteError: "Помилка при видаленні налаштувань vMix: {id}",
       vmixDeleted: "Видалено налаштування vMix: {id}",
       vmixDeleteException: "Виняток при видаленні налаштувань vMix",
+    },
+    extras: {
+      newBalls: "НОВІ М'ЯЧІ",
+      newBallsIn: "М'ячі через {count}",
+      matchDuration: "Матч",
+      gameDuration: "Гейм",
+      timerWarmup: "Розминка",
+      timerPause: "Пауза",
+      timerTimeout: "Таймаут",
+      timerInjury: "Травма",
+      timerTowel: "Рушник",
+      toss: "Жереб",
+      tossTitle: "Розіграш жеребу",
+      tossWhoWon: "Хто виграв жереб?",
+      tossChose: "{name} обирає…",
+      tossWhichLeft: "Яка команда на лівій стороні корту?",
+      tossRandom: "Випадково",
+      tossServe: "Подавати",
+      tossReceive: "Приймати",
+      tossWins: "{name} виграв",
+      tossOnLeft: "{name} ← Зліва",
+      tossRestart: "Скинути",
+      endMatch: "Завершити матч",
+      endMatchTitle: "Завершити матч вручну",
+      endMatchPickReason: "Виберіть причину дострокового завершення.",
+      endMatchWhoWins: "Кому присуджується перемога?",
+      endMatchRetired: "Знявся (травма)",
+      endMatchRetiredDesc: "Гравець знявся через травму — перемагає інша команда.",
+      endMatchConduct: "Дискваліфікація",
+      endMatchConductDesc: "Матч завершено через порушення поведінки.",
+      endMatchTime: "Час вийшов",
+      endMatchTimeDesc: "Досягнуто ліміт часу матчу.",
+      adjust: "Правка",
+      adjustTitle: "Скоригувати рахунок",
+      adjustDescription: "Ручне коригування поточного гейма / сета / подавача.",
+      adjustGamePoints: "Очки в геймі",
+      adjustSetGames: "Гейми в сеті",
+      adjustServingTeam: "Команда, що подає",
+      teamA: "Команда A",
+      teamB: "Команда B",
+      cancel: "Скасувати",
+      apply: "Застосувати",
+      back: "Назад",
+      history: "Історія",
+      historyAll: "Всі",
+      historyPoints: "Очки",
+      historyEdits: "Правки",
+      historyTimer: "Таймери",
+      historyTimeouts: "Таймаути",
+      historyConduct: "Поведінка",
+      historyRally: "Розіграші",
+      historyUndo: "Скасування",
+      historyEmpty: "Подій ще немає.",
+      historyLocation: "сет {set}, гейм {game}",
+      tiebreakChoiceTitle: "Ціль тай-брейку",
+      tiebreakChoiceDescription: "{name} обирає, скільки очок потрібно виграти. База: {base}.",
+      tiebreakChoiceOption: "+{offset} (ціль {target})",
+      call: "Виклик",
+      callTitle: "Рішення судді",
+      callDescription: "Записати рішення судді. Conduct stroke автоматично надає очко.",
+      callType: "Тип",
+      callTeam: "Команда",
+      callConduct: "Поведінка",
+      callAppeal: "Апеляція",
+      callBroken: "Зламаний інвентар",
+      callPenalty: "Санкція",
+      callDecision: "Рішення",
+      callEquipment: "Інвентар",
+      powerPlay: "Power Play",
+      rally: "Розіграш",
+      rallyTitle: "Результат розіграшу",
+      rallyDescription: "Записати деталі розіграшу. Рахунок не змінюється.",
+      rallyScoredBy: "Очко виграла",
+      rallyKind: "Тип",
+      rallyRacketSide: "Сторона ракетки",
+      rallyPosition: "Позиція",
+      rallyDirection: "Напрямок",
+      rallyTrajectory: "Траєкторія",
+      rallyRecord: "Записати",
+      rallyOptional: "(опціонально)",
+      handicap: "Гандикап",
+      handicapNextGame: "Кожен новий гейм починатиметься з рахунку {a}-{b}.",
+      handicapClear: "Скинути",
+      handicapApplySame: "Застосувати до всіх геймів",
+      resultPoster: "Відправка результату",
+      resultPosterUrl: "URL приймача",
+      resultPosterUsername: "Логін",
+      resultPosterPassword: "Пароль",
+      resultPosterAuto: "Авто-відправка при завершенні матчу",
+      resultPosterPostNow: "Надіслати зараз",
     },
   },
 }

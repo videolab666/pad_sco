@@ -25,9 +25,12 @@ import {
 } from "./match-adjust"
 import { undoBackOneGame, undoBackOneSet, undoLastScoringEvent, verifyJournal } from "./match-undo"
 import { endMatchManually } from "./match-end-reason"
+import { commitToss } from "./toss"
+import { normalizeMatchState, recomputeMatchCompletion } from "./scoring-logic"
+import { appendStateOverrideEvent, scoreStateOf } from "./match-events"
 import { safeUuid } from "./utils/safe-uuid"
 import { v5 as uuidv5 } from "uuid"
-import type { EndMatchReason, Player, Team, TeamKey } from "./types"
+import type { EndMatchReason, Player, Team, TeamKey, TossChoice } from "./types"
 
 // Stable namespace for turning free-form operation ids into DB uuids.
 const OPERATION_NAMESPACE = "9c8f3a10-6d52-4c1e-9f7a-2b8e4d6c5a01"
@@ -69,6 +72,9 @@ export const REMOTE_COMMANDS = [
   "end-match",
   "unlock-match",
   "set-players",
+  "set-rules",
+  "toss",
+  "assign-court",
 ] as const
 
 export type RemoteCommandName = (typeof REMOTE_COMMANDS)[number]
@@ -255,12 +261,112 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
       return next
     }
 
+    case "set-rules": {
+      const patch = args?.rules ?? args?.settings ?? args
+      if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+        throw new RemoteCommandError(
+          "invalid_args",
+          "args.rules must be an object with rule keys to patch (e.g. { gamesPerSet: 4 })",
+        )
+      }
+      const unknown = Object.keys(patch).filter((k) => !(REMOTE_RULES_KEYS as readonly string[]).includes(k))
+      if (unknown.length > 0) {
+        throw new RemoteCommandError(
+          "invalid_args",
+          `Unknown rule keys: ${unknown.join(", ")}. Allowed: ${REMOTE_RULES_KEYS.join(", ")}`,
+        )
+      }
+      // Same commit path as the UI rules card: shallow-merge, normalize the
+      // live score for the new rules, recompute completion, bump the rule
+      // revision, journal with settings (replay depends on them).
+      const next = JSON.parse(JSON.stringify(match))
+      next.settings = { ...next.settings, ...patch }
+      next.history = []
+      let result = normalizeMatchState(next)
+      result = recomputeMatchCompletion(result)
+      result.ruleRevision = (typeof match.ruleRevision === "number" ? match.ruleRevision : 0) + 1
+      result.lastRuleChangeAt = new Date().toISOString()
+      return appendStateOverrideEvent(result, "rule-change", scoreStateOf(match), { includeSettings: true })
+    }
+
+    case "toss": {
+      const winner = assertTeam(args?.winner, "args.winner")
+      const choice = args?.choice
+      if (choice !== "serve" && choice !== "receive") {
+        throw new RemoteCommandError("invalid_args", 'args.choice must be "serve" or "receive"')
+      }
+      const teamOnLeft = assertTeam(args?.teamOnLeft, "args.teamOnLeft")
+      return commitToss(match, { winner, choice: choice as TossChoice, teamOnLeft })
+    }
+
+    case "assign-court": {
+      const court = args?.court ?? null
+      if (court !== null && !(isNonNegativeInt(court) && court >= 1 && court <= 50)) {
+        throw new RemoteCommandError("invalid_args", "args.court must be a court number (1..50) or null")
+      }
+      // Court assignment affects display only — no journal event needed.
+      return { ...JSON.parse(JSON.stringify(match)), courtNumber: court, history: [] }
+    }
+
     default:
       throw new RemoteCommandError(
         "unknown_command",
         `Unknown command "${command}". Supported: ${REMOTE_COMMANDS.join(", ")}`,
       )
   }
+}
+
+/** Rule keys a remote `set-rules` patch may touch. */
+export const REMOTE_RULES_KEYS = [
+  "sets",
+  "gamesPerSet",
+  "gamesPerSetOverrides",
+  "tiebreakEnabled",
+  "tiebreakFormat",
+  "tiebreakLength",
+  "tiebreakAt",
+  "finalSetTiebreak",
+  "finalSetFinish",
+  "finalSetTiebreakLength",
+  "scoringSystem",
+  "goldenPointFormat",
+  "goldenGame",
+  "windbreak",
+  "isSuperSet",
+  "superSetTarget",
+  "superSetTiebreakAt",
+  "doublesServeSequence",
+] as const
+
+export interface RemoteBatchCommand {
+  command: string
+  args?: Record<string, unknown>
+}
+
+/**
+ * Apply a sequence of commands atomically: either every command applies to
+ * the snapshot (result returned, one revision bump at the HTTP layer), or
+ * nothing is applied. On failure throws RemoteCommandError with the failing
+ * command index in `batchIndex`.
+ */
+export function applyRemoteBatch(match: any, commands: RemoteBatchCommand[]): any {
+  let cur = match
+  for (let i = 0; i < commands.length; i++) {
+    const c = commands[i]
+    try {
+      cur = applyRemoteCommand(cur, c.command, c.args ?? {})
+    } catch (e: any) {
+      if (e instanceof RemoteCommandError) {
+        throw new RemoteCommandError(
+          e.code,
+          `batch[${i}] (${c.command}): ${e.message}`,
+          e.status,
+        )
+      }
+      throw e
+    }
+  }
+  return cur
 }
 
 function isScoreRow(v: unknown): v is ScoreEditRow {

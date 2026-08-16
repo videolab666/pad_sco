@@ -231,3 +231,77 @@ describe("stableOperationUuid", () => {
     expect(stableOperationUuid(u.toUpperCase())).toBe(u)
   })
 })
+
+describe("applyRemoteCommand — set-rules", () => {
+  it("patches rules, recomputes and journals with settings", () => {
+    let m = freshMatch()
+    m = score(m, "teamA", 24) // сет 6-0
+    const patched = applyRemoteCommand(m, "set-rules", { rules: { sets: 1 } })
+    expect(patched.settings.sets).toBe(1)
+    // 6-0 сет при sets=1 — матч завершается пересчётом
+    expect(patched.isCompleted).toBe(true)
+    expect(patched.ruleRevision).toBe(1)
+    const ev = patched.events.at(-1)
+    expect(ev.payload.action).toBe("rule-change")
+    expect(ev.payload.after.settings.sets).toBe(1)
+  })
+
+  it("rejects unknown rule keys", () => {
+    const e = err(() => applyRemoteCommand(freshMatch(), "set-rules", { rules: { hack: 1 } }))
+    expect(e.code).toBe("invalid_args")
+    expect(e.message).toContain("hack")
+  })
+})
+
+describe("applyRemoteCommand — toss / assign-court", () => {
+  it("commitToss sets server and sides from the decision", () => {
+    const m = applyRemoteCommand(freshMatch(), "toss", {
+      winner: "teamB",
+      choice: "receive",
+      teamOnLeft: "teamB",
+    })
+    expect(m.currentServer.team).toBe("teamA") // выигравший принял — подаёт другой
+    expect(m.courtSides).toEqual({ teamA: "right", teamB: "left" })
+    expect(m.events.at(-1).type).toBe("toss")
+  })
+
+  it("validates toss args", () => {
+    expect(err(() => applyRemoteCommand(freshMatch(), "toss", { winner: "teamA", choice: "heads", teamOnLeft: "teamA" })).code).toBe("invalid_args")
+  })
+
+  it("assigns and clears the court", () => {
+    const m = applyRemoteCommand(freshMatch(), "assign-court", { court: 7 })
+    expect(m.courtNumber).toBe(7)
+    const cleared = applyRemoteCommand(m, "assign-court", { court: null })
+    expect(cleared.courtNumber).toBe(null)
+    expect(err(() => applyRemoteCommand(freshMatch(), "assign-court", { court: 0 })).code).toBe("invalid_args")
+  })
+})
+
+describe("applyRemoteBatch", () => {
+  it("applies a sequence atomically over one snapshot", async () => {
+    const { applyRemoteBatch } = await import("../lib/remote-commands")
+    const m = applyRemoteBatch(freshMatch(), [
+      { command: "adjust-set", args: { teamA: 5, teamB: 5 } },
+      { command: "adjust-game", args: { teamA: 0, teamB: 0 } },
+      { command: "point", args: { team: "teamA" } },
+    ])
+    expect(m.score.currentSet.teamA).toBe(5)
+    expect(m.score.currentSet.currentGame).toEqual({ teamA: 15, teamB: 0 })
+  })
+
+  it("aborts the whole batch on a failing command (nothing applied)", async () => {
+    const { applyRemoteBatch } = await import("../lib/remote-commands")
+    const base = freshMatch()
+    const e = err(() =>
+      applyRemoteBatch(base, [
+        { command: "point", args: { team: "teamA" } },
+        { command: "explode" },
+      ]),
+    )
+    expect(e.code).toBe("unknown_command")
+    expect(e.message).toContain("batch[1]")
+    // вход не тронут — атомарность на уровне вызывающего (ничего не пишем)
+    expect(base.score.currentSet.currentGame).toEqual({ teamA: 0, teamB: 0 })
+  })
+})

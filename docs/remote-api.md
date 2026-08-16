@@ -16,11 +16,19 @@ X-API-Key: <ключ>
 
 Посмотреть ключ: `grep SCOREBOARD_API_KEY .env.local`
 
-- `POST /api/match/[id]/command` — команды (ниже)
+- `POST /api/match/[id]/command` — одна команда (ниже)
+- `POST /api/match/[id]/commands` — **batch**: массив команд одной ревизией, атомарно
+  (либо все применились, либо ничего; ошибка содержит индекс `batch[i]`;
+  `{ operationId, commands: [{command, args}] }`, до 100 команд; идемпотентность — на уровне батча)
 - `PUT  /api/match/[id]` — запись полного снапшота (тоже закрыт ключом)
 
-Без ключа — `401`. Чтение (`GET /api/match/[id]`, `/api/court/[n]`,
-`/api/vmix/[id]`) остаётся публичным — как и раньше, для vMix.
+Чтение (публичное, как раньше для vMix):
+
+- `GET /api/match/[id]`, `/api/court/[n]`, `/api/vmix/[id]` — состояние матча
+- `GET /api/matches?limit=20&court=5&active=true` — каталог матчей для драйвера:
+  UUID, корт, статус, составы — чтобы не ходить в БД за идентификатором
+
+Без ключа мутации — `401`.
 
 ## POST /api/match/[id]/command
 
@@ -61,6 +69,9 @@ X-API-Key: <ключ>
 | `end-match` | `{ reason: "retired-injury"\|"conduct"\|"time-up", winner }` | досрочное завершение |
 | `unlock-match` | — | разблокировать завершённый матч |
 | `set-players` | `{ teamA?: { name?, players: string[] }, teamB?: … }` | имена/составы (id игроков стабильны по имени) |
+| `set-rules` | `{ rules: { gamesPerSet?, tiebreakLength?, … } }` | патч правил (white-list ключей: sets, gamesPerSet, gamesPerSetOverrides, tiebreak*, finalSet*, scoringSystem, goldenPointFormat, goldenGame, windbreak, isSuperSet, superSet*, doublesServeSequence); живой счёт нормализуется, исход пересчитывается |
+| `toss` | `{ winner, choice: "serve"\|"receive", teamOnLeft }` | жребий: подача и стороны |
+| `assign-court` | `{ court: 1..50 \| null }` | назначить/снять корт |
 
 ## Примеры (curl)
 

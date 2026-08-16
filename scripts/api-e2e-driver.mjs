@@ -55,6 +55,20 @@ async function scoreboardJson() {
   return Array.isArray(arr) ? arr[0] : null
 }
 
+async function dbRevision() {
+  const r = await sb.from("matches").select("revision").eq("id", TEMP_ID).maybeSingle()
+  return r.data?.revision ?? 0
+}
+
+async function postBatch(commands, operationId) {
+  const r = await fetch(`${BASE}/api/match/${TEMP_ID}/commands`, {
+    method: "POST",
+    headers: { "X-API-Key": KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ operationId, commands }),
+  })
+  return { status: r.status, body: await r.json().catch(() => null) }
+}
+
 async function main() {
   console.log("== Setup: temporary match ==")
   await sb.from("matches").delete().eq("id", TEMP_ID)
@@ -217,6 +231,75 @@ async function main() {
     const json = await scoreboardJson()
     const st = await lastState()
     ok("JSON и стейт согласованы после гонки", json?.teamA_current_set === st.score.currentSet.teamA)
+  }
+
+  console.log("== 9. set-rules / toss / assign-court (фаза 2) ==")
+  {
+    let r = await cmd("set-rules", { rules: { goldenGame: true, tiebreakLength: 9 } })
+    ok(
+      "set-rules применил патч",
+      r.body.match?.settings?.goldenGame === true && r.body.match?.settings?.tiebreakLength === 9,
+      `golden=${r.body.match?.settings?.goldenGame} tbLen=${r.body.match?.settings?.tiebreakLength}`,
+    )
+    ok("set-rules журнализирован с настройками", r.body.match?.events?.at(-1)?.payload?.action === "rule-change")
+    const bad = await cmd("set-rules", { rules: { nonsense: 1 } })
+    ok("set-rules с неизвестным ключом → 400", bad.status === 400 && bad.body.code === "invalid_args")
+
+    r = await cmd("toss", { winner: "teamB", choice: "receive", teamOnLeft: "teamB" })
+    ok(
+      "toss: принял — подаёт teamA, teamB слева",
+      r.body.match?.currentServer?.team === "teamA" && r.body.match?.courtSides?.teamB === "left",
+    )
+
+    r = await cmd("assign-court", { court: 7 })
+    ok("assign-court → корт 7", r.body.match?.courtNumber === 7)
+    r = await cmd("assign-court", { court: null })
+    ok("assign-court null → без корта", r.body.match?.courtNumber === null || r.body.match?.courtNumber === undefined)
+  }
+
+  console.log("== 10. batch (атомарно, одной ревизией) ==")
+  {
+    const revBefore = await dbRevision()
+    const r = await postBatch(
+      [
+        { command: "adjust-set", args: { teamA: 2, teamB: 1 } },
+        { command: "adjust-game", args: { teamA: 0, teamB: 0 } },
+        { command: "point", args: { team: "teamB" } },
+      ],
+      "e2e-batch-1",
+    )
+    ok("batch: 200, применено 3 команды", r.status === 200 && r.body.applied === 3 && r.body.status === "ok",
+      `http=${r.status} body=${JSON.stringify(r.body).slice(0, 120)}`)
+    ok("batch: одна ревизия", r.body.revision === revBefore + 1, `rev ${r.body.revision} после ${revBefore}`)
+    ok(
+      "batch: состояние = результат последовательности",
+      r.body.match?.score?.currentSet?.teamA === 2 && r.body.match?.score?.currentSet?.currentGame?.teamB === 15,
+    )
+
+    const afterOk = JSON.stringify((await lastState()).score.currentSet)
+    const fail = await postBatch([
+      { command: "adjust-set", args: { teamA: 0, teamB: 0 } },
+      { command: "point", args: { team: "left" } },
+    ])
+    ok("batch с ошибкой → 400 с индексом", fail.status === 400 && (fail.body.error || "").includes("batch[1]"),
+      JSON.stringify(fail.body).slice(0, 140))
+    const afterFail = JSON.stringify((await lastState()).score.currentSet)
+    ok("batch с ошибкой ничего не изменил", afterFail === afterOk)
+
+    const repeat = await postBatch([{ command: "adjust-set", args: { teamA: 0, teamB: 0 } }], "e2e-batch-1")
+    ok("batch: повтор operationId → idempotent", repeat.body.idempotent === true && repeat.body.match?.score?.currentSet?.teamA === 2)
+  }
+
+  console.log("== 11. GET /api/matches (каталог для драйвера) ==")
+  {
+    const r = await fetch(`${BASE}/api/matches?limit=50`)
+    const list = await r.json()
+    ok("GET /api/matches → 200 массив", r.status === 200 && Array.isArray(list))
+    const mine = Array.isArray(list) ? list.find((x) => x.id === TEMP_ID) : null
+    ok("временный матч в каталоге с составами", !!mine && mine.teamA?.length === 2 && mine.teamB?.length === 2,
+      JSON.stringify(mine)?.slice(0, 140))
+    const active = await (await fetch(`${BASE}/api/matches?active=true&limit=100`)).json()
+    ok("active=true фильтрует завершённые", Array.isArray(active) && active.every((x) => x.isCompleted === false))
   }
 
   console.log("== Cleanup ==")

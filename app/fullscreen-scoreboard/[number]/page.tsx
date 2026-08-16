@@ -13,6 +13,7 @@ import { Maximize2, Minimize2, ArrowLeft, Clock } from "lucide-react"
 import { translations, type Language } from "@/lib/translations"
 import { getDefaultVmixSettings } from "@/lib/vmix-settings-storage"
 import { VmixScoreboard } from "@/components/vmix-scoreboard"
+import { CourtMediaLayer } from "@/components/media-overlay"
 import type { ScoreboardSettings } from "@/lib/scoreboard-settings"
 
 type FullscreenScoreboardParams = {
@@ -643,9 +644,13 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
     }
   }, [courtNumber, language, lastMatchId, isCompletedMatch])
 
+  // All states (loading / error / no match / live match) render through the
+  // same container so CourtMediaLayer stays mounted across transitions — ads
+  // must keep playing when a match ends, appears or errors out.
+  let content: React.ReactNode
   if (loading || loadingSettings) {
-    return (
-      <div className="flex items-center justify-center h-screen w-screen bg-black text-white">
+    content = (
+      <div className="flex items-center justify-center h-full w-full bg-black text-white">
         <div className="text-center">
           <div className="mb-4 text-xl">
             {loading ? getTranslation("common.loading", "Loading...", language) : "Загрузка настроек..."}
@@ -654,62 +659,109 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
         </div>
       </div>
     )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-screen w-screen bg-black">
+  } else if (error) {
+    content = (
+      <div className="flex items-center justify-center h-full w-full bg-black">
         <div className="text-red-500 text-2xl p-8 text-center">{error}</div>
       </div>
     )
-  }
+  } else if (!match || !settingsLoaded) {
+    content = <div className="h-full w-full bg-black" />
+  } else {
+    // Сборка единой модели настроек для <VmixScoreboard>. Поля, не влияющие на
+    // полноэкранную раскладку (fontSize/bgOpacity/playerNamesFontSize/outputFormat),
+    // заполнены безопасными значениями по умолчанию.
+    const settings: ScoreboardSettings = {
+      theme,
+      showNames,
+      showPoints,
+      showSets,
+      showServer,
+      showCountry,
+      showBreakPoint,
+      fontSize: "normal",
+      bgOpacity: 0.5,
+      textColor,
+      accentColor,
+      playerNamesFontSize: 1.2,
+      outputFormat: "html",
+      showDebug,
+      namesBgColor,
+      countryBgColor,
+      pointsBgColor,
+      setsBgColor,
+      setsTextColor,
+      indicatorBgColor,
+      indicatorTextColor,
+      indicatorGradient,
+      indicatorGradientFrom,
+      indicatorGradientTo,
+      namesGradient,
+      namesGradientFrom,
+      namesGradientTo,
+      countryGradient,
+      countryGradientFrom,
+      countryGradientTo,
+      pointsGradient,
+      pointsGradientFrom,
+      pointsGradientTo,
+      setsGradient,
+      setsGradientFrom,
+      setsGradientTo,
+      serveBgColor,
+      serveGradient,
+      serveGradientFrom,
+      serveGradientTo,
+    }
 
-  if (!match || !settingsLoaded) return null
+    content = (
+      <>
+        <div className="header">
+          <div className="flex items-center">
+            <Link href="/" className="mr-4 text-white hover:text-gray-300 transition-colors flex items-center">
+              <ArrowLeft size={24} />
+            </Link>
+            <div className="text-2xl font-bold">
+              {match.type === "tennis"
+                ? getTranslation("scoreboard.tennis", "Tennis", language)
+                : getTranslation("scoreboard.padel", "Padel", language)}{" "}
+              -{" "}
+              {match.format === "singles"
+                ? getTranslation("scoreboard.singles", "Singles", language)
+                : getTranslation("scoreboard.doubles", "Doubles", language)}
+              {isCompletedMatch && (
+                <span className="ml-2 inline-flex items-center text-amber-400">
+                  <Clock size={20} />
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center">
+            <div className="text-xl">
+              {getTranslation("scoreboard.court", "Court", language)} {courtNumber} - {new Date().toLocaleTimeString()}
+            </div>
+            <button
+              className="fullscreen-button"
+              onClick={toggleFullscreen}
+              title={
+                isFullscreen
+                  ? getTranslation("common.exitFullscreen", "Exit fullscreen", language)
+                  : getTranslation("common.enterFullscreen", "Enter fullscreen", language)
+              }
+            >
+              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+          </div>
+        </div>
 
-  // Сборка единой модели настроек для <VmixScoreboard>. Поля, не влияющие на
-  // полноэкранную раскладку (fontSize/bgOpacity/playerNamesFontSize/outputFormat),
-  // заполнены безопасными значениями по умолчанию.
-  const settings: ScoreboardSettings = {
-    theme,
-    showNames,
-    showPoints,
-    showSets,
-    showServer,
-    showCountry,
-    showBreakPoint,
-    fontSize: "normal",
-    bgOpacity: 0.5,
-    textColor,
-    accentColor,
-    playerNamesFontSize: 1.2,
-    outputFormat: "html",
-    showDebug,
-    namesBgColor,
-    countryBgColor,
-    pointsBgColor,
-    setsBgColor,
-    setsTextColor,
-    indicatorBgColor,
-    indicatorTextColor,
-    indicatorGradient,
-    indicatorGradientFrom,
-    indicatorGradientTo,
-    namesGradient,
-    namesGradientFrom,
-    namesGradientTo,
-    countryGradient,
-    countryGradientFrom,
-    countryGradientTo,
-    pointsGradient,
-    pointsGradientFrom,
-    pointsGradientTo,
-    setsGradient,
-    setsGradientFrom,
-    setsGradientTo,
-    serveBgColor,
-    serveGradient,
-    serveGradientFrom,
-    serveGradientTo,
+        <VmixScoreboard
+          match={match}
+          settings={settings}
+          variant="fullscreen"
+          matchOverLabel={getTranslation("scoreboard.matchCompleted", "MATCH IS OVER", language)}
+        />
+      </>
+    )
   }
 
   return (
@@ -772,50 +824,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
       `}</style>
 
       <div className="fullscreen-container" ref={containerRef}>
-        <div className="header">
-          <div className="flex items-center">
-            <Link href="/" className="mr-4 text-white hover:text-gray-300 transition-colors flex items-center">
-              <ArrowLeft size={24} />
-            </Link>
-            <div className="text-2xl font-bold">
-              {match.type === "tennis"
-                ? getTranslation("scoreboard.tennis", "Tennis", language)
-                : getTranslation("scoreboard.padel", "Padel", language)}{" "}
-              -{" "}
-              {match.format === "singles"
-                ? getTranslation("scoreboard.singles", "Singles", language)
-                : getTranslation("scoreboard.doubles", "Doubles", language)}
-              {isCompletedMatch && (
-                <span className="ml-2 inline-flex items-center text-amber-400">
-                  <Clock size={20} />
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center">
-            <div className="text-xl">
-              {getTranslation("scoreboard.court", "Court", language)} {courtNumber} - {new Date().toLocaleTimeString()}
-            </div>
-            <button
-              className="fullscreen-button"
-              onClick={toggleFullscreen}
-              title={
-                isFullscreen
-                  ? getTranslation("common.exitFullscreen", "Exit fullscreen", language)
-                  : getTranslation("common.enterFullscreen", "Enter fullscreen", language)
-              }
-            >
-              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
-          </div>
-        </div>
-
-        <VmixScoreboard
-          match={match}
-          settings={settings}
-          variant="fullscreen"
-          matchOverLabel={getTranslation("scoreboard.matchCompleted", "MATCH IS OVER", language)}
-        />
+        {content}
+        <CourtMediaLayer courtNumber={courtNumber} match={match} />
       </div>
     </>
   )

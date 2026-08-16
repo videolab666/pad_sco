@@ -24,6 +24,7 @@ import {
   normalizeBumper,
   type BumperConfig,
   type MediaItem,
+  type MediaScheduleWindow,
   type MediaTriggers,
 } from "@/lib/media-core"
 
@@ -61,7 +62,17 @@ const SOURCE_LABELS: Record<string, string> = {
   idle: "простой",
   completed: "матч завершён",
   "no-match": "нет матча",
+  schedule: "расписание",
 }
+
+/** HH:MM ↔ минуты от полуночи. */
+const minutesToTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`
+const timeToMinutes = (v: string) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(v ?? "")
+  return m ? Math.min(1439, Number(m[1]) * 60 + Number(m[2])) : 0
+}
+
+const DAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
 /** Client-side metadata probe (duration / dimensions) before upload. */
 function probeMedia(file: File): Promise<{ durationSec: number | null; width: number | null; height: number | null }> {
@@ -311,6 +322,8 @@ function MediaLibrary({
           <div className="space-y-2">
             {items.map((item) => {
               const vertical = !!item.width && !!item.height && item.height > item.width
+              const photos = items.filter((i) => i.kind === "image" && i.id !== item.id)
+              const bgItemId = photos.find((p) => p.storagePath === item.bgPath)?.id ?? "none"
               return (
                 <div key={item.id} className="flex items-center gap-3 rounded-lg border p-2">
                   {item.kind === "image" ? (
@@ -345,6 +358,28 @@ function MediaLibrary({
                         </span>
                       )}
                     </div>
+                    {vertical && item.kind === "video" && (
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Фон под вертикальным видео:</span>
+                        <Select
+                          value={bgItemId}
+                          onValueChange={(v) => patchItem(item.id, { bgItemId: v === "none" ? null : v })}
+                          // перезагрузка после PATCH обновит bgPath
+                        >
+                          <SelectTrigger className="h-7 w-56">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">размытое само видео</SelectItem>
+                            {photos.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Switch checked={item.isActive} onCheckedChange={(v) => patchItem(item.id, { isActive: v })} />
@@ -762,6 +797,151 @@ function TriggersForm({ triggers, onChanged }: { triggers: MediaTriggers; onChan
               <Label htmlFor={`tr-${key}`}>{label}</Label>
             </div>
           ))}
+        </div>
+
+        <div className="space-y-2 rounded-lg border p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <Label className="text-sm font-medium">Расписание (окна показа)</Label>
+              <p className="text-xs text-muted-foreground">
+                «Показывать всегда» — реклама крутится в окно, пока на корте нет живого матча (ночные экраны).
+                «Запретить» — автотриггеры выключены в окно (прайм-тайм), ручной показ работает всегда.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Часовой пояс</Label>
+              <Select
+                value={draft.scheduleTzOffsetMin == null ? "srv" : String(draft.scheduleTzOffsetMin)}
+                onValueChange={(v) => set({ scheduleTzOffsetMin: v === "srv" ? null : Number(v) })}
+              >
+                <SelectTrigger className="h-8 w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="srv">по серверу</SelectItem>
+                  {Array.from({ length: 27 }, (_, i) => i - 12).map((h) => (
+                    <SelectItem key={h} value={String(h * 60)}>
+                      UTC{h >= 0 ? "+" : ""}
+                      {h}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {draft.schedule.map((w, i) => (
+            <div key={i} className="space-y-1.5 rounded-md border bg-muted/20 p-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  className="h-8 w-28"
+                  placeholder="Название"
+                  value={w.name}
+                  onChange={(e) => {
+                    const schedule = [...draft.schedule]
+                    schedule[i] = { ...w, name: e.target.value }
+                    set({ schedule })
+                  }}
+                />
+                <Select
+                  value={w.mode}
+                  onValueChange={(v) => {
+                    const schedule = [...draft.schedule]
+                    schedule[i] = { ...w, mode: v === "deny" ? "deny" : "always" }
+                    set({ schedule })
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-52">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="always">Показывать всегда</SelectItem>
+                    <SelectItem value="deny">Запретить автопоказ</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="time"
+                  className="h-8 w-28"
+                  value={minutesToTime(w.fromMin)}
+                  onChange={(e) => {
+                    const schedule = [...draft.schedule]
+                    schedule[i] = { ...w, fromMin: timeToMinutes(e.target.value) }
+                    set({ schedule })
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">—</span>
+                <Input
+                  type="time"
+                  className="h-8 w-28"
+                  value={minutesToTime(w.toMin)}
+                  onChange={(e) => {
+                    const schedule = [...draft.schedule]
+                    schedule[i] = { ...w, toMin: timeToMinutes(e.target.value) }
+                    set({ schedule })
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => set({ schedule: draft.schedule.filter((_, idx) => idx !== i) })}
+                >
+                  <X className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="mr-1 text-xs text-muted-foreground">Дни:</span>
+                {DAY_LABELS.map((d, di) => {
+                  const active = w.days.includes(di)
+                  return (
+                    <Button
+                      key={d}
+                      type="button"
+                      variant={active ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={() => {
+                        const schedule = [...draft.schedule]
+                        schedule[i] = { ...w, days: active ? w.days.filter((x) => x !== di) : [...w.days, di].sort() }
+                        set({ schedule })
+                      }}
+                    >
+                      {d}
+                    </Button>
+                  )
+                })}
+                <span className="ml-1 text-[11px] text-muted-foreground">ничего не выбрано — каждый день; окно через полночь отметьте по обоим дням</span>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                set({ schedule: [...draft.schedule, { name: "", mode: "always", days: [], fromMin: 9 * 60, toMin: 18 * 60 }] })
+              }
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Окно
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                set({
+                  schedule: [
+                    ...draft.schedule,
+                    { name: "Ночь", mode: "always", days: [], fromMin: 22 * 60, toMin: 8 * 60 },
+                  ],
+                })
+              }
+            >
+              <Star className="mr-1 h-3.5 w-3.5" />
+              Ночное окно 22–08
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-2 rounded-lg border p-3">

@@ -9,16 +9,20 @@ import {
   evaluateMediaState,
   itemDurationSec,
   lastScoreAtFromMatchRow,
+  localDayMinuteForSchedule,
   mediaStateFromRow,
   mediaStateToRow,
   normalizeBumper,
+  normalizeSchedule,
   normalizeTriggers,
   playbackListDurationSec,
   quotaCheck,
   resolveTriggers,
+  scheduleWindowActive,
   sessionStopReason,
   synthesizePlaylistItems,
   type MediaItem,
+  type MediaScheduleWindow,
   type MediaTriggers,
   type PlaylistItemRef,
 } from "../lib/media-core"
@@ -299,5 +303,93 @@ describe("media-core — row mapping", () => {
     expect(lastScoreAtFromMatchRow(withEvents)).toBe(Date.parse("2026-01-01T00:01:00Z"))
     expect(lastScoreAtFromMatchRow({ updated_at: "2026-01-01T00:03:00Z" })).toBe(Date.parse("2026-01-01T00:03:00Z"))
     expect(lastScoreAtFromMatchRow({})).toBeNull()
+  })
+})
+
+describe("media-core — расписание (ночные окна)", () => {
+  // 2026-08-16 — воскресенье (day 6 в нумерации 0=Пн).
+  const T = Date.UTC(2026, 7, 16, 3, 0) // 03:00 UTC
+  const night = (): MediaScheduleWindow => ({ name: "Ночь", mode: "always", days: [], fromMin: 22 * 60, toMin: 8 * 60 })
+
+  it("localDayMinuteForSchedule считает по явному смещению UTC", () => {
+    const t18 = Date.UTC(2026, 7, 16, 18, 0)
+    expect(localDayMinuteForSchedule(t18, 180)).toEqual({ day: 6, minute: 21 * 60 }) // Вс 21:00 UTC+3
+    expect(localDayMinuteForSchedule(t18, -180)).toEqual({ day: 6, minute: 15 * 60 }) // Вс 15:00 UTC-3
+    expect(localDayMinuteForSchedule(t18, 480)).toEqual({ day: 0, minute: 2 * 60 }) // уже Пн 02:00 UTC+8
+    expect(localDayMinuteForSchedule(t18, 0)).toEqual({ day: 6, minute: 18 * 60 }) // UTC
+  })
+
+  it("scheduleWindowActive: обычное окно, через полночь, весь день, дни недели", () => {
+    expect(scheduleWindowActive({ ...night(), fromMin: 600, toMin: 700 }, 0, 650)).toBe(true)
+    expect(scheduleWindowActive({ ...night(), fromMin: 600, toMin: 700 }, 0, 700)).toBe(false) // верхняя граница не входит
+    expect(scheduleWindowActive(night(), 0, 23 * 60)).toBe(true)
+    expect(scheduleWindowActive(night(), 0, 3 * 60)).toBe(true) // после полуночи
+    expect(scheduleWindowActive(night(), 0, 12 * 60)).toBe(false) // день
+    expect(scheduleWindowActive({ ...night(), fromMin: 0, toMin: 0 }, 3, 1439)).toBe(true) // весь день
+    expect(scheduleWindowActive({ ...night(), days: [0, 1, 2] }, 0, 23 * 60)).toBe(true)
+    expect(scheduleWindowActive({ ...night(), days: [0, 1, 2] }, 3, 23 * 60)).toBe(false)
+  })
+
+  it("normalizeSchedule чистит мусор и клампит минуты/дни", () => {
+    const s = normalizeSchedule([
+      { mode: "always", fromMin: "1320", toMin: 480, days: [1, 1, 9, -1] },
+      { mode: "weird" },
+      "junk",
+      { mode: "deny", fromMin: 9999, toMin: -5 },
+    ])
+    expect(s).toHaveLength(2)
+    expect(s[0]).toMatchObject({ mode: "always", fromMin: 1320, toMin: 480, days: [1] })
+    expect(s[1]).toMatchObject({ mode: "deny", fromMin: 1439, toMin: 0 })
+    expect(normalizeTriggers({ schedule: [{ mode: "always", fromMin: 0, toMin: 0 }], scheduleTzOffsetMin: 180 }).schedule).toHaveLength(1)
+  })
+
+  it("always-окно крутит рекламу без матча и с завершённым матчем, без лимита на матч", () => {
+    const triggers = { ...DEFAULT_MEDIA_TRIGGERS, scheduleTzOffsetMin: 0, schedule: [night()] }
+    const noMatch = evaluateMediaState(emptyMediaState(1), null, triggers, T)
+    expect(noMatch.isPlaying).toBe(true)
+    expect(noMatch.source).toBe("schedule")
+
+    const ended = { id: "m1", isCompleted: true, matchEndedAt: T - 60 * 60_000, lastScoreAt: T - 60 * 60_000 }
+    const s = evaluateMediaState(emptyMediaState(1), ended, triggers, T)
+    expect(s.source).toBe("schedule")
+
+    // после остановки ночное окно НЕ гаснет (лимита «один показ на матч» нет)
+    const stopped = applyManualHide(s, T)
+    const again = evaluateMediaState(stopped, ended, { ...triggers, cooldownAfterStopMin: 0 }, T + 1)
+    expect(again.isPlaying).toBe(true)
+    expect(again.source).toBe("schedule")
+  })
+
+  it("always-окно не спорит с живым матчем: до порога не показывает, по простою — idle", () => {
+    const triggers = { ...DEFAULT_MEDIA_TRIGGERS, scheduleTzOffsetMin: 0, schedule: [night()] }
+    const fresh = { id: "m1", isCompleted: false, matchEndedAt: null, lastScoreAt: T - 60_000 }
+    expect(evaluateMediaState(emptyMediaState(1), fresh, triggers, T).isPlaying).toBe(false)
+    const idle = { ...fresh, lastScoreAt: T - 20 * 60_000 }
+    const s2 = evaluateMediaState(emptyMediaState(1), idle, triggers, T)
+    expect(s2.isPlaying).toBe(true)
+    expect(s2.source).toBe("idle") // живой матч → обычный триггер, не расписание
+  })
+
+  it("deny-окно глушит автотриггеры и автосессии, но не принудительные", () => {
+    const triggers = {
+      ...DEFAULT_MEDIA_TRIGGERS,
+      scheduleTzOffsetMin: 0,
+      schedule: [{ name: "Прайм", mode: "deny" as const, days: [], fromMin: 0, toMin: 0 }],
+    }
+    const ended = { id: "m1", isCompleted: true, matchEndedAt: 0, lastScoreAt: 0 }
+    expect(evaluateMediaState(emptyMediaState(1), ended, triggers, T).isPlaying).toBe(false)
+
+    // играющая idle-сессия гаснет при входе в deny-окно
+    const playing = { ...emptyMediaState(1), isPlaying: true, source: "idle" as const, startedAt: T - 60_000, lastMatchId: "m1" }
+    expect(evaluateMediaState(playing, { ...ended, isCompleted: false }, triggers, T).isPlaying).toBe(false)
+
+    // ручная/remote-сессия переживает deny
+    const manual = applyManualShow(emptyMediaState(1), "remote", T - 60_000, 30)
+    expect(evaluateMediaState(manual, null, triggers, T).isPlaying).toBe(true)
+  })
+
+  it("manualOnly сильнее расписания", () => {
+    const triggers = { ...DEFAULT_MEDIA_TRIGGERS, manualOnly: true, scheduleTzOffsetMin: 0, schedule: [night()] }
+    expect(evaluateMediaState(emptyMediaState(1), null, triggers, T).isPlaying).toBe(false)
   })
 })

@@ -54,7 +54,7 @@ export interface MediaPlaylist {
   items: PlaylistItemRef[]
 }
 
-export type MediaTriggerSource = "manual" | "remote" | "idle" | "completed" | "no-match"
+export type MediaTriggerSource = "manual" | "remote" | "idle" | "completed" | "no-match" | "schedule"
 
 export const MEDIA_TRIGGER_SOURCES: readonly MediaTriggerSource[] = [
   "manual",
@@ -62,7 +62,24 @@ export const MEDIA_TRIGGER_SOURCES: readonly MediaTriggerSource[] = [
   "idle",
   "completed",
   "no-match",
+  "schedule",
 ]
+
+/**
+ * Scheduled window (клубное расписание). `fromMin`/`toMin` are minutes from
+ * local midnight; `fromMin > toMin` wraps past midnight (22:00→08:00).
+ * `fromMin === toMin` means the whole day.
+ *   - "always": ads run whenever the court has no LIVE match (night screens);
+ *   - "deny":   automatic triggers are off in the window (prime time).
+ */
+export interface MediaScheduleWindow {
+  name: string
+  mode: "always" | "deny"
+  /** 0 = Пн … 6 = Вс. Empty = every day. */
+  days: number[]
+  fromMin: number
+  toMin: number
+}
 
 export interface MediaTriggers {
   /** Show N minutes after the match completed (0 = off). */
@@ -83,6 +100,13 @@ export interface MediaTriggers {
   loopsLimit: number
   /** After a session stops, wait N minutes before auto-starting again. */
   cooldownAfterStopMin: number
+  /** Scheduled windows (ночь/прайм-тайм); club-wide, not per-court. */
+  schedule: MediaScheduleWindow[]
+  /**
+   * Explicit UTC offset in minutes for schedule windows (e.g. 180 = UTC+3).
+   * null = the server's own timezone.
+   */
+  scheduleTzOffsetMin: number | null
   /** Per-court partial overrides applied on top of the base config. */
   perCourt: Record<string, Partial<Omit<MediaTriggers, "perCourt">>>
 }
@@ -97,6 +121,8 @@ export const DEFAULT_MEDIA_TRIGGERS: MediaTriggers = {
   maxSessionMin: 0,
   loopsLimit: 0,
   cooldownAfterStopMin: 10,
+  schedule: [],
+  scheduleTzOffsetMin: null,
   perCourt: {},
 }
 
@@ -134,6 +160,34 @@ const PER_COURT_KEYS = [
   "cooldownAfterStopMin",
 ] as const
 
+const clampMinute = (v: unknown): number => {
+  const n = typeof v === "number" ? Math.trunc(v) : Number.parseInt(String(v ?? ""), 10)
+  if (!Number.isFinite(n)) return 0
+  return Math.min(1439, Math.max(0, n))
+}
+
+/** Clamp/drop arbitrary schedule windows; keeps order, max 20. */
+export function normalizeSchedule(raw: unknown): MediaScheduleWindow[] {
+  if (!Array.isArray(raw)) return []
+  const out: MediaScheduleWindow[] = []
+  for (const w of raw) {
+    const src = (w ?? {}) as Record<string, unknown>
+    const mode = src.mode === "deny" ? "deny" : src.mode === "always" ? "always" : null
+    if (!mode) continue
+    const days = Array.isArray(src.days)
+      ? [...new Set(src.days.map((d) => Math.trunc(Number(d))).filter((d) => Number.isFinite(d) && d >= 0 && d <= 6))]
+      : []
+    out.push({
+      name: typeof src.name === "string" ? src.name.slice(0, 40) : "",
+      mode,
+      days,
+      fromMin: clampMinute(src.fromMin),
+      toMin: clampMinute(src.toMin),
+    })
+  }
+  return out.slice(0, 20)
+}
+
 export function normalizeTriggers(raw: unknown): MediaTriggers {
   const src = (raw ?? {}) as Record<string, unknown>
   const num = (k: keyof MediaTriggers) => toNonNegativeInt(src[k as string])
@@ -153,6 +207,9 @@ export function normalizeTriggers(raw: unknown): MediaTriggers {
     }
     if (Object.keys(partial).length > 0) perCourt[court] = partial
   }
+  const tzRaw = src.scheduleTzOffsetMin
+  const tzNum = typeof tzRaw === "number" || (typeof tzRaw === "string" && tzRaw !== "") ? Number(tzRaw) : NaN
+  const tz = Number.isFinite(tzNum) ? Math.min(840, Math.max(-720, Math.trunc(tzNum))) : null
   return {
     afterCompletedMin: num("afterCompletedMin"),
     noScoreMin: num("noScoreMin"),
@@ -163,6 +220,8 @@ export function normalizeTriggers(raw: unknown): MediaTriggers {
     maxSessionMin: num("maxSessionMin"),
     loopsLimit: num("loopsLimit"),
     cooldownAfterStopMin: src.cooldownAfterStopMin === undefined ? DEFAULT_MEDIA_TRIGGERS.cooldownAfterStopMin : num("cooldownAfterStopMin"),
+    schedule: normalizeSchedule(src.schedule),
+    scheduleTzOffsetMin: tz,
     perCourt,
   }
 }
@@ -173,6 +232,59 @@ export function resolveTriggers(base: MediaTriggers, courtNumber: number | null)
   const override = base.perCourt[String(courtNumber)]
   if (!override) return base
   return { ...base, ...override, perCourt: base.perCourt }
+}
+
+// ─── Schedule windows ────────────────────────────────────────────────────────
+
+/**
+ * Local day-of-week (0=Пн…6=Вс) and minute-of-day for a schedule evaluation.
+ * With an explicit offset the result is deterministic regardless of the
+ * server's timezone; null uses the server's own clock.
+ */
+export function localDayMinuteForSchedule(
+  now: number,
+  tzOffsetMin: number | null,
+): { day: number; minute: number } {
+  if (tzOffsetMin == null) {
+    const d = new Date(now)
+    // JS getDay(): 0=Вс → переворачиваем в 0=Пн
+    return { day: (d.getDay() + 6) % 7, minute: d.getHours() * 60 + d.getMinutes() }
+  }
+  const shifted = new Date(now + tzOffsetMin * 60_000)
+  return { day: (shifted.getUTCDay() + 6) % 7, minute: shifted.getUTCHours() * 60 + shifted.getUTCMinutes() }
+}
+
+/**
+ * Is the window active at the given local day/minute? `fromMin > toMin` wraps
+ * past midnight (22:00→08:00); equal values mean the whole day. For overnight
+ * windows the day filter matches the CURRENT day only — pick both days in the
+ * UI or leave it empty for "каждый день".
+ */
+export function scheduleWindowActive(w: MediaScheduleWindow, day: number, minute: number): boolean {
+  if (w.days.length > 0 && !w.days.includes(day)) return false
+  if (w.fromMin === w.toMin) return true
+  if (w.fromMin < w.toMin) return minute >= w.fromMin && minute < w.toMin
+  return minute >= w.fromMin || minute < w.toMin
+}
+
+export interface ActiveSchedule {
+  /** An "always" window covers the moment → ads whenever no LIVE match. */
+  always: boolean
+  /** A "deny" window covers the moment → automatic triggers suspended. */
+  deny: boolean
+}
+
+export function activeSchedule(triggers: MediaTriggers, now: number): ActiveSchedule {
+  if (triggers.schedule.length === 0) return { always: false, deny: false }
+  const { day, minute } = localDayMinuteForSchedule(now, triggers.scheduleTzOffsetMin)
+  let always = false
+  let deny = false
+  for (const w of triggers.schedule) {
+    if (!scheduleWindowActive(w, day, minute)) continue
+    if (w.mode === "always") always = true
+    else deny = true
+  }
+  return { always, deny }
 }
 
 export const DEFAULT_BUMPER_CONFIG: BumperConfig = {
@@ -360,6 +472,12 @@ function autoStartSource(
   now: number,
 ): MediaTriggerSource | null {
   if (triggers.manualOnly) return null
+  const sched = activeSchedule(triggers, now)
+  if (sched.deny) return null
+  // Ночное окно ("always"): реклама крутится, пока на корте нет ЖИВОГО матча —
+  // без порогов и без лимита «один показ на завершённый матч» (экран ночью
+  // не должен гаснуть после первой же сессии).
+  if (sched.always && (!match || match.isCompleted)) return "schedule"
   if (
     match &&
     match.isCompleted &&
@@ -414,7 +532,11 @@ export function evaluateMediaState(
 
   if (next.isPlaying) {
     const reason = sessionStopReason(state, match, triggers, now)
-    if (reason === "score" || reason === "new-match" || reason === "max-session") {
+    // Прайм-тайм (deny-окно) гасит автосессии, но не принудительные
+    // (manual/remote) — администратор велел показывать, значит показываем.
+    const autoSource = state.source !== "manual" && state.source !== "remote"
+    const deniedNow = autoSource && activeSchedule(triggers, now).deny
+    if (reason === "score" || reason === "new-match" || reason === "max-session" || deniedNow) {
       if (state.source === "completed" && match) next.lastCompletedShownFor = match.id
       next.isPlaying = false
       next.source = null

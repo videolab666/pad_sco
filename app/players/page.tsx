@@ -102,7 +102,7 @@ export default function PlayersPage() {
       const newPlayer = {
         id: uuidv4(),
         name: newPlayerName.trim(),
-        country: newPlayerCountry.trim() || null, // Добавляем страну
+        country: newPlayerCountry.trim() || undefined, // Добавляем страну
       }
 
       logEvent("info", "Попытка добавления нового игрока", "PlayersPage", {

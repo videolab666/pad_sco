@@ -66,7 +66,7 @@ export function CourtVisualization({ match, fixedSides }: CourtVisualizationProp
 
     if (fixedSides) {
       // Fixed sides mode - players are positioned based on physical court position
-      const leftTeam = match.courtSides.teamA === "left" ? "teamA" : "teamB"
+      const leftTeam = match.courtSides?.teamA === "left" ? "teamA" : "teamB"
       const rightTeam = leftTeam === "teamA" ? "teamB" : "teamA"
 
       positions.topLeft = { team: leftTeam, playerIndex: 0 }

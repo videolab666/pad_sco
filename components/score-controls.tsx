@@ -7,6 +7,16 @@ import { useLanguage } from "@/contexts/language-context"
 import { useEffect, useState } from "react"
 import CourtPreview from "@/components/court-svg-preview"
 import { switchServer, swapCourtSides } from "@/lib/scoring-logic"
+import { NewBallsIndicator } from "@/components/new-balls-indicator"
+import { MatchTimerPanel } from "@/components/match-timer-panel"
+import { TossDialog } from "@/components/toss-dialog"
+import { EndMatchDialog } from "@/components/end-match-dialog"
+import { AdjustScoreDialog } from "@/components/adjust-score-dialog"
+import { MatchHistoryPanel } from "@/components/match-history-panel"
+import { TiebreakChoiceDialog } from "@/components/tiebreak-choice-dialog"
+import { OfficialCallDialog } from "@/components/official-call-dialog"
+import { PowerPlayControls } from "@/components/power-play-controls"
+import { RallyStatsDialog } from "@/components/rally-stats-dialog"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function ScoreControls({ match, updateMatch }: { match: any; updateMatch: any }) {
@@ -109,9 +119,25 @@ export function ScoreControls({ match, updateMatch }: { match: any; updateMatch:
   const isFinalSet = isDecidingSet || isTwoSetsMatch
 
   return (
-    <div className="w-full">
+    <div className="w-full space-y-2">
       <CourtPreview match={match} />
-      <div className="flex gap-2 mt-2">
+
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <NewBallsIndicator match={match} updateMatch={updateMatch} />
+        <div className="flex gap-1 flex-wrap">
+          <TossDialog match={match} updateMatch={updateMatch} />
+          <AdjustScoreDialog match={match} updateMatch={updateMatch} />
+          <RallyStatsDialog match={match} updateMatch={updateMatch} />
+          <OfficialCallDialog match={match} updateMatch={updateMatch} />
+          <EndMatchDialog match={match} updateMatch={updateMatch} />
+        </div>
+      </div>
+
+      <PowerPlayControls match={match} updateMatch={updateMatch} />
+      <MatchTimerPanel match={match} updateMatch={updateMatch} />
+      <TiebreakChoiceDialog match={match} updateMatch={updateMatch} />
+
+      <div className="flex gap-2">
         <Button
           variant="outline"
           className="flex-1 text-xs sm:text-sm py-1 sm:py-2 score-button transition-all hover:bg-blue-50"
@@ -132,6 +158,8 @@ export function ScoreControls({ match, updateMatch }: { match: any; updateMatch:
           {t("match.switchSides")}
         </Button>
       </div>
+
+      <MatchHistoryPanel match={match} />
     </div>
   )
 }

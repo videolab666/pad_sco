@@ -206,7 +206,7 @@ export function MatchList({ limit }: { limit?: number }) {
                           <span
                             key={idx}
                             className={`mr-1 px-1 rounded shadow-sm ${
-                              Number.parseInt(set.teamA) > Number.parseInt(set.teamB) ? "bg-[#fffec0]" : "bg-[#dff1ff]"
+                              Number(set.teamA) > Number(set.teamB) ? "bg-[#fffec0]" : "bg-[#dff1ff]"
                             }`}
                           >
                             {set.teamA}
@@ -235,7 +235,7 @@ export function MatchList({ limit }: { limit?: number }) {
                           <span
                             key={idx}
                             className={`mr-1 px-1 rounded shadow-sm ${
-                              Number.parseInt(set.teamB) > Number.parseInt(set.teamA) ? "bg-[#fffec0]" : "bg-[#dff1ff]"
+                              Number(set.teamB) > Number(set.teamA) ? "bg-[#fffec0]" : "bg-[#dff1ff]"
                             }`}
                           >
                             {set.teamB}

@@ -113,3 +113,27 @@ curl -s $BASE | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>
 
 Все команды попадают в журнал событий матча — панель истории в UI покажет их
 как ручные операции, а `undo-*` может их отменить.
+
+## Реклама на корте (media API)
+
+Отдельный API для медиа-плейлистов (описание — `docs/media-ads.md`). Тот же
+заголовок `X-API-Key`, база `…/api/media`:
+
+```bash
+# показать рекламу на корте 3 на 30 минут (например, игрок ушёл, корт простаивает)
+curl -s -X POST $BASE_MEDIA/state -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"court":3,"action":"show","source":"remote","forcedUntilMin":30}'
+
+# остановить показ
+curl -s -X POST $BASE_MEDIA/state -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"court":3,"action":"hide"}'
+
+# что сейчас на корте (публично, без ключа)
+curl -s "$BASE_MEDIA/state?court=3"
+```
+
+`show` без `forcedUntilMin` держит показ до первого стоп-условия (очко, новый
+матч — согласно настройкам триггеров клуба). Автотриггеры (простой, завершённый
+матч, нет матча) сервер вычисляет сам на каждом публичном GET.

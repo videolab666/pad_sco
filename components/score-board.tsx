@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { getGameScoreDisplay, getImportantEventType, getServeSide as getServeSideView, isPlayerServing } from "@/lib/match-view"
 import { useState, useEffect, useRef } from "react"
+import { undoBackOneGame, undoBackOneSet, undoLastScoringEvent, verifyJournal } from "@/lib/match-undo"
+import { appendStateOverrideEvent, scoreStateOf } from "@/lib/match-events"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +20,9 @@ import { useLanguage } from "@/contexts/language-context"
 import { Trophy } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CircleDot } from "lucide-react"
-import { applyScoreIncrement, switchServer, swapCourtSides } from "@/lib/scoring-logic"
+import { switchServer, swapCourtSides } from "@/lib/scoring-logic"
+import { applyPointWithExtras } from "@/lib/apply-point"
+import { postResultIfConfigured } from "@/lib/result-poster"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: any }) {
@@ -38,6 +42,17 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
   }, [])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [matchHistory, setMatchHistory] = useState<any[]>([])
+  // Shown when an undo button was used but neither the journal nor the
+  // in-memory fallback could serve it.
+  const [undoNotice, setUndoNotice] = useState(false)
+  // Cheap availability probe for the journal-based undo (integrity is fully
+  // verified at click time — verifyJournal — before anything is applied).
+  const hasUndoableJournal =
+    !!match?.seedSnapshot &&
+    (match?.events ?? []).some(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (e: any) => e?.type === "point" || e?.type === "manual-score-edit" || e?.type === "toss",
+    )
   // Task 4: a rule edit changes match.settings. Tracking the settings content
   // (not ruleRevision) keeps the buffer-reset correct across devices, because
   // settings round-trip through Supabase while ruleRevision does not.
@@ -168,8 +183,8 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
       // Switch server
       switchServer(updatedMatch)
 
-      // Update match
-      updateMatch(updatedMatch)
+      // Update match (journaled so replay-undo stays in sync)
+      updateMatch(appendStateOverrideEvent(updatedMatch, "switch-server", scoreStateOf(match)))
     }
 
     window.addEventListener("switchServer", handleSwitchServer)
@@ -210,8 +225,11 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     // Deep copy to avoid mutating state
     const updatedMatch = JSON.parse(JSON.stringify(activeMatchState))
 
-    // Apply score using unified engine
-    const resultMatch = applyScoreIncrement(updatedMatch, team)
+    // Apply score using the orchestrator that wraps the engine — this also
+    // appends a `point` event to the journal, ticks game-timing windows,
+    // applies handicap to the next game, consumes Power Play and stages
+    // a pending tiebreak choice when needed.
+    const resultMatch = applyPointWithExtras(updatedMatch, team)
 
     // If the engine completed the match, show confirmation dialog
     if (resultMatch.isCompleted && !activeMatchState.isCompleted) {
@@ -285,10 +303,66 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     }
 
     if (scoreDecreased) {
-      latestMatchRef.current = updatedMatch
-      setLocalMatchState(updatedMatch)
-      updateMatch(updatedMatch)
+      // Journal the manual correction so replay-undo stays in sync.
+      const journaled = appendStateOverrideEvent(updatedMatch, "score-decrease", scoreStateOf(activeMatchState))
+      latestMatchRef.current = journaled
+      setLocalMatchState(journaled)
+      updateMatch(journaled)
     }
+  }
+
+  // ─── Journal-based undo (survives page reloads) ─────────────────────────────
+  // Integrity is verified at click time: a diverged journal never produces a
+  // wrong state — the button reports unavailability instead.
+
+  const flashUndoNotice = () => {
+    setUndoNotice(true)
+    setTimeout(() => setUndoNotice(false), 5000)
+  }
+
+  // Applies an undo result the same way handleScoreClick applies a point:
+  // bump the revision above the live one (a replayed match carries the SEED's
+  // revision, which the optimistic-state guard would reject as stale) and
+  // refresh the optimistic layer so the scoreboard updates immediately.
+  const applyUndoneMatch = (undone: any) => {
+    const liveRev = typeof match?.revision === "number" ? match.revision : 0
+    undone.revision = liveRev + 1
+    latestMatchRef.current = undone
+    setLocalMatchState(undone)
+    updateMatch(undone)
+  }
+
+  const handleUndoPoint = () => {
+    setUndoNotice(false)
+    if (verifyJournal(match).canUndo) {
+      applyUndoneMatch(undoLastScoringEvent(match))
+      // Keep the in-memory fallback stack roughly in sync with the rollback.
+      setMatchHistory((prev) => prev.slice(0, -1))
+    } else if (matchHistory.length > 0) {
+      // Journal not usable — fall back to the session snapshot stack.
+      applyUndoneMatch(matchHistory[matchHistory.length - 1])
+      setMatchHistory((prev) => prev.slice(0, -1))
+    } else {
+      flashUndoNotice()
+    }
+  }
+
+  const handleUndoGame = () => {
+    setUndoNotice(false)
+    if (!verifyJournal(match).canUndo) {
+      flashUndoNotice()
+      return
+    }
+    applyUndoneMatch(undoBackOneGame(match))
+  }
+
+  const handleUndoSet = () => {
+    setUndoNotice(false)
+    if (!verifyJournal(match).canUndo) {
+      flashUndoNotice()
+      return
+    }
+    applyUndoneMatch(undoBackOneSet(match))
   }
 
   const handleCompleteMatch = () => {
@@ -297,7 +371,19 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
       finalMatch.isCompleted = true
       finalMatch.winner = pendingMatchUpdate.winner
 
-      updateMatch(finalMatch)
+      updateMatch(appendStateOverrideEvent(finalMatch, "complete-match", scoreStateOf(match)))
+
+      // Task 16: fire-and-forget auto-post when configured. The orchestrator
+      // returns a new snapshot with the result-poster event appended; we
+      // updateMatch again with that audit trail. Failures live in the event
+      // payload (outcome=dead-letter) — we never throw at the operator.
+      postResultIfConfigured(finalMatch)
+        .then((withAudit) => {
+          if (withAudit !== finalMatch) updateMatch(withAudit)
+        })
+        .catch(() => {
+          /* network errors are already captured in postWithRetry — ignore */
+        })
 
       setPendingMatchUpdate(null)
       setPreviousMatchState(null)
@@ -307,9 +393,13 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
   }
 
   const handleCancelMatchCompletion = () => {
-    // Revert to the previous state if available
+    // Revert to the previous state if available (journaled — the restored
+    // snapshot carries the events that produced it, so the journal stays
+    // replayable).
     if (previousMatchState) {
-      updateMatch(previousMatchState)
+      updateMatch(
+        appendStateOverrideEvent(previousMatchState, "cancel-completion", scoreStateOf(match)),
+      )
     }
 
     // Reset the pending state
@@ -703,36 +793,51 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
             </div>
           </div>
 
-          {/* Кнопка отмены изменения счета */}
+          {/* Кнопки отмены: очко / гейм / сет (журнал + fallback на снапшоты сессии) */}
           <div className="mt-4">
-            <button
-              className="w-full py-2 px-4 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
-              onClick={() => {
-                if (matchHistory.length > 0) {
-                  const previousMatch = matchHistory[matchHistory.length - 1]
-                  updateMatch(previousMatch)
-                  setMatchHistory((prev) => prev.slice(0, -1))
-                }
-              }}
-              disabled={matchHistory.length === 0}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-2"
+            <div className="flex gap-2">
+              <button
+                className="flex-1 py-2 px-2 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
+                onClick={handleUndoPoint}
+                disabled={!hasUndoableJournal && matchHistory.length === 0}
               >
-                <path d="M3 7v6h6"></path>
-                <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
-              </svg>
-              {t("match.undo")}
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-1"
+                >
+                  <path d="M3 7v6h6"></path>
+                  <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+                </svg>
+                {t("match.undoPoint")}
+              </button>
+              <button
+                className="flex-1 py-2 px-2 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
+                onClick={handleUndoGame}
+                disabled={!hasUndoableJournal}
+                title={!hasUndoableJournal ? t("match.undoUnavailable") : undefined}
+              >
+                {t("match.undoGame")}
+              </button>
+              <button
+                className="flex-1 py-2 px-2 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
+                onClick={handleUndoSet}
+                disabled={!hasUndoableJournal}
+                title={!hasUndoableJournal ? t("match.undoUnavailable") : undefined}
+              >
+                {t("match.undoSet")}
+              </button>
+            </div>
+            {undoNotice && (
+              <p className="mt-2 text-xs text-amber-600 text-center">{t("match.undoUnavailable")}</p>
+            )}
 
             {/* Индикатор важных событий */}
             {getImportantEventText() && (

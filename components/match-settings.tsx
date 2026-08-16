@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Check, CircleAlert, Loader2, LockOpenIcon } from "lucide-react"
+import { Check, CircleAlert, Loader2, LockOpenIcon, Undo2 } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -24,10 +24,13 @@ import {
   getDefaultFinalSetFinishForSelection,
   getDefaultFinalSetTiebreakForSelection,
   getDefaultGoldenPointForScoringSystem,
-  getSetsToWin,
 } from "@/lib/match-format-rules"
 import { commitSetWin, normalizeMatchState, recomputeMatchCompletion, restartCurrentSet } from "@/lib/scoring-logic"
+import { applyScoreEditRows, buildScoreEditRows, reopenSetAt, unlockMatchForPlay } from "@/lib/match-adjust"
+import { appendStateOverrideEvent, scoreStateOf } from "@/lib/match-events"
 import { classifyRuleChange } from "@/lib/match-rule-change"
+import { HandicapEditor } from "@/components/handicap-editor"
+import { ResultPosterSettings } from "@/components/result-poster-settings"
 
 type MatchSettingsProps = {
   match?: any
@@ -122,6 +125,10 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   const [scoringSystem, setScoringSystem] = useState(match?.settings?.scoringSystem || "classic")
   const [goldenPointFormat, setGoldenPointFormat] = useState(match?.settings?.goldenPointFormat || "none")
   const [gamesPerSet, setGamesPerSet] = useState(match?.settings?.gamesPerSet?.toString() || "6")
+  // games-per-set to restore when switching back from ПРО сет to a normal format
+  const preSuperGamesRef = useRef<string | null>(null)
+  // tiebreak state to restore when golden game goes back off
+  const preGoldenTiebreakRef = useRef<boolean | null>(null)
   const [gamesPerSetOverrides, setGamesPerSetOverrides] = useState<Record<number, string>>(
     match?.settings?.gamesPerSetOverrides
       ? Object.fromEntries(
@@ -138,18 +145,12 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   const [courtSavedAt, setCourtSavedAt] = useState<number | null>(null)
 
   // ─── Score-editing draft (per-set teamA/teamB; index 0..N-1 = completed sets,
-  //     index N = current set) ────────────────────────────────────────────────
+  //     index N = current set while the match is live) ────────────────────────
   type ScoreCell = { teamA: number; teamB: number }
-  const buildScoreFromMatch = (m: any): ScoreCell[] => {
-    if (!m?.score) return []
-    const cells: ScoreCell[] = (m.score.sets || []).map((s: any) => ({ teamA: s.teamA, teamB: s.teamB }))
-    if (m.score.currentSet) {
-      cells.push({ teamA: m.score.currentSet.teamA, teamB: m.score.currentSet.teamB })
-    }
-    return cells
-  }
-  const [scoreDraft, setScoreDraft] = useState<ScoreCell[]>(() => buildScoreFromMatch(match))
+  const [scoreDraft, setScoreDraft] = useState<ScoreCell[]>(() => buildScoreEditRows(match))
   const [scoreSavedAt, setScoreSavedAt] = useState<number | null>(null)
+  // Index of the completed set pending the "reopen set" confirmation, or null.
+  const [reopenSetIdx, setReopenSetIdx] = useState<number | null>(null)
 
   // ─── savedAt for rules ──────────────────────────────────────────────────────
   const [rulesSavedAt, setRulesSavedAt] = useState<number | null>(null)
@@ -215,11 +216,12 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
   // Re-sync score draft when match.score changes externally / after Apply.
   // Building from the current match preserves the invariant that scoreDraft has
-  // exactly (sets.length + 1) entries while the match is live.
+  // exactly (sets.length + 1) entries while the match is live, and exactly
+  // sets.length entries once it is finished.
   useEffect(() => {
-    setScoreDraft(buildScoreFromMatch(match))
+    setScoreDraft(buildScoreEditRows(match))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [match?.score?.sets?.length, match?.score?.currentSet?.teamA, match?.score?.currentSet?.teamB, JSON.stringify(match?.score?.sets)])
+  }, [match?.isCompleted, match?.score?.sets?.length, match?.score?.currentSet?.teamA, match?.score?.currentSet?.teamB, JSON.stringify(match?.score?.sets)])
 
   // Build the settings object from the current draft (used by Apply for rules).
   const buildSettingsFromDraft = () => {
@@ -233,6 +235,8 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       base.tiebreakAt = "8-8"
       base.finalSetTiebreak = false
       base.finalSetFinish = "standard-7"
+      base.gamesPerSet = 8 // ПРО сет plays to 8 — keep the stored games in sync
+      base.gamesPerSetOverrides = {}
     } else {
       base.isSuperSet = false
       base.sets = Number.parseInt(setsCount)
@@ -287,7 +291,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
   const isScoreDirty = useMemo(() => {
     if (!match?.score) return false
-    const current = buildScoreFromMatch(match)
+    const current = buildScoreEditRows(match)
     if (current.length !== scoreDraft.length) return false
     for (let i = 0; i < current.length; i++) {
       if (current[i].teamA !== scoreDraft[i].teamA || current[i].teamB !== scoreDraft[i].teamB) return true
@@ -309,11 +313,16 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     return recomputed
   }
 
+  // Journals a manual mutation so the replay-undo path stays in sync with
+  // the live state (see lib/match-undo.ts verifyJournal).
+  const journalChange = (m: any, action: string, opts?: { includeSettings?: boolean }) =>
+    appendStateOverrideEvent(m, action, scoreStateOf(match), opts)
+
   // Persists a rule change, with the legacy storage-quota fallback. Sets the
   // saved-at timestamp so the Apply-bar flips to "✓ Saved at HH:MM".
   const doCommit = (updatedMatch: any) => {
     try {
-      updateMatch(commitRuleChange(updatedMatch))
+      updateMatch(journalChange(commitRuleChange(updatedMatch), "rule-change", { includeSettings: true }))
       setRulesSavedAt(Date.now())
     } catch (error) {
       console.error("Ошибка при обновлении настроек:", error)
@@ -326,7 +335,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           winner: set.winner,
         }))
       }
-      updateMatch(commitRuleChange(minimalMatch))
+      updateMatch(journalChange(commitRuleChange(minimalMatch), "rule-change", { includeSettings: true }))
       setRulesSavedAt(Date.now())
     }
   }
@@ -389,40 +398,21 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
   const applyScoreEdits = () => {
     if (!match || !updateMatch || !isScoreDirty) return
-    const updatedMatch = JSON.parse(JSON.stringify(match))
+    // applyScoreEditRows journals the "score-edit" event itself (shared with
+    // the remote API) — no extra wrapper here.
+    const updatedMatch = applyScoreEditRows(match, scoreDraft)
     updatedMatch.history = []
-
-    const lastIdx = scoreDraft.length - 1
-    // Completed sets: write new values, recompute per-set winner (>0 only).
-    for (let i = 0; i < lastIdx; i++) {
-      const cell = scoreDraft[i]
-      updatedMatch.score.sets[i].teamA = cell.teamA
-      updatedMatch.score.sets[i].teamB = cell.teamB
-      if (cell.teamA > cell.teamB) updatedMatch.score.sets[i].winner = "teamA"
-      else if (cell.teamB > cell.teamA) updatedMatch.score.sets[i].winner = "teamB"
-      else updatedMatch.score.sets[i].winner = null
-    }
-    // Current set: only the score (winner is decided by the engine).
-    if (lastIdx >= 0 && updatedMatch.score.currentSet) {
-      updatedMatch.score.currentSet.teamA = scoreDraft[lastIdx].teamA
-      updatedMatch.score.currentSet.teamB = scoreDraft[lastIdx].teamB
-    }
-    // Total sets won + match outcome from setsToWin.
-    updatedMatch.score.teamA = updatedMatch.score.sets.filter((s: any) => s.winner === "teamA").length
-    updatedMatch.score.teamB = updatedMatch.score.sets.filter((s: any) => s.winner === "teamB").length
-    const setsToWin = getSetsToWin(updatedMatch.settings)
-    if (updatedMatch.score.teamA >= setsToWin) {
-      updatedMatch.isCompleted = true
-      updatedMatch.winner = "teamA"
-    } else if (updatedMatch.score.teamB >= setsToWin) {
-      updatedMatch.isCompleted = true
-      updatedMatch.winner = "teamB"
-    } else {
-      updatedMatch.isCompleted = false
-      updatedMatch.winner = null
-    }
     updateMatch(updatedMatch)
     setScoreSavedAt(Date.now())
+  }
+
+  // ─── Reopen a completed set (score-editing card ↩ button) ───────────────────
+
+  const confirmReopenSet = () => {
+    if (!match || !updateMatch || reopenSetIdx === null) return
+    const row = scoreDraft[reopenSetIdx]
+    updateMatch(reopenSetAt(match, reopenSetIdx, row))
+    setReopenSetIdx(null)
   }
 
   // ─── Tiebreak start/end + match end/unlock (instant, no draft) ──────────────
@@ -434,7 +424,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     updatedMatch.score.currentSet.isTiebreak = true
     updatedMatch.score.currentSet.currentGame = { teamA: 0, teamB: 0 }
     try {
-      updateMatch(updatedMatch)
+      updateMatch(journalChange(updatedMatch, "tiebreak-start"))
     } catch (error) {
       console.error("Ошибка при запуске тай-брейка:", error)
       const minimalMatch = { ...updatedMatch, history: [] }
@@ -447,7 +437,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           winner: set.winner,
         }))
       }
-      updateMatch(minimalMatch)
+      updateMatch(journalChange(minimalMatch, "tiebreak-start"))
     }
   }
 
@@ -474,7 +464,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       return
     }
 
-    updateMatch(result)
+    updateMatch(journalChange(result, "tiebreak-end"))
   }
 
   // Bug #6 fix: handle draw properly in endMatch
@@ -505,15 +495,14 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       }
     }
 
-    updateMatch(updatedMatch)
+    updateMatch(journalChange(updatedMatch, "end-match"))
   }
 
   const unlockMatch = () => {
     if (!match || !updateMatch) return
-    const updatedMatch = { ...match }
-    updatedMatch.isCompleted = false
-    updatedMatch.history = []
-    updateMatch(updatedMatch)
+    // unlockMatchForPlay journals the "unlock-match" event itself (shared
+    // with the remote API) — no extra wrapper here.
+    updateMatch(unlockMatchForPlay(match))
   }
 
   // ─── Score-editing helpers (now mutate scoreDraft instead of match) ─────────
@@ -725,9 +714,10 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
   // Build the table rows directly from scoreDraft (which mirrors match.score
   // until the user edits a cell). Highlights cells that differ from saved.
+  // A finished match has no current-set row — its last row is a completed set.
   const draftRows = scoreDraft.map((cell, i) => ({
     index: i,
-    isCurrent: i === scoreDraft.length - 1,
+    isCurrent: !match.isCompleted && i === scoreDraft.length - 1,
     teamA: cell.teamA,
     teamB: cell.teamB,
   }))
@@ -774,6 +764,29 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
             {pendingRuleChange?.classification?.scope === "restart-required" && (
               <AlertDialogAction onClick={applyPendingRestart}>{t("matchPage.restartSet")}</AlertDialogAction>
             )}
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation for the per-set ↩ "reopen set" button (score-editing card). */}
+      <AlertDialog
+        open={reopenSetIdx !== null}
+        onOpenChange={(open) => {
+          if (!open) setReopenSetIdx(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("match.reopenSetTitle", { n: String((reopenSetIdx ?? 0) + 1) })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("match.reopenSetDescription", { n: String((reopenSetIdx ?? 0) + 1) })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+            <AlertDialogAction onClick={confirmReopenSet}>{t("match.reopenSetConfirm")}</AlertDialogAction>
             <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -852,13 +865,24 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                 </thead>
                 <tbody>
                   {draftRows.map((set, idx) => {
-                    const saved = buildScoreFromMatch(match)[set.index] ?? { teamA: 0, teamB: 0 }
+                    const saved = buildScoreEditRows(match)[set.index] ?? { teamA: 0, teamB: 0 }
                     const aDirty = saved.teamA !== set.teamA
                     const bDirty = saved.teamB !== set.teamB
                     return (
                       <tr key={idx} className={set.isCurrent ? "bg-blue-100" : ""}>
                         <td className="p-2 border-r border-gray-300 text-[13px] text-center" style={{ fontSize: "13px" }}>
                           <span className="font-bold">{t("match.set")}</span> {idx + 1}
+                          {!set.isCurrent && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="ml-1 h-7 w-7 p-0"
+                              title={t("match.reopenSet")}
+                              onClick={() => setReopenSetIdx(set.index)}
+                            >
+                              <Undo2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </td>
                         <td className="p-2 border-r border-gray-300">
                           <div className="flex items-center justify-center">
@@ -951,10 +975,21 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                 onValueChange={(value) => {
                   if (value === "super") {
                     setSetsCount("super")
+                    // ПРО сет is fixed at 8 games — switch the field over and
+                    // remember the previous value for when a normal format
+                    // is picked again.
+                    if (setsCount !== "super") preSuperGamesRef.current = gamesPerSet
+                    setGamesPerSet("8")
+                    setGamesPerSetOverrides({})
+                    setGoldenGame(false) // ПРО сет ignores golden game in the engine
                     setFinalSetTiebreak(false)
                     setFinalSetFinish("standard-7")
                   } else {
                     setSetsCount(value)
+                    if (setsCount === "super") {
+                      setGamesPerSet(preSuperGamesRef.current ?? "6")
+                      preSuperGamesRef.current = null
+                    }
                     setFinalSetTiebreak(getDefaultFinalSetTiebreakForSelection(value))
                     setFinalSetFinish(getDefaultFinalSetFinishForSelection(value))
                   }
@@ -1096,6 +1131,9 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                       <SelectItem value="third-deuce">{t("newMatch.goldenPointThirdDeuce")}</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {t("newMatch.goldenPointDescription")}
+                  </p>
                 </div>
               )}
             </div>
@@ -1109,7 +1147,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   setGamesPerSet(value)
                   if (value === "4") setScoringSystem("fast4")
                 }}
-                disabled={match.isCompleted}
+                disabled={match.isCompleted || setsCount === "super"}
               >
                 <SelectTrigger className="mt-2">
                   <SelectValue />
@@ -1179,10 +1217,15 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   id="tiebreak-enabled"
                   checked={tiebreakEnabled}
                   onCheckedChange={(checked) => setTiebreakEnabled(checked)}
-                  disabled={match.isCompleted}
+                  disabled={match.isCompleted || goldenGame}
                   className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                 />
               </div>
+              {goldenGame && (
+                <p className="text-xs text-amber-600">
+                  {t("match.goldenGameTiebreakOff")}
+                </p>
+              )}
 
               {tiebreakEnabled && (
                 <>
@@ -1262,13 +1305,29 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
                   <Checkbox
                     id="golden-game"
                     checked={goldenGame}
-                    onCheckedChange={(checked) => setGoldenGame(checked as boolean)}
-                    disabled={match.isCompleted}
+                    onCheckedChange={(checked) => {
+                      const on = checked === true
+                      setGoldenGame(on)
+                      // Golden game ends the set at 6:5, so a 6:6 tiebreak
+                      // can never happen — turn the tiebreak off (and restore
+                      // it when golden game goes back off).
+                      if (on) {
+                        preGoldenTiebreakRef.current = !!tiebreakEnabled
+                        setTiebreakEnabled(false)
+                      } else if (preGoldenTiebreakRef.current !== null) {
+                        setTiebreakEnabled(preGoldenTiebreakRef.current)
+                        preGoldenTiebreakRef.current = null
+                      }
+                    }}
+                    disabled={match.isCompleted || setsCount === "super"}
                   />
                   <Label htmlFor="golden-game" className="text-sm">
                     {t("match.goldenGame")}
                   </Label>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("match.goldenGameDescription")}
+                </p>
 
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -1295,6 +1354,14 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
             unsavedLabel={t_unsaved}
             savedAtLabel={savedAtFormatter}
           />
+
+          <div className="pt-3">
+            <HandicapEditor match={match} updateMatch={updateMatch} />
+          </div>
+
+          <div className="pt-3">
+            <ResultPosterSettings match={match} updateMatch={updateMatch} />
+          </div>
 
           <div className="pt-2 border-t">
             {match.isCompleted ? (

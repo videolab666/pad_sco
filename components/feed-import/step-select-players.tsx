@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useLanguage } from "@/contexts/language-context"
 import { getTournamentPlayers } from "@/lib/dy/dy-client"
 import { importPlayers, type ImportedPlayer } from "@/lib/dy/dy-import"
-import type { DyPlayer, DyPlayersResponse, DyTournament } from "@/lib/dy/dy-types"
+import { hasCyrillic, transliterate } from "@/lib/dy/translit"
+import type { DyPlayerRow, DyPlayersResponse, DyTournament } from "@/lib/dy/dy-types"
 
 interface StepSelectPlayersProps {
   tournament: DyTournament
@@ -23,6 +24,7 @@ export function StepSelectPlayers({ tournament, onImported }: StepSelectPlayersP
   const [error, setError] = useState(false)
   const [category, setCategory] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [translit, setTranslit] = useState(true)
   const [importing, setImporting] = useState(false)
 
   const load = useCallback(async () => {
@@ -46,7 +48,9 @@ export function StepSelectPlayers({ tournament, onImported }: StepSelectPlayersP
     [resp],
   )
 
-  const players: DyPlayer[] = category ? resp[category] ?? [] : []
+  // Rows come pre-split from the client: doubles feeds (e.g. rankedin) list
+  // one entry per pair, but each player must be imported individually.
+  const players: DyPlayerRow[] = category ? resp[category] ?? [] : []
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -55,22 +59,23 @@ export function StepSelectPlayers({ tournament, onImported }: StepSelectPlayersP
       return next
     })
 
-  const allSelected = players.length > 0 && players.every((p) => selected.has(String(p.id)))
+  const allSelected = players.length > 0 && players.every((_, i) => selected.has(String(i)))
 
   const toggleAll = () =>
     setSelected((prev) => {
       const next = new Set(prev)
-      if (allSelected) players.forEach((p) => next.delete(String(p.id)))
-      else players.forEach((p) => next.add(String(p.id)))
+      if (allSelected) players.forEach((_, i) => next.delete(String(i)))
+      else players.forEach((_, i) => next.add(String(i)))
       return next
     })
 
   const handleImport = async () => {
     setImporting(true)
     try {
-      const chosen = players.filter((p) => selected.has(String(p.id)))
+      const chosen = players.filter((_, i) => selected.has(String(i)))
       const result = await importPlayers(
-        chosen.map((p) => ({ name: p.name, dyId: String(p.id) })),
+        chosen.map((p) => ({ name: p.name, dyId: p.dyId })),
+        { transliterate: translit },
       )
       onImported(result)
     } finally {
@@ -145,21 +150,31 @@ export function StepSelectPlayers({ tournament, onImported }: StepSelectPlayersP
       ) : (
         <div className="max-h-[45vh] overflow-y-auto pr-2">
           <div className="space-y-1">
-            {players.map((p) => {
-              const id = String(p.id)
+            {players.map((p, i) => {
+              const id = String(i)
               return (
                 <label
                   key={id}
                   className="flex cursor-pointer items-center gap-2 rounded-md border p-2 hover:bg-muted"
                 >
                   <Checkbox checked={selected.has(id)} onCheckedChange={() => toggle(id)} />
-                  <span>{p.name}</span>
+                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                  {translit && hasCyrillic(p.name) && (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      → {transliterate(p.name)}
+                    </span>
+                  )}
                 </label>
               )
             })}
           </div>
         </div>
       )}
+
+      <label className="flex cursor-pointer items-center gap-2 rounded-md border p-2 hover:bg-muted">
+        <Checkbox checked={translit} onCheckedChange={(v) => setTranslit(v === true)} />
+        <span className="text-sm">{t("feedImport.translitNames")}</span>
+      </label>
 
       <Button
         className="w-full"

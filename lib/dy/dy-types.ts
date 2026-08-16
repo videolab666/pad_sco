@@ -56,15 +56,24 @@ export interface DySide {
   id: number | string
 }
 
-/** A player in the /{provider}/{id}/players response. */
+/** A raw entry in the /{provider}/{id}/players response. */
 export interface DyPlayer {
   id: number | string
   name: string
+  /** Individual player ids when the entry is a doubles pair ("id1/id2"). */
+  ids?: string
+  country?: string
+}
+
+/** One individual player row after splitting doubles-pair feed entries. */
+export interface DyPlayerRow {
+  name: string
+  dyId?: string
 }
 
 /** Categories -> items (plus a service "config" key). */
 export type DyMatchesResponse = Record<string, DyMatch[] | DyConfig>
-export type DyPlayersResponse = Record<string, DyPlayer[]>
+export type DyPlayersResponse = Record<string, DyPlayerRow[]>
 export interface DyConfig {
   [k: string]: unknown
 }

@@ -1,7 +1,7 @@
 // Normalization: dates, grouping by country, parsing doubles pairs (slash).
 
 import { DY_FILTER } from "./dy-config"
-import type { DyTournament } from "./dy-types"
+import type { DyPlayer, DyTournament } from "./dy-types"
 
 /** Support both date formats: 2026-05-18 and 20260518. */
 export function parseDyDate(s?: string): Date | null {
@@ -59,17 +59,34 @@ export function groupByCountry(list: DyTournament[]): Record<string, DyTournamen
 export const matchCategories = (resp: Record<string, unknown>) =>
   Object.keys(resp).filter((k) => k !== "config" && Array.isArray(resp[k]))
 
-/** Split a match side into players, accounting for doubles (slash-separated). */
+/** Split a slash-separated list ("/") into trimmed non-empty parts. */
+const splitList = (v: number | string | undefined): string[] =>
+  String(v ?? "")
+    .split("/")
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+/**
+ * Split a match side into players, accounting for doubles (slash-separated).
+ * When the side has one id for several names, no id is attached — sharing it
+ * would make the dyId dedup collapse both partners into one local player.
+ */
 export function splitSide(side: { name: string; id: number | string }) {
-  const names = String(side.name)
-    .split("/")
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const ids = String(side.id)
-    .split("/")
-    .map((s) => s.trim())
-    .filter(Boolean)
-  return names.map((name, i) => ({ name, dyId: ids[i] ?? ids[0] ?? "" }))
+  const names = splitList(side.name)
+  const ids = splitList(side.id)
+  return names.map((name, i) => ({ name, dyId: ids[i] ?? "" }))
+}
+
+/**
+ * Split a players-feed entry into individual players. Doubles platforms
+ * (e.g. rankedin) emit one entry per pair — name "A/B", the pair id in `id`
+ * and the individual ids in `ids`. Singles entries pass through unchanged.
+ */
+export function splitPlayerEntry(p: DyPlayer): { name: string; dyId?: string }[] {
+  const names = splitList(p.name)
+  if (names.length <= 1) return names.map((name) => ({ name, dyId: String(p.id) }))
+  const ids = splitList(p.ids)
+  return names.map((name, i) => ({ name, dyId: ids[i] }))
 }
 
 /** Format a tournament date range for display ("" if no real dates). */

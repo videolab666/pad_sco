@@ -1,7 +1,14 @@
 // Client-side helpers: call /api/dy/* and normalize the response.
 
 import { DY_SEQUENCE_KEY } from "./dy-config"
-import type { DyFeedType, DyTournament, DyMatchesResponse, DyPlayersResponse } from "./dy-types"
+import { splitPlayerEntry } from "./dy-normalize"
+import type {
+  DyFeedType,
+  DyPlayer,
+  DyTournament,
+  DyMatchesResponse,
+  DyPlayersResponse,
+} from "./dy-types"
 
 const proxy = (urlOrPath: string) => `/api/dy?url=${encodeURIComponent(urlOrPath)}`
 
@@ -47,5 +54,17 @@ export async function getTournaments(platform: DyFeedType): Promise<DyTournament
 /** Step 3: matches and players of a specific tournament. */
 export const getMatches = (t: DyTournament) => getJson<DyMatchesResponse>(t.FeedMatches)
 
-export const getTournamentPlayers = (t: DyTournament): Promise<DyPlayersResponse> =>
-  t.FeedPlayers ? getJson<DyPlayersResponse>(t.FeedPlayers) : Promise.resolve({})
+/**
+ * Players of a tournament, already split into individuals. Doubles feeds
+ * (e.g. rankedin) emit one entry per pair ("A/B"), so entries are split
+ * here — otherwise a pair would be imported as a single player.
+ */
+export async function getTournamentPlayers(t: DyTournament): Promise<DyPlayersResponse> {
+  if (!t.FeedPlayers) return {}
+  const resp = await getJson<Record<string, DyPlayer[]>>(t.FeedPlayers)
+  const out: DyPlayersResponse = {}
+  for (const [cat, arr] of Object.entries(resp)) {
+    if (Array.isArray(arr)) out[cat] = arr.flatMap((p) => splitPlayerEntry(p))
+  }
+  return out
+}

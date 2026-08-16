@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { ChevronLeft, Loader2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useLanguage } from "@/contexts/language-context"
 import { getMatches } from "@/lib/dy/dy-client"
@@ -35,6 +36,7 @@ export function StepSelectMatch({ tournament, onPickMatch }: StepSelectMatchProp
   const [error, setError] = useState(false)
   const [category, setCategory] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [translit, setTranslit] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -62,9 +64,9 @@ export function StepSelectMatch({ tournament, onPickMatch }: StepSelectMatchProp
       // Sequentially: concurrent ensureLocalPlayer calls race on localStorage
       // and one player's record gets overwritten by the other.
       const teamA: ImportedPlayer[] = []
-      for (const p of a) teamA.push(await ensureLocalPlayer(p))
+      for (const p of a) teamA.push(await ensureLocalPlayer(p, { transliterate: translit }))
       const teamB: ImportedPlayer[] = []
-      for (const p of b) teamB.push(await ensureLocalPlayer(p))
+      for (const p of b) teamB.push(await ensureLocalPlayer(p, { transliterate: translit }))
       const format: "singles" | "doubles" =
         teamA.length === 2 || teamB.length === 2 ? "doubles" : "singles"
       onPickMatch({
@@ -134,6 +136,10 @@ export function StepSelectMatch({ tournament, onPickMatch }: StepSelectMatchProp
         <ChevronLeft className="mr-1 h-4 w-4" />
         {category}
       </Button>
+      <label className="flex cursor-pointer items-center gap-2 rounded-md border p-2 hover:bg-muted">
+        <Checkbox checked={translit} onCheckedChange={(v) => setTranslit(v === true)} />
+        <span className="text-sm">{t("feedImport.translitNames")}</span>
+      </label>
       {matches.length === 0 ? (
         <p className="py-6 text-center text-muted-foreground">{t("feedImport.noMatches")}</p>
       ) : (

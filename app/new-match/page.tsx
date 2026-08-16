@@ -159,6 +159,8 @@ export default function NewMatchPage() {
   const playersRef = useRef<any[]>([]) // Reference to keep track of players without re-renders
   const creatingRef = useRef(false) // hard guard against double-submit on "create match"
   const addingPlayerRef = useRef(false) // hard guard against double-add of a player
+  const preSuperGamesRef = useRef<string | null>(null) // games-per-set to restore when leaving ПРО сет
+  const preGoldenTiebreakRef = useRef<boolean | null>(null) // tiebreak state to restore when golden game goes off
 
   // Игроки для команд
   const [teamAPlayer1, setTeamAPlayer1] = useState("")
@@ -611,6 +613,17 @@ export default function NewMatchPage() {
               <Label>{t("newMatch.sets")}</Label>
               <Select value={sets} onValueChange={(value) => {
                 setSets(value)
+                // ПРО сет is fixed at 8 games — switch the field over and
+                // restore the previous value when a normal format is picked.
+                if (value === "super") {
+                  if (sets !== "super") preSuperGamesRef.current = gamesPerSet
+                  setGamesPerSet("8")
+                  setGamesPerSetOverrides({})
+                  setGoldenGame(false) // ПРО сет ignores golden game in the engine
+                } else if (sets === "super") {
+                  setGamesPerSet(preSuperGamesRef.current ?? "6")
+                  preSuperGamesRef.current = null
+                }
                 setFinalSetTiebreak(getDefaultFinalSetTiebreakForSelection(value))
                 setFinalSetFinish(getDefaultFinalSetFinishForSelection(value))
                 const defaultFinish = getDefaultFinalSetFinishForSelection(value)
@@ -741,18 +754,25 @@ export default function NewMatchPage() {
                       <SelectItem value="third-deuce">{t("newMatch.goldenPointThirdDeuce")}</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {t("newMatch.goldenPointDescription")}
+                  </p>
                 </div>
               )}
             </div>
 
             <div className="border rounded-md p-3 bg-[#f0f4ff] shadow-md">
               <Label className="text-base font-medium">{t("newMatch.gamesPerSet")}</Label>
-              <Select value={gamesPerSet} onValueChange={(v) => {
-                setGamesPerSet(v)
-                if (v === "4") {
-                  setScoringSystem("fast4")
-                }
-              }}>
+              <Select
+                value={gamesPerSet}
+                disabled={sets === "super"}
+                onValueChange={(v) => {
+                  setGamesPerSet(v)
+                  if (v === "4") {
+                    setScoringSystem("fast4")
+                  }
+                }}
+              >
                 <SelectTrigger className="w-full mt-2">
                   <SelectValue />
                 </SelectTrigger>
@@ -821,9 +841,15 @@ export default function NewMatchPage() {
                 <Switch
                   checked={tiebreakEnabled}
                   onCheckedChange={setTiebreakEnabled}
+                  disabled={goldenGame}
                   className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
                 />
               </div>
+              {goldenGame && (
+                <p className="text-xs text-amber-600">
+                  {t("newMatch.goldenGameTiebreakOff")}
+                </p>
+              )}
 
               {tiebreakEnabled && (
                 <>
@@ -892,11 +918,32 @@ export default function NewMatchPage() {
               <Label className="text-base font-medium">{t("newMatch.additional")}</Label>
               <div className="space-y-2 mt-3">
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="golden-game" checked={goldenGame} onCheckedChange={(c) => setGoldenGame(c === true)} />
+                  <Checkbox
+                    id="golden-game"
+                    checked={goldenGame}
+                    disabled={sets === "super"}
+                    onCheckedChange={(c) => {
+                      const on = c === true
+                      setGoldenGame(on)
+                      // Golden game ends the set at 6:5, so a 6:6 tiebreak can
+                      // never happen — turn the tiebreak off (and restore it
+                      // when golden game goes back off).
+                      if (on) {
+                        preGoldenTiebreakRef.current = tiebreakEnabled
+                        setTiebreakEnabled(false)
+                      } else if (preGoldenTiebreakRef.current !== null) {
+                        setTiebreakEnabled(preGoldenTiebreakRef.current)
+                        preGoldenTiebreakRef.current = null
+                      }
+                    }}
+                  />
                   <Label htmlFor="golden-game" className="text-sm">
                     {t("newMatch.goldenGame")}
                   </Label>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("newMatch.goldenGameDescription")}
+                </p>
 
                 <div className="flex items-center space-x-2">
                   <Checkbox id="windbreak" checked={windbreak} onCheckedChange={(c) => setWindbreak(c === true)} />

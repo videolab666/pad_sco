@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { MatchList } from "@/components/match-list"
 import { SupabaseStatus } from "@/components/supabase-status"
 import { OfflineNotice } from "@/components/offline-notice"
-import { Bug, Users, History } from "lucide-react"
+import { Bug, Users, History, Settings } from "lucide-react"
 import { CourtsList } from "@/components/courts-list"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { useLanguage } from "@/contexts/language-context"
@@ -180,7 +180,17 @@ export default function HomePage() {
       </Card>
 
       {/* Кнопка диагностики - перемещена в самый низ */}
-      <div className="text-center mt-8">
+      <div className="text-center mt-8 flex items-center justify-center gap-3">
+        <Link href="/settings" className="inline-block">
+          <Button
+            variant="outline"
+            size="sm"
+            className="transition-all duration-300 hover:scale-105 hover:shadow-sm active:scale-95"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            {t("home.settings")}
+          </Button>
+        </Link>
         <Link href="/debug" className="inline-block">
           <Button
             variant="outline"

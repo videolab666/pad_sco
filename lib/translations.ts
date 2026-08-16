@@ -77,6 +77,7 @@ export type TranslationKeys = {
     joinMatchDesc: string
     joinByCode: string
     diagnostics: string
+    settings: string
   }
   match: {
     score: string
@@ -1200,6 +1201,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       joinMatchDesc: "Введите код матча для просмотра",
       joinByCode: "Присоединиться по цифровому коду",
       diagnostics: "Диагностика",
+      settings: "Общие настройки",
     },
     match: {
       score: "Счет",
@@ -2323,6 +2325,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       joinMatchDesc: "Enter match code to view",
       joinByCode: "Join by code",
       diagnostics: "Diagnostics",
+      settings: "Settings",
     },
     match: {
       score: "Score",
@@ -3445,6 +3448,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       joinMatchDesc: "Введіть код матчу для перегляду",
       joinByCode: "Приєднатися за кодом",
       diagnostics: "Діагностика",
+      settings: "Загальні налаштування",
     },
     match: {
       score: "Рахунок",

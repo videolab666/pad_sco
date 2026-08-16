@@ -215,6 +215,49 @@ async function main() {
 
   await api("/api/media/state", { method: "POST", body: JSON.stringify({ court: TEST_COURT, action: "hide" }) })
 
+  console.log("== Расписание (ночные окна) ==")
+  // always-окно на весь день (fromMin === toMin) с явным UTC — корт 9
+  // держит завершённый матч → должен запуститься источник "schedule".
+  // Кулдаун обнуляем, иначе предыдущий hide блокирует автостарт.
+  r = await api("/api/media/settings", {
+    method: "PATCH",
+    body: JSON.stringify({
+      triggers: {
+        ...triggersBefore,
+        cooldownAfterStopMin: 0,
+        scheduleTzOffsetMin: 0,
+        schedule: [{ name: "e2e-всегда", mode: "always", days: [], fromMin: 0, toMin: 0 }],
+      },
+    }),
+  })
+  ok("PATCH расписания (always, весь день, UTC)", r.status === 200 && r.body.triggers.schedule.length === 1)
+  r = await fetch(`${BASE}/api/media/state?court=${TEST_COURT}`)
+  state = await r.json()
+  ok("always-окно само запустило показ (source=schedule)", state.isPlaying === true && state.source === "schedule" && state.entries.length >= 2)
+
+  r = await api("/api/media/settings", {
+    method: "PATCH",
+    body: JSON.stringify({
+      triggers: {
+        ...triggersBefore,
+        cooldownAfterStopMin: 0,
+        scheduleTzOffsetMin: 0,
+        schedule: [{ name: "e2e-запрет", mode: "deny", days: [], fromMin: 0, toMin: 0 }],
+      },
+    }),
+  })
+  r = await fetch(`${BASE}/api/media/state?court=${TEST_COURT}`)
+  state = await r.json()
+  ok("deny-окно погасило автосессию", state.isPlaying === false && state.entries.length === 0)
+
+  console.log("== Фон-фото для вертикальных видео ==")
+  r = await api(`/api/media/items/${itemB.id}`, { method: "PATCH", body: JSON.stringify({ bgItemId: itemA.id }) })
+  ok("PATCH bgItemId назначил фон-фото", r.status === 200 && r.body.item.bgPath === itemA.storagePath)
+  r = await api(`/api/media/items/${itemB.id}`, { method: "PATCH", body: JSON.stringify({ bgItemId: null }) })
+  ok("PATCH bgItemId=null снял фон", r.status === 200 && r.body.item.bgPath === null)
+  r = await api(`/api/media/items/${itemA.id}`, { method: "PATCH", body: JSON.stringify({ bgItemId: "00000000-0000-4000-8000-0000000000ff" }) })
+  ok("несуществующий фон → 400", r.status === 400)
+
   console.log("== Восстановление настроек + очистка ==")
   await api("/api/media/settings", { method: "PATCH", body: JSON.stringify({ triggers: triggersBefore }) })
   await api(`/api/media/playlists/${pl.id}`, { method: "DELETE" })

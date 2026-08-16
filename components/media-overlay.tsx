@@ -55,13 +55,16 @@ function scoreBug(courtNumber: number, match: any) {
 
 function MediaEntryView({ entry, onEnded }: { entry: MediaEntryWire; onEnded: () => void }) {
   const vertical = isVertical(entry)
-  const backdrop = vertical ? (entry.bgUrl ?? entry.url) : null
+  // Blurred backdrop for vertical media: the assigned bg photo when present,
+  // otherwise the media itself (a photo stays an <img>, a video a <video>).
+  const backdrop = vertical ? (entry.bgUrl ?? null) : null
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-black">
-      {vertical && entry.kind === "video" && (
+      {backdrop && <img src={backdrop} alt="" className="absolute inset-0 h-full w-full scale-[1.4] object-cover opacity-60 blur-3xl" aria-hidden />}
+      {vertical && !backdrop && entry.kind === "video" && (
         <video
-          src={backdrop ?? undefined}
+          src={entry.url}
           className="absolute inset-0 h-full w-full scale-[1.4] object-cover opacity-60 blur-3xl"
           muted
           autoPlay
@@ -69,13 +72,8 @@ function MediaEntryView({ entry, onEnded }: { entry: MediaEntryWire; onEnded: ()
           aria-hidden
         />
       )}
-      {vertical && entry.kind === "image" && (
-        <img
-          src={backdrop ?? undefined}
-          alt=""
-          className="absolute inset-0 h-full w-full scale-[1.4] object-cover opacity-60 blur-3xl"
-          aria-hidden
-        />
+      {vertical && !backdrop && entry.kind === "image" && (
+        <img src={entry.url} alt="" className="absolute inset-0 h-full w-full scale-[1.4] object-cover opacity-60 blur-3xl" aria-hidden />
       )}
       {entry.kind === "video" ? (
         <video

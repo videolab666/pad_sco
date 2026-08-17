@@ -4,8 +4,10 @@ import { describe, expect, it } from "vitest"
 import {
   PARTICIPANT_ROLES,
   PARTICIPANT_STATUSES,
+  QUICK_PLAY_TYPES,
   SESSION_STATUSES,
   SESSION_TYPES,
+  isQuickPlayType,
   normalizeParticipant,
   validateSessionInput,
 } from "../lib/court-session"
@@ -22,6 +24,16 @@ describe("константы §5-6", () => {
     expect(PARTICIPANT_ROLES).toEqual(["player", "guest", "coach"])
     expect(PARTICIPANT_STATUSES).toContain("checked_in")
     expect(PARTICIPANT_STATUSES).toContain("waiting")
+  })
+
+  it("Quick Play (§15): только «самообслуживаемые» типы", () => {
+    expect(QUICK_PLAY_TYPES).toEqual(["match", "open_play", "training"])
+    expect(isQuickPlayType("match")).toBe(true)
+    expect(isQuickPlayType("open_play")).toBe(true)
+    // Турнирные форматы — только через управляющие API персонала.
+    expect(isQuickPlayType("americano")).toBe(false)
+    expect(isQuickPlayType("tournament")).toBe(false)
+    expect(isQuickPlayType(undefined)).toBe(false)
   })
 })
 

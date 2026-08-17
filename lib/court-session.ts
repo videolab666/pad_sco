@@ -30,6 +30,17 @@ export type ParticipantRole = (typeof PARTICIPANT_ROLES)[number]
 export const PARTICIPANT_STATUSES = ["expected", "checked_in", "playing", "waiting", "left"] as const
 export type ParticipantStatus = (typeof PARTICIPANT_STATUSES)[number]
 
+/**
+ * Типы, доступные публичному Quick Play по QR корта (§15). Турнирные
+ * форматы создаются только персоналом через управляющие API.
+ */
+export const QUICK_PLAY_TYPES = ["match", "open_play", "training"] as const
+export type QuickPlayType = (typeof QUICK_PLAY_TYPES)[number]
+
+export function isQuickPlayType(value: unknown): value is QuickPlayType {
+  return typeof value === "string" && (QUICK_PLAY_TYPES as readonly string[]).includes(value)
+}
+
 export interface SessionParticipant {
   id: string
   sessionId: string

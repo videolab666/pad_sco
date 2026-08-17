@@ -1,17 +1,19 @@
-// /c/{short_code} — вечная ссылка на табло корта (plan-4 §247).
+// /c/{short_code} — вечная ссылка на корт (plan-4 §247).
 //
 // QR на корте и vMix/OBS browser sources указывают сюда: код глобально
-// уникален, поэтому корты разных клубов не конфликтуют (superadmin может
-// транслировать их одновременно). Переименование корта и смена slug ссылку
-// не ломают — short_code immutable.
+// уникален, корты разных клубов не конфликтуют. Переименование корта и
+// смена slug ссылку не ломают — short_code immutable.
 //
-// Реализация: сервер резолвит код → корт; для кортов с legacy_number
-// рендерится тот же клиентский компонент, что и на legacy-странице
-// /fullscreen-scoreboard/[number] (один код-путь отображения).
+// Три состояния (§15/§16):
+//   матч есть + числовой корт   → полный fullscreen-режим с автопереключением
+//   матч есть + именованный корт → fullscreen в режиме matchId
+//   матча нет                  → idle-экран с кнопкой «Быстрая игра» (QR-флоу)
 
 import { notFound } from "next/navigation"
 import FullscreenScoreboard from "../../fullscreen-scoreboard/[number]/page"
+import { CourtIdleScreen } from "@/components/quick-play/court-idle-screen"
 import { ensureCourtSchema, getCourtByShortCode } from "@/lib/court-registry"
+import { getActiveSessionByCourt } from "@/lib/court-session"
 import { getMatchFromServerByCourt } from "@/lib/server-match-storage"
 import { logEvent } from "@/lib/error-logger"
 
@@ -21,26 +23,25 @@ export default async function CourtByCodePage({ params }: { params: Promise<{ co
   const { code } = await params
 
   const ready = await ensureCourtSchema()
-  const court = ready ? await getCourtByShortCode(code).catch((err) => {
-    logEvent("error", `/c/${code}: ошибка резолва корта: ${(err as Error).message}`, "court-code-page", err)
-    return null
-  }) : null
+  const court = ready
+    ? await getCourtByShortCode(code).catch((err) => {
+        logEvent("error", `/c/${code}: ошибка резолва корта: ${(err as Error).message}`, "court-code-page", err)
+        return null
+      })
+    : null
 
   if (!court) notFound()
 
-  if (court.legacyNumber !== null) {
-    // Числовой корт — полный режим: тот же клиентский компонент, что и на
-    // legacy-странице /fullscreen-scoreboard/[number] (включая автопереключение
-    // на следующий матч корта).
-    return (
-      <FullscreenScoreboard params={Promise.resolve({ number: String(court.legacyNumber) })} />
-    )
-  }
+  const match = await getMatchFromServerByCourt({
+    id: court.id,
+    legacyNumber: court.legacyNumber,
+  }).catch(() => null)
 
-  // Нечисловой корт (§246): матч резолвим серверно по court_id и включаем
-  // режим matchId — тот же компонент рендерит табло без номера корта.
-  const match = await getMatchFromServerByCourt({ id: court.id, legacyNumber: null }).catch(() => null)
   if (match?.id) {
+    if (court.legacyNumber !== null) {
+      return <FullscreenScoreboard params={Promise.resolve({ number: String(court.legacyNumber) })} />
+    }
+    // Нечисловой корт (§246): матч резолвлен по court_id — режим matchId.
     return (
       <FullscreenScoreboard
         key={match.id}
@@ -50,19 +51,20 @@ export default async function CourtByCodePage({ params }: { params: Promise<{ co
     )
   }
 
-  // Матч не привязан — информационный экран (привязка появится в UI
-  // назначения матча на корт и в court_sessions Шага 2).
+  // Матча нет: idle-экран с Quick Play (сессия, если есть — тренировка и т.п.)
+  let session: { type: string; startedAt: string } | null = null
+  try {
+    const active = await getActiveSessionByCourt(court.id)
+    if (active) session = { type: active.type, startedAt: active.startedAt }
+  } catch {
+    /* sessions-таблиц может не быть — idle-экран покажется без сессии */
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#0a0f0a] p-8 text-white">
-      <div className="text-sm uppercase tracking-widest text-white/50">Court</div>
-      <h1 className="text-5xl font-black">{court.name}</h1>
-      <p className="max-w-md text-center text-white/60">
-        Табло этого корта активируется после привязки матча (Шаг 2: Court Session).
-        Ссылка /c/{court.shortCode} постоянная — QR обновлять не нужно.
-      </p>
-      <div className="rounded-lg border border-white/10 px-4 py-2 font-mono text-sm text-white/40">
-        /c/{court.shortCode}
-      </div>
-    </main>
+    <CourtIdleScreen
+      courtName={court.legacyNumber !== null ? `Корт ${court.name}` : court.name}
+      code={court.shortCode}
+      session={session}
+    />
   )
 }

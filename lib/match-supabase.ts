@@ -36,6 +36,8 @@ export function matchToRow(match: any): Record<string, any> {
     // court_id пишем только когда клиент его знает (Шаг 2): старые снапшоты
     // без поля не затирают бэкфилл-значение в БД нулём.
     ...(match.courtId !== undefined ? { court_id: match.courtId ?? null } : {}),
+    // session_id — привязка матча к Court Session (Quick Play, §5).
+    ...(match.sessionId !== undefined ? { session_id: match.sessionId ?? null } : {}),
     created_via_court_link: match.created_via_court_link,
     extras: pickExtras(match),
   }
@@ -68,6 +70,7 @@ export function matchFromRow(row: any): any {
     winner: row.winner,
     courtNumber: row.court_number,
     courtId: row.court_id ?? null,
+    sessionId: row.session_id ?? null,
     created_via_court_link: row.created_via_court_link,
     revision: typeof row.revision === "number" ? row.revision : 0,
     history: [],

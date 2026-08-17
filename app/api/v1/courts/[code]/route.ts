@@ -7,7 +7,7 @@
 
 import { type NextRequest, NextResponse } from "next/server"
 import { ensureCourtSchema, getCourtByShortCode } from "@/lib/court-registry"
-import { getMatchFromServerByCourtNumber } from "@/lib/server-match-storage"
+import { getMatchFromServerByCourt } from "@/lib/server-match-storage"
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
@@ -20,16 +20,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "court_not_found", code }, { status: 404 })
     }
 
-    // Пока матч связан с кортом через legacy_number (§246 migration note);
-    // явная связь court_id появится вместе с court_sessions (Шаг 2).
+    // Шаг 2: резолв по court_id (нечисловые корты) с fallback на legacy-номер.
     let matchId: string | null = null
     let isCompleted: boolean | null = null
-    if (court.legacyNumber !== null) {
-      const match = await getMatchFromServerByCourtNumber(court.legacyNumber)
-      if (match) {
-        matchId = match.id ?? null
-        isCompleted = Boolean(match.isCompleted)
-      }
+    const match = await getMatchFromServerByCourt({ id: court.id, legacyNumber: court.legacyNumber })
+    if (match) {
+      matchId = match.id ?? null
+      isCompleted = Boolean(match.isCompleted)
     }
 
     return NextResponse.json(

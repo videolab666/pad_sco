@@ -15,6 +15,18 @@ const match = {
 const parse = (q: string) => parseScoreboardSettings(new URLSearchParams(q))
 
 describe("buildCourtVmixPayload display fields", () => {
+  it("court_name: display-имя корта из реестра, пусто по умолчанию (Шаг 2)", () => {
+    const d = buildCourtVmixPayload(match, null)
+    expect(d.court_name).toBe("")
+    const named = buildCourtVmixPayload(match, 4, undefined, "Центральный корт")
+    expect(named.court_name).toBe("Центральный корт")
+    expect(named.court_number).toBe(4)
+    // нечисловой корт: court_number 0, имя — главный идентификатор
+    const nonNumeric = buildCourtVmixPayload(match, null, undefined, "Центральний")
+    expect(nonNumeric.court_number).toBe(0)
+    expect(nonNumeric.court_name).toBe("Центральний")
+  })
+
   it("defaults: full name single line, as-is case, flag emoji", () => {
     const d = buildCourtVmixPayload(match, null)
     expect(d.teamA_player1_first).toBe("Anna")

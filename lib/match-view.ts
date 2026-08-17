@@ -279,11 +279,16 @@ export function buildVmixFlatData(match: any): Record<string, any> {
  *
  * `courtNumber` overrides the value from the match when provided (the court
  * endpoint knows its court); pass null to fall back to `match.courtNumber`.
+ *
+ * `courtName` (Шаг 2, §246) — display-имя корта из реестра: корты могут
+ * называться не только номерами. Новое поле; существующие vMix-шаблоны,
+ * которые его не используют, не затрагиваются.
  */
 export function buildCourtVmixPayload(
   match: any,
   courtNumber: number | null,
   display?: Partial<ScoreboardSettings>,
+  courtName?: string,
 ): Record<string, any> {
   const importantPoint = getImportantPoint(match)
   const totalSets = getMatchTotalSets(match)
@@ -302,6 +307,7 @@ export function buildCourtVmixPayload(
   const data: Record<string, any> = {
     ...buildVmixFlatData(match),
     court_number: courtNumber ?? match?.courtNumber ?? 0,
+    court_name: courtName ?? "",
 
     teamA_player1_name: match?.teamA?.players?.[0]?.name || "",
     teamA_player2_name: match?.teamA?.players?.[1]?.name || "",

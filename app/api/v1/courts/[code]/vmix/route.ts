@@ -1,14 +1,12 @@
 // GET /api/v1/courts/{short_code}/vmix — vMix payload по вечной ссылке (§247).
 // Тот же builder, что у /api/court/[number] и /api/vmix/[id] (lib/match-view).
 //
-// Ограничение Шага 1: payload строится для кортов с legacy_number
-// (связь матч↔корт пока через matches.court_number). Для новых
-// нечисловых кортов vMix-JSON появится вместе с court_id в matches (Шаг 2);
-// HTML-табло /c/{code} уже сейчас работает для всех кортов.
+// Шаг 2: матч резолвится по court_id (для нечисловых кортов) с fallback на
+// legacy court_number; в payload добавлено court_name — display-имя корта.
 
 import { type NextRequest, NextResponse } from "next/server"
 import { ensureCourtSchema, getCourtByShortCode } from "@/lib/court-registry"
-import { getMatchFromServerByCourtNumber } from "@/lib/server-match-storage"
+import { getMatchFromServerByCourt } from "@/lib/server-match-storage"
 import { buildCourtVmixPayload } from "@/lib/match-view"
 import { parseScoreboardSettings } from "@/lib/scoreboard-settings"
 import { logEvent } from "@/lib/error-logger"
@@ -23,19 +21,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!court) {
       return NextResponse.json({ error: "court_not_found", code }, { status: 404 })
     }
-    if (court.legacyNumber === null) {
-      return NextResponse.json(
-        {
-          error: "vmix_requires_numbered_court",
-          message:
-            "vMix payload пока строится только для кортов с номером (legacy_number). Используйте HTML-табло /c/{code}.",
-          court: { name: court.name, shortCode: court.shortCode },
-        },
-        { status: 422 },
-      )
-    }
 
-    const match = await getMatchFromServerByCourtNumber(court.legacyNumber)
+    const match = await getMatchFromServerByCourt({
+      id: court.id,
+      legacyNumber: court.legacyNumber,
+    })
     if (!match) {
       return NextResponse.json(
         { error: "match_not_found", court: court.name, timestamp: new Date().toISOString() },
@@ -44,9 +34,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const display = parseScoreboardSettings(new URL(request.url).searchParams)
-    const data = buildCourtVmixPayload(match, court.legacyNumber, display)
+    const data = buildCourtVmixPayload(match, court.legacyNumber, display, court.name)
 
-    logEvent("info", `Court v1 API: vMix payload для /c/${code} (корт ${court.legacyNumber})`, "court-api")
+    logEvent("info", `Court v1 API: vMix payload для /c/${code} («${court.name}»)`, "court-api")
 
     return NextResponse.json([data], {
       headers: {

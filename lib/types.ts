@@ -83,6 +83,12 @@ export interface Match {
   format?: string;
   code?: string;
   courtNumber: number;
+  /**
+   * Court registry linkage (Шаг 2, §246): каноническая ссылка на courts.id.
+   * courtNumber остаётся для legacy-кортов 1..10; для нечисловых кортов
+   * courtNumber = null, а резолвинг идёт по courtId.
+   */
+  courtId?: string | null;
   teamA: Team;
   teamB: Team;
   score: MatchScore;

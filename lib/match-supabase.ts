@@ -33,6 +33,9 @@ export function matchToRow(match: any): Record<string, any> {
     is_completed: match.isCompleted,
     winner: match.winner || null,
     court_number: match.courtNumber,
+    // court_id пишем только когда клиент его знает (Шаг 2): старые снапшоты
+    // без поля не затирают бэкфилл-значение в БД нулём.
+    ...(match.courtId !== undefined ? { court_id: match.courtId ?? null } : {}),
     created_via_court_link: match.created_via_court_link,
     extras: pickExtras(match),
   }
@@ -64,6 +67,7 @@ export function matchFromRow(row: any): any {
     isCompleted: row.is_completed,
     winner: row.winner,
     courtNumber: row.court_number,
+    courtId: row.court_id ?? null,
     created_via_court_link: row.created_via_court_link,
     revision: typeof row.revision === "number" ? row.revision : 0,
     history: [],

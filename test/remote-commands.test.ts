@@ -276,6 +276,25 @@ describe("applyRemoteCommand — toss / assign-court", () => {
     expect(cleared.courtNumber).toBe(null)
     expect(err(() => applyRemoteCommand(freshMatch(), "assign-court", { court: 0 })).code).toBe("invalid_args")
   })
+
+  it("assign-court с courtId: нечисловые корты (Шаг 2, §246)", () => {
+    const courtUuid = "7e4f98c5-7f51-4e7f-80a9-cf89fdfd86d0"
+    const m = applyRemoteCommand(freshMatch(), "assign-court", { court: null, courtId: courtUuid })
+    expect(m.courtId).toBe(courtUuid)
+    expect(m.courtNumber).toBe(null)
+
+    // явный courtId:null отвязывает корт
+    const cleared = applyRemoteCommand(m, "assign-court", { court: null, courtId: null })
+    expect(cleared.courtId).toBe(null)
+
+    // без поля courtId прежняя привязка сохраняется (совместимость)
+    const kept = applyRemoteCommand({ ...freshMatch(), courtId: courtUuid }, "assign-court", { court: 3 })
+    expect(kept.courtNumber).toBe(3)
+    expect(kept.courtId).toBe(courtUuid)
+
+    // тип courtId валидируется
+    expect(err(() => applyRemoteCommand(freshMatch(), "assign-court", { courtId: 42 })).code).toBe("invalid_args")
+  })
 })
 
 describe("applyRemoteBatch", () => {

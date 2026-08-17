@@ -146,3 +146,56 @@ export const getMatchFromServerByCourtNumber = async (courtNumber: number) => {
     return null
   }
 }
+
+/**
+ * Резолв матча для корта из реестра (Шаг 2, §246/§247).
+ *
+ * Порядок попыток: активный матч по court_id → (для legacy-кортов) активный
+ * по court_number → завершённый по court_id → завершённый по court_number.
+ * Для нечисловых кортов работает только court_id — матчи привязываются
+ * командой assign-court с аргументом courtId.
+ */
+export const getMatchFromServerByCourt = async (court: {
+  id: string
+  legacyNumber: number | null
+}) => {
+  try {
+    const supabase = createServerSupabaseClient()
+
+    const tryFetch = async (useCourtId: boolean, completed: boolean) => {
+      let query = supabase
+        .from("matches")
+        .select("*")
+        .eq("is_completed", completed)
+        .order("created_at", { ascending: false })
+        .limit(1)
+      query = useCourtId
+        ? query.eq("court_id", court.id)
+        : query.eq("court_number", court.legacyNumber as number)
+      return query.maybeSingle()
+    }
+
+    const attempts: Array<Promise<{ data: any; error: any }>> = [
+      tryFetch(true, false),
+    ]
+    if (court.legacyNumber !== null) attempts.push(tryFetch(false, false))
+    attempts.push(tryFetch(true, true))
+    if (court.legacyNumber !== null) attempts.push(tryFetch(false, true))
+
+    for (const attempt of attempts) {
+      const { data, error } = await attempt
+      if (error) {
+        logEvent("error", `getMatchFromServerByCourt: ${error.message}`, "getMatchFromServerByCourt", { courtId: court.id })
+        return null
+      }
+      if (data) return transformMatchFromSupabase(data)
+    }
+
+    logEvent("warn", `Матч для корта ${court.id} не найден`, "getMatchFromServerByCourt")
+    return null
+  } catch (err) {
+    const error = err as Error
+    logEvent("error", `getMatchFromServerByCourt: ${error.message}`, "getMatchFromServerByCourt", { error })
+    return null
+  }
+}

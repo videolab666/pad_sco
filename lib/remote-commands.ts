@@ -304,8 +304,21 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
       if (court !== null && !(isNonNegativeInt(court) && court >= 1 && court <= 50)) {
         throw new RemoteCommandError("invalid_args", "args.court must be a court number (1..50) or null")
       }
+      // Шаг 2 (§246): нечисловые корты привязываются через courtId (UUID из
+      // реестра /api/courts). courtId=null в явном виде отвязывает корт;
+      // отсутствие поля сохраняет прежнюю привязку (совместимость).
+      const hasCourtIdArg = args?.courtId !== undefined
+      const courtId = args?.courtId ?? null
+      if (courtId !== null && typeof courtId !== "string") {
+        throw new RemoteCommandError("invalid_args", "args.courtId must be a court UUID string or null")
+      }
       // Court assignment affects display only — no journal event needed.
-      return { ...JSON.parse(JSON.stringify(match)), courtNumber: court, history: [] }
+      return {
+        ...JSON.parse(JSON.stringify(match)),
+        courtNumber: court,
+        ...(hasCourtIdArg ? { courtId } : {}),
+        history: [],
+      }
     }
 
     default:

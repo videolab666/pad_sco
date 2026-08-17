@@ -125,6 +125,33 @@ assert.equal(match.winner, "teamB")
 assert.equal(match.score.teamA, 1)
 assert.equal(match.score.teamB, 2)
 
+// ─── Classic deuce regression (Шаг 0) ────────────────────────────────────────
+// Pins the classic 40-40 behaviour: the next point goes to "Ad" and NOT a
+// game win (the historical bug documented in endpoint.md). Full cycle:
+// 40-40 → Ad → level back to 40-40 (deuceCount bumps) → Ad → game win.
+let classicDeuceMatch = createMatch() // goldenPointFormat: "none" by default
+classicDeuceMatch.score.currentSet.currentGame = { teamA: 40, teamB: 40 }
+
+classicDeuceMatch = applyScoreIncrement(classicDeuceMatch, "teamA") as any
+assert.equal(
+  classicDeuceMatch.score.currentSet.currentGame.teamA,
+  "Ad",
+  "classic 40-40 must go to Ad, not winGame",
+)
+assert.equal(classicDeuceMatch.score.currentSet.currentGame.teamB, 40)
+assert.equal(classicDeuceMatch.score.currentSet.teamA, 0, "no game may be awarded from a 40-40 deuce")
+
+classicDeuceMatch = applyScoreIncrement(classicDeuceMatch, "teamB") as any
+assert.equal(classicDeuceMatch.score.currentSet.currentGame.teamA, 40, "levelling an Ad must return both to 40-40")
+assert.equal(classicDeuceMatch.score.currentSet.currentGame.teamB, 40)
+assert.equal(classicDeuceMatch.score.currentSet.currentGame.deuceCount, 1, "each levelled deuce bumps deuceCount")
+
+classicDeuceMatch = applyScoreIncrement(classicDeuceMatch, "teamA") as any
+assert.equal(classicDeuceMatch.score.currentSet.currentGame.teamA, "Ad")
+classicDeuceMatch = applyScoreIncrement(classicDeuceMatch, "teamA") as any
+assert.equal(classicDeuceMatch.score.currentSet.teamA, 1, "winning from Ad must win the game")
+assert.deepEqual(classicDeuceMatch.score.currentSet.currentGame, { teamA: 0, teamB: 0 })
+
 let goldenPointMatch = createMatch({
   sets: 3,
   finalSetTiebreak: false,

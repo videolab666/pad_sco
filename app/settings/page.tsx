@@ -6,6 +6,7 @@
 // успешный логин выдаёт httpOnly-cookie на 30 дней.
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Loader2, Lock, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -106,6 +107,13 @@ export default function SettingsPage() {
     <div className="container mx-auto max-w-6xl p-4 md:p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Общие настройки</h1>
+        <Link
+          href="/dashboard"
+          target="_blank"
+          className="rounded-md border px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent"
+        >
+          Дашборд кортов
+        </Link>
         <Button variant="outline" size="sm" onClick={logout}>
           <LogOut className="mr-2 h-4 w-4" />
           Выйти

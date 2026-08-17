@@ -8,6 +8,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { ensureCourtSchema, getCourtByShortCode } from "@/lib/court-registry"
 import { getMatchFromServerByCourt } from "@/lib/server-match-storage"
+import { getActiveSessionByCourt } from "@/lib/court-session"
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
@@ -29,6 +30,22 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       isCompleted = Boolean(match.isCompleted)
     }
 
+    // Активная Court Session на корте (§5): тип, участники, время старта.
+    let session: Record<string, unknown> | null = null
+    try {
+      const active = await getActiveSessionByCourt(court.id)
+      if (active) {
+        session = {
+          id: active.id,
+          type: active.type,
+          status: active.status,
+          startedAt: active.startedAt,
+        }
+      }
+    } catch {
+      // Sessions-таблицы может не быть (до миграции) — state корта не должен падать.
+    }
+
     return NextResponse.json(
       {
         court: {
@@ -40,6 +57,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
           status: court.status,
         },
         scoreboardUrl: `/c/${court.shortCode}`,
+        session,
         matchId,
         isCompleted,
         timestamp: new Date().toISOString(),

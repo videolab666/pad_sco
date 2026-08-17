@@ -26,6 +26,11 @@ export interface UpdatePlayerOptions {
   name?: string;
   number?: number;
   color?: string;
+  country?: string;
+  avatar?: string;
+  club?: string;
+  seed?: string;
+  abbreviation?: string;
 }
 
 export interface Team {

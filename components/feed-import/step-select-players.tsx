@@ -74,7 +74,7 @@ export function StepSelectPlayers({ tournament, onImported }: StepSelectPlayersP
     try {
       const chosen = players.filter((_, i) => selected.has(String(i)))
       const result = await importPlayers(
-        chosen.map((p) => ({ name: p.name, dyId: p.dyId })),
+        chosen.map((p) => ({ name: p.name, dyId: p.dyId, country: p.country })),
         { transliterate: translit },
       )
       onImported(result)

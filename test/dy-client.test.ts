@@ -31,10 +31,10 @@ describe("getTournamentPlayers", () => {
   it("splits every pair into individual players", async () => {
     const resp = await getTournamentPlayers(tournament())
     expect(resp["Open 1000 Men"]).toEqual([
-      { name: "Fedor Modnikov", dyId: "1200619" },
-      { name: "Volodymyr Yelizarov", dyId: "1524778" },
-      { name: "Vladislav Horodynskyi", dyId: "1471770" },
-      { name: "Oleg Dolgosheyev", dyId: "1396995" },
+      { name: "Fedor Modnikov", dyId: "1200619", country: "UKR" },
+      { name: "Volodymyr Yelizarov", dyId: "1524778", country: "UKR" },
+      { name: "Vladislav Horodynskyi", dyId: "1471770", country: "UKR" },
+      { name: "Oleg Dolgosheyev", dyId: "1396995", country: "UKR" },
     ])
   })
 

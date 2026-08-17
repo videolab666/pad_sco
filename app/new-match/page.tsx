@@ -438,6 +438,16 @@ export default function NewMatchPage() {
       tiebreakFormat: matchSettings.tiebreakFormat,
     })
 
+
+    /** Full player record for a match: copies the extended display fields
+     * (country/club/avatar/seed/...) from the player pool, not just the name. */
+    const matchPlayer = (playerId: string | undefined, fallbackName?: string) => {
+      const pool = players.find((p) => p.id === playerId)
+      if (!pool) return { id: playerId, name: fallbackName ?? playerId }
+      const { local_expire_at: _exp, dyId: _dy, ...rest } = pool as any
+      return rest
+    }
+
     const match = {
       id: generateNumericId(),
       type: matchType,
@@ -456,9 +466,9 @@ export default function NewMatchPage() {
               : []),
           ]
           : [
-            { id: teamAPlayer1, name: players.find((p) => p.id === teamAPlayer1)?.name || teamAPlayer1 },
+            matchPlayer(teamAPlayer1),
             ...(teamAPlayer2
-              ? [{ id: teamAPlayer2, name: players.find((p) => p.id === teamAPlayer2)?.name || teamAPlayer2 }]
+              ? [matchPlayer(teamAPlayer2)]
               : []),
           ],
         isServing: servingTeam === "teamA",
@@ -474,9 +484,9 @@ export default function NewMatchPage() {
               : []),
           ]
           : [
-            { id: teamBPlayer1, name: players.find((p) => p.id === teamBPlayer1)?.name || teamBPlayer1 },
+            matchPlayer(teamBPlayer1),
             ...(teamBPlayer2
-              ? [{ id: teamBPlayer2, name: players.find((p) => p.id === teamBPlayer2)?.name || teamBPlayer2 }]
+              ? [matchPlayer(teamBPlayer2)]
               : []),
           ],
         isServing: servingTeam === "teamB",

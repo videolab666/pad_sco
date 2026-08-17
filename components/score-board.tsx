@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { getGameScoreDisplay, getImportantEventType, getServeSide as getServeSideView, isPlayerServing } from "@/lib/match-view"
 import { useState, useEffect, useRef } from "react"
-import { undoBackOneGame, undoBackOneSet, undoLastScoringEvent, verifyJournal } from "@/lib/match-undo"
+import { undoLastScoringEvent, verifyJournal } from "@/lib/match-undo"
 import { appendStateOverrideEvent, scoreStateOf } from "@/lib/match-events"
 import {
   AlertDialog,
@@ -345,24 +345,6 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     } else {
       flashUndoNotice()
     }
-  }
-
-  const handleUndoGame = () => {
-    setUndoNotice(false)
-    if (!verifyJournal(match).canUndo) {
-      flashUndoNotice()
-      return
-    }
-    applyUndoneMatch(undoBackOneGame(match))
-  }
-
-  const handleUndoSet = () => {
-    setUndoNotice(false)
-    if (!verifyJournal(match).canUndo) {
-      flashUndoNotice()
-      return
-    }
-    applyUndoneMatch(undoBackOneSet(match))
   }
 
   const handleCompleteMatch = () => {
@@ -817,22 +799,6 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
                   <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
                 </svg>
                 {t("match.undoPoint")}
-              </button>
-              <button
-                className="flex-1 py-2 px-2 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
-                onClick={handleUndoGame}
-                disabled={!hasUndoableJournal}
-                title={!hasUndoableJournal ? t("match.undoUnavailable") : undefined}
-              >
-                {t("match.undoGame")}
-              </button>
-              <button
-                className="flex-1 py-2 px-2 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
-                onClick={handleUndoSet}
-                disabled={!hasUndoableJournal}
-                title={!hasUndoableJournal ? t("match.undoUnavailable") : undefined}
-              >
-                {t("match.undoSet")}
               </button>
             </div>
             {undoNotice && (

@@ -12,6 +12,7 @@ import { applyScoreIncrement } from "@/lib/scoring-logic"
 import { Maximize2, Minimize2, ArrowLeft, Clock } from "lucide-react"
 import { translations, type Language } from "@/lib/translations"
 import { getDefaultVmixSettings } from "@/lib/vmix-settings-storage"
+import { parseScoreboardSettings, sanitizeScoreboardSettings } from "@/lib/scoreboard-settings"
 import { VmixScoreboard } from "@/components/vmix-scoreboard"
 import { CourtMediaLayer } from "@/components/media-overlay"
 import type { ScoreboardSettings } from "@/lib/scoreboard-settings"
@@ -20,13 +21,6 @@ type FullscreenScoreboardParams = {
   params: Promise<{
     number: string
   }>
-}
-
-// Функция для преобразования параметра цвета из URL
-const parseColorParam = (param: string | null, defaultColor: string) => {
-  if (!param) return defaultColor
-  // Если параметр не содержит #, добавляем его
-  return param.startsWith("#") ? param : `#${param}`
 }
 
 export default function FullscreenScoreboard({ params }: FullscreenScoreboardParams) {
@@ -55,6 +49,20 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   const [showSets, setShowSets] = useState(true);
   const [showServer, setShowServer] = useState(true);
   const [showCountry, setShowCountry] = useState(false);
+  const [countryAs, setCountryAs] = useState<"flag" | "code" | "name">("flag");
+  const [hideSameCountry, setHideSameCountry] = useState(false);
+  const [showAvatar, setShowAvatar] = useState(false);
+  const [hideSameAvatar, setHideSameAvatar] = useState(true);
+  const [playerNameFormat, setPlayerNameFormat] = useState<"full" | "first" | "last">("full");
+  const [nameLines, setNameLines] = useState<"single" | "two">("single");
+  const [nameLineOrder, setNameLineOrder] = useState<"first-top" | "last-top">("first-top");
+  const [nameCase, setNameCase] = useState<"as-is" | "upper" | "lower" | "capitalize">("as-is");
+  const [nameSizeLinked, setNameSizeLinked] = useState(true);
+  const [nameSizeFirst, setNameSizeFirst] = useState(1);
+  const [nameSizeLast, setNameSizeLast] = useState(1);
+  const [nameWeightLinked, setNameWeightLinked] = useState(true);
+  const [nameWeightFirst, setNameWeightFirst] = useState("700");
+  const [nameWeightLast, setNameWeightLast] = useState("700");
   const [textColor, setTextColor] = useState("#ffffff");
   const [accentColor, setAccentColor] = useState("#a4fb23");
   const [namesBgColor, setNamesBgColor] = useState("#0369a1");
@@ -198,8 +206,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           settingsName: defaultSettings.name,
         })
 
-        // Применяем настройки из базы данных
-        applySettings(defaultSettings.settings)
+        // Применяем настройки из базы данных (через общий санитайзер)
+        applySettings(sanitizeScoreboardSettings(defaultSettings.settings))
       } else {
         logEvent("warn", "Настройки vMix по умолчанию не найдены в базе данных", "fullscreen-scoreboard")
         // Если настроек по умолчанию нет, пробуем загрузить из localStorage
@@ -220,7 +228,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
     try {
       const savedSettings = localStorage.getItem("vmix_settings")
       if (savedSettings) {
-        const settings = JSON.parse(savedSettings)
+        const settings = sanitizeScoreboardSettings(JSON.parse(savedSettings))
         applySettings(settings)
         logEvent("info", "Настройки vMix загружены из localStorage", "fullscreen-scoreboard")
       }
@@ -240,6 +248,28 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
     setShowSets(settings.showSets !== undefined ? settings.showSets : true)
     setShowServer(settings.showServer !== undefined ? settings.showServer : true)
     setShowCountry(settings.showCountry !== undefined ? settings.showCountry : false)
+    // Новые настройки отображения (флаги/аватары/имена) — те же поля, что
+    // сериализует редактор vMix в localStorage/Supabase и в URL.
+    if (settings.countryAs === "code" || settings.countryAs === "name" || settings.countryAs === "flag") {
+      setCountryAs(settings.countryAs)
+    }
+    if (settings.hideSameCountry !== undefined) setHideSameCountry(settings.hideSameCountry)
+    if (settings.showAvatar !== undefined) setShowAvatar(settings.showAvatar)
+    if (settings.hideSameAvatar !== undefined) setHideSameAvatar(settings.hideSameAvatar)
+    if (settings.playerNameFormat === "first" || settings.playerNameFormat === "last" || settings.playerNameFormat === "full") {
+      setPlayerNameFormat(settings.playerNameFormat)
+    }
+    if (settings.nameLines === "single" || settings.nameLines === "two") setNameLines(settings.nameLines)
+    if (settings.nameLineOrder === "first-top" || settings.nameLineOrder === "last-top") setNameLineOrder(settings.nameLineOrder)
+    if (settings.nameCase === "as-is" || settings.nameCase === "upper" || settings.nameCase === "lower" || settings.nameCase === "capitalize") {
+      setNameCase(settings.nameCase)
+    }
+    if (typeof settings.nameSizeFirst === "number" && settings.nameSizeFirst > 0) setNameSizeFirst(settings.nameSizeFirst)
+    if (typeof settings.nameSizeLast === "number" && settings.nameSizeLast > 0) setNameSizeLast(settings.nameSizeLast)
+    if (settings.nameSizeLinked !== undefined) setNameSizeLinked(settings.nameSizeLinked)
+    if (typeof settings.nameWeightFirst === "string" && settings.nameWeightFirst) setNameWeightFirst(settings.nameWeightFirst)
+    if (typeof settings.nameWeightLast === "string" && settings.nameWeightLast) setNameWeightLast(settings.nameWeightLast)
+    if (settings.nameWeightLinked !== undefined) setNameWeightLinked(settings.nameWeightLinked)
     setTextColor(settings.textColor || "#ffffff")
     setAccentColor(settings.accentColor || "#a4fb23")
 
@@ -282,7 +312,9 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
   // Загрузка настроек из URL или базы данных при первом рендере
   useEffect(() => {
-    // Проверяем, есть ли параметры настроек в URL
+    // Настройки из URL разбирает общий парсер (lib/scoreboard-settings) — тот же,
+    // что у scorebug-страниц. Любой новый параметр поддерживается здесь автоматически.
+    const parsed = parseScoreboardSettings(searchParams)
     const hasSettingsInUrl =
       searchParams.has("theme") ||
       searchParams.has("showNames") ||
@@ -291,54 +323,22 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
       searchParams.has("showServer") ||
       searchParams.has("showCountry") ||
       searchParams.has("textColor") ||
-      searchParams.has("accentColor")
+      searchParams.has("accentColor") ||
+      searchParams.has("countryAs") ||
+      searchParams.has("hideSameCountry") ||
+      searchParams.has("showAvatar") ||
+      searchParams.has("hideSameAvatar") ||
+      searchParams.has("nameAs") ||
+      searchParams.has("nameLines") ||
+      searchParams.has("nameLineOrder") ||
+      searchParams.has("nameCase") ||
+      searchParams.has("nameSizeFirst") ||
+      searchParams.has("nameWeightFirst")
 
     if (hasSettingsInUrl) {
-      // Если настройки есть в URL, применяем их
-      setTheme(searchParams.get("theme") || "default")
-      setShowNames(searchParams.get("showNames") !== "false")
-      setShowPoints(searchParams.get("showPoints") !== "false")
-      setShowSets(searchParams.get("showSets") !== "false")
-      setShowServer(searchParams.get("showServer") !== "false")
-      setShowCountry(searchParams.get("showCountry") === "true")
-      setTextColor(parseColorParam(searchParams.get("textColor"), "#ffffff"))
-      setAccentColor(parseColorParam(searchParams.get("accentColor"), "#a4fb23"))
-
-      // Применяем настройки цветов из URL
-      setNamesBgColor(parseColorParam(searchParams.get("namesBgColor"), "#0369a1"))
-      setCountryBgColor(parseColorParam(searchParams.get("countryBgColor"), "#0369a1"))
-      setPointsBgColor(parseColorParam(searchParams.get("pointsBgColor"), "#0369a1"))
-      setSetsBgColor(parseColorParam(searchParams.get("setsBgColor"), "#ffffff"))
-      setSetsTextColor(parseColorParam(searchParams.get("setsTextColor"), "#000000"))
-      setServeBgColor(parseColorParam(searchParams.get("serveBgColor"), "#000000"))
-
-      // Применяем настройки градиентов из URL
-      setNamesGradient(searchParams.get("namesGradient") === "true")
-      setNamesGradientFrom(parseColorParam(searchParams.get("namesGradientFrom"), "#0369a1"))
-      setNamesGradientTo(parseColorParam(searchParams.get("namesGradientTo"), "#0284c7"))
-
-      setCountryGradient(searchParams.get("countryGradient") === "true")
-      setCountryGradientFrom(parseColorParam(searchParams.get("countryGradientFrom"), "#0369a1"))
-      setCountryGradientTo(parseColorParam(searchParams.get("countryGradientTo"), "#0284c7"))
-
-      setPointsGradient(searchParams.get("pointsGradient") === "true")
-      setPointsGradientFrom(parseColorParam(searchParams.get("pointsGradientFrom"), "#0369a1"))
-      setPointsGradientTo(parseColorParam(searchParams.get("pointsGradientTo"), "#0284c7"))
-
-      setSetsGradient(searchParams.get("setsGradient") === "true")
-      setSetsGradientFrom(parseColorParam(searchParams.get("setsGradientFrom"), "#ffffff"))
-      setSetsGradientTo(parseColorParam(searchParams.get("setsGradientTo"), "#f0f0f0"))
-
-      setServeGradient(searchParams.get("serveGradient") === "true")
-      setServeGradientFrom(parseColorParam(searchParams.get("serveGradientFrom"), "#000000"))
-      setServeGradientTo(parseColorParam(searchParams.get("serveGradientTo"), "#1e1e1e"))
-
-      // Применяем настройки индикатора из URL
-      setIndicatorBgColor(parseColorParam(searchParams.get("indicatorBgColor"), "#7c2d12"))
-      setIndicatorTextColor(parseColorParam(searchParams.get("indicatorTextColor"), "#ffffff"))
-      setIndicatorGradient(searchParams.get("indicatorGradient") === "true")
-      setIndicatorGradientFrom(parseColorParam(searchParams.get("indicatorGradientFrom"), "#7c2d12"))
-      setIndicatorGradientTo(parseColorParam(searchParams.get("indicatorGradientTo"), "#991b1b"))
+      // Историческая особенность fullscreen: колонка стран по умолчанию ВЫКЛЮЧЕНА
+      // (у scorebug включена), поэтому переопределяем дефолт парсера.
+      applySettings({ ...parsed, showCountry: searchParams.get("showCountry") === "true" })
 
       setSettingsLoaded(true)
       logEvent("info", "Настройки vMix загружены из URL", "fullscreen-scoreboard")
@@ -678,6 +678,20 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
       showSets,
       showServer,
       showCountry,
+      countryAs,
+      hideSameCountry,
+      showAvatar,
+      hideSameAvatar,
+      playerNameFormat,
+      nameLines,
+      nameLineOrder,
+      nameCase,
+      nameSizeLinked,
+      nameSizeFirst,
+      nameSizeLast,
+      nameWeightLinked,
+      nameWeightFirst,
+      nameWeightLast,
       showBreakPoint,
       fontSize: "normal",
       bgOpacity: 0.5,

@@ -15,8 +15,8 @@ describe("splitPlayerEntry", () => {
         ids: "1200619/1524778",
       }),
     ).toEqual([
-      { name: "Fedor Modnikov", dyId: "1200619" },
-      { name: "Volodymyr Yelizarov", dyId: "1524778" },
+      { name: "Fedor Modnikov", dyId: "1200619", country: "UKR" },
+      { name: "Volodymyr Yelizarov", dyId: "1524778", country: "UKR" },
     ])
   })
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { logEvent } from "@/lib/error-logger"
 import { getMatchFromServer } from "@/lib/server-match-storage"
 import { buildCourtVmixPayload } from "@/lib/match-view"
+import { parseScoreboardSettings } from "@/lib/scoreboard-settings"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -26,7 +27,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // Единый источник плоского payload для vMix — lib/match-view.
     // Используем тот же билдер, что и /api/court/[number] и /api/match/[id],
     // чтобы все три endpoint'а возвращали одинаковый набор полей.
-    const flatVmixData = buildCourtVmixPayload(match, null)
+    // Те же URL-параметры отображения, что и у HTML-табло (nameLines/nameCase/...)
+    const display = parseScoreboardSettings(new URL(request.url).searchParams)
+    const flatVmixData = buildCourtVmixPayload(match, null, display)
 
     // Оборачиваем объект в массив для vMix
     const vmixDataArray = [flatVmixData]

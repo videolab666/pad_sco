@@ -85,7 +85,7 @@ describe("Task 10 — undoLastScoringEvent", () => {
 })
 
 describe("Task 10 — undoBackOneGame", () => {
-  it("rolls back every point inside the current (in-progress) game", () => {
+  it("clears the first game of the match (nothing to reopen)", () => {
     let m = freshMatch()
     m = scorePoint(m, "teamA") // 15-0
     m = scorePoint(m, "teamA") // 30-0
@@ -95,7 +95,7 @@ describe("Task 10 — undoBackOneGame", () => {
     expect(m.score.currentSet.games).toEqual([])
   })
 
-  it("when at 0-0 in the next game, undoes the whole previous game", () => {
+  it("when at 0-0 in the next game, reopens the previous game at its real score", () => {
     let m = freshMatch()
     // Win the first game (4 points for teamA).
     m = scorePoint(m, "teamA")
@@ -105,15 +105,30 @@ describe("Task 10 — undoBackOneGame", () => {
     expect(m.score.currentSet.games).toHaveLength(1)
     expect(m.score.currentSet.teamA).toBe(1)
     expect(m.score.currentSet.currentGame).toEqual({ teamA: 0, teamB: 0 })
-    // Undo back one game.
+    // Undo back one game — the finished game reopens at 40-0 (state before
+    // its game-closing point), not wiped to 0-0.
     m = undoBackOneGame(m)
     expect(m.score.currentSet.games).toHaveLength(0)
     expect(m.score.currentSet.teamA).toBe(0)
+    expect(m.score.currentSet.currentGame).toEqual({ teamA: 40, teamB: 0 })
+  })
+
+  it("mid-next-game with points: reopens the PREVIOUS game at its real score", () => {
+    let m = freshMatch()
+    for (let i = 0; i < 4; i++) m = scorePoint(m, "teamA") // game 1 won
+    m = scorePoint(m, "teamB") // 0-15 in game 2
+    m = scorePoint(m, "teamB") // 0-30 in game 2
+    m = undoBackOneGame(m)
+    // Game 2's points are peeled AND game 1's closing point — game 1 reopened
+    // at 40-0, ready for corrections.
+    expect(m.score.currentSet.games).toHaveLength(0)
+    expect(m.score.currentSet.teamA).toBe(0)
+    expect(m.score.currentSet.currentGame).toEqual({ teamA: 40, teamB: 0 })
   })
 })
 
 describe("Task 10 — undoBackOneSet", () => {
-  it("rolls the match back into the previous set", () => {
+  it("reopens the previous set at its real last moment (set-closing point removed)", () => {
     let m = freshMatch()
     // Win first set 6-0 → 24 points scored by teamA.
     for (let g = 0; g < 6; g++) {
@@ -127,7 +142,11 @@ describe("Task 10 — undoBackOneSet", () => {
     m = scorePoint(m, "teamB")
     m = undoBackOneSet(m)
     expect(m.score.sets).toHaveLength(0)
-    expect(m.score.currentSet.teamA).toBeLessThanOrEqual(6)
+    // The previous set is reopened: its last game stands at 40-0 — the set
+    // is editable again, not wiped to 0-0.
+    expect(m.score.currentSet.teamA).toBe(5)
+    expect(m.score.currentSet.games).toHaveLength(5)
+    expect(m.score.currentSet.currentGame).toEqual({ teamA: 40, teamB: 0 })
   })
 })
 
@@ -285,5 +304,52 @@ describe("journaling of format-affecting mutations", () => {
     // And undo takes the match back to live play.
     const undone = undoLastScoringEvent(m)
     expect(undone.isCompleted).toBe(false)
+  })
+})
+
+import { reseedJournal, replayEvents } from "../lib/match-undo"
+import { applyConductPenalty } from "../lib/match-official-calls"
+
+describe("journal repair + conduct-stroke replay", () => {
+  it("conduct stroke is replayed as a point so the journal stays consistent", () => {
+    let m = freshMatch()
+    m = scorePoint(m, "teamA") // 15-0
+    // Conduct stroke against teamA → point to teamB (30-all path: 15-15).
+    m = applyConductPenalty(m, "teamA", "stroke")
+    expect(m.score.currentSet.currentGame).toEqual({ teamA: 15, teamB: 15 })
+    const v = verifyJournal(m)
+    expect(v.ok).toBe(true)
+    expect(v.canUndo).toBe(true)
+  })
+
+  it("reseedJournal repairs a diverged journal from the live state", () => {
+    let m = freshMatch()
+    m = scorePoint(m, "teamA")
+    m = scorePoint(m, "teamA")
+    // Simulate an unjournaled mutation: bump a game directly.
+    const corrupted = JSON.parse(JSON.stringify(m))
+    corrupted.score.currentSet.teamA = 3
+    expect(verifyJournal(corrupted).ok).toBe(false)
+
+    const repaired = reseedJournal(corrupted)
+    expect(verifyJournal(repaired).ok).toBe(true)
+    expect(repaired.score.currentSet.teamA).toBe(3) // live state preserved
+
+    // Undo works again for post-repair points.
+    const scored = scorePoint(repaired, "teamB")
+    const v = verifyJournal(scored)
+    expect(v.canUndo).toBe(true)
+    const undone = undoLastScoringEvent(scored)
+    // Post-repair point undone → back to the repaired live state (30-0).
+    expect(undone.score.currentSet.currentGame).toEqual({ teamA: 30, teamB: 0 })
+  })
+
+  it("replayEvents keeps the old events as audit after a reseed", () => {
+    let m = freshMatch()
+    m = scorePoint(m, "teamA")
+    const repaired = reseedJournal(m)
+    expect(repaired.events.length).toBe(m.events.length) // nothing dropped
+    expect(repaired.seedSnapshot.applyFromIndex).toBe(m.events.length)
+    void replayEvents
   })
 })

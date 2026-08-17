@@ -57,6 +57,17 @@ describe("EndMatchDialog", () => {
     expect(next.winner).toBe("teamB")
   })
 
+  it("shows the chosen reason on the who-wins step", () => {
+    const updateMatch = vi.fn()
+    render(<EndMatchDialog match={makeMatch()} updateMatch={updateMatch} />)
+    fireEvent.click(screen.getByRole("button", { name: /^extras\.endMatch$/ }))
+    fireEvent.click(screen.getByRole("button", { name: /extras\.endMatchConduct/ }))
+
+    // The who-wins step must display the selected reason label and description.
+    expect(screen.getByText(/^extras\.endMatchConduct$/)).toBeTruthy()
+    expect(screen.getByText(/^extras\.endMatchConductDesc$/)).toBeTruthy()
+  })
+
   it("disables the trigger when the match is already completed", () => {
     const m = { ...makeMatch(), isCompleted: true }
     render(<EndMatchDialog match={m} updateMatch={() => {}} />)

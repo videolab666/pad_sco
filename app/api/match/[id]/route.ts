@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getMatchFromServer } from "@/lib/server-match-storage"
 import { logEvent } from "@/lib/error-logger"
 import { buildCourtVmixPayload } from "@/lib/match-view"
+import { parseScoreboardSettings } from "@/lib/scoreboard-settings"
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { matchToRow } from "@/lib/match-supabase"
 import { isAuthorizedApiRequest } from "@/lib/api-auth"
@@ -44,7 +45,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     // Единый источник плоского payload для vMix — lib/match-view
     // (тот же билдер, что и у /api/court/[number]).
-    const flatMatchData = buildCourtVmixPayload(match, null)
+    const display = parseScoreboardSettings(new URL(request.url).searchParams)
+    const flatMatchData = buildCourtVmixPayload(match, null, display)
 
     // Устанавливаем заголовки для предотвращения кэширования
     const headers = new Headers()

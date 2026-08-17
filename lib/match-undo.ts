@@ -85,7 +85,7 @@ function applyManualEdit(m: any, ev: MatchEvent): void {
  * below the seed's applyFromIndex are audit-only — the seed already contains
  * their effect.
  */
-function replayEvents(seed: any, events: MatchEvent[], skipIndex: number): any {
+export function replayEvents(seed: any, events: MatchEvent[], skipIndex: number): any {
   let m = JSON.parse(JSON.stringify(seed))
   m.events = []
   const startIdx = typeof seed?.applyFromIndex === "number" ? seed.applyFromIndex : 0
@@ -95,6 +95,12 @@ function replayEvents(seed: any, events: MatchEvent[], skipIndex: number): any {
     if (i >= startIdx) {
       if (ev.type === "point" && (ev.actor === "teamA" || ev.actor === "teamB")) {
         m = applyScoreIncrement(m, ev.actor as TeamKey)
+      } else if (ev.type === "conduct" && (ev.payload as any)?.penalty === "stroke") {
+        // Conduct stroke awards a point to the OPPOSITE of the penalized team
+        // (applyConductPenalty) — replay it or the journal diverges and undo
+        // gets disabled for the whole match.
+        const penalized = ev.actor as TeamKey
+        m = applyScoreIncrement(m, penalized === "teamA" ? "teamB" : "teamA")
       } else if (ev.type === "toss") {
         const p: any = ev.payload || {}
         if (p.winner && p.choice && p.teamOnLeft) {
@@ -116,6 +122,22 @@ function replayEvents(seed: any, events: MatchEvent[], skipIndex: number): any {
     m.events.push({ ...ev })
   }
   return m
+}
+
+/**
+ * Repair a diverged journal: re-seed the replay snapshot from the CURRENT
+ * live state, keeping the old events as audit-only (applyFromIndex skips
+ * them). Undo history effectively restarts from now — everything scored
+ * after the repair is exactly undoable; the corrupted past is not
+ * reconstructable, which is precisely why verifyJournal blocked it.
+ */
+export function reseedJournal(match: any): any {
+  if (!match) return match
+  const next = JSON.parse(JSON.stringify(match))
+  const eventCount = Array.isArray(next.events) ? next.events.length : 0
+  const { seedSnapshot: _seed, events: _events, ...rest } = next
+  next.seedSnapshot = { ...JSON.parse(JSON.stringify(rest)), events: [], applyFromIndex: eventCount }
+  return next
 }
 
 /** Undo the most recent point / manual-score / toss event. */
@@ -144,30 +166,33 @@ export function undoLastScoringEvent(match: any, now: Date = new Date()): any {
 }
 
 /**
- * Undo every point that has been played in the current game. If the current
- * game is at 0-0 (we just finished the previous game), undo that whole game.
+ * Reopen the previous finished game for editing. The button must NOT merely
+ * reset the current game to 0-0: it peels the current game's points AND the
+ * game-closing point of the previous game, so that game reopens at its real
+ * score (e.g. 40-30) and the operator can re-enter/fix it. With no previous
+ * game in the set (the first game), the current game is simply cleared.
  */
 export function undoBackOneGame(match: any, now: Date = new Date()): any {
   if (!match) return match
   const startedGames = match?.score?.currentSet?.games?.length ?? 0
-  const startedPoints = countPointsInCurrentGame(match)
   let cur = match
-  // If there are points in the current game, peel them off first.
-  if (startedPoints > 0) {
-    for (let safety = 0; safety < 100; safety++) {
+  // There is a finished game to reopen — peel until it stops counting as won.
+  if (startedGames > 0) {
+    for (let safety = 0; safety < 200; safety++) {
       const next = undoLastScoringEvent(cur, now)
       if (next === cur) return cur
       cur = next
-      if (countPointsInCurrentGame(cur) === 0 && (cur.score?.currentSet?.games?.length ?? 0) === startedGames) break
+      if ((cur.score?.currentSet?.games?.length ?? 0) < startedGames) break
     }
     return cur
   }
-  // Otherwise undo points until games count decreases.
-  for (let safety = 0; safety < 200; safety++) {
+  // First game of the set — nothing to reopen; just clear its points.
+  if (countPointsInCurrentGame(match) === 0) return match
+  for (let safety = 0; safety < 100; safety++) {
     const next = undoLastScoringEvent(cur, now)
     if (next === cur) return cur
     cur = next
-    if ((cur.score?.currentSet?.games?.length ?? 0) < startedGames) break
+    if (countPointsInCurrentGame(cur) === 0) break
   }
   return cur
 }

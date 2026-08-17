@@ -1,7 +1,7 @@
 // This is a simplified version of the player storage module
 // It provides functions to manage players in local storage and Supabase
 
-import { createClient } from "@supabase/supabase-js"
+import { createClientSupabaseClient } from "./supabase"
 import { logEvent } from "./error-logger"
 import { tSync } from "./log-i18n"
 
@@ -16,8 +16,11 @@ import type { Player, AddPlayerOptions, UpdatePlayerOptions } from "./types"
 let supabaseInstance: SupabaseClient | null = null
 
 const getSupabase = (): SupabaseClient | null => {
+  // Единый клиентский инстанс Supabase (lib/supabase). Собственный createClient
+  // здесь создавал второй GoTrueClient — оба боролись за один navigator-lock
+  // auth-токена ("Lock ... not released within 5000ms"), что тормозило браузер.
   if (!supabaseInstance && supabaseUrl && supabaseAnonKey) {
-    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey)
+    supabaseInstance = createClientSupabaseClient() as SupabaseClient | null
   }
   return supabaseInstance
 }

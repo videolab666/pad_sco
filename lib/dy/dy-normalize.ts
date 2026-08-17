@@ -82,11 +82,12 @@ export function splitSide(side: { name: string; id: number | string }) {
  * (e.g. rankedin) emit one entry per pair — name "A/B", the pair id in `id`
  * and the individual ids in `ids`. Singles entries pass through unchanged.
  */
-export function splitPlayerEntry(p: DyPlayer): { name: string; dyId?: string }[] {
+export function splitPlayerEntry(p: DyPlayer): { name: string; dyId?: string; country?: string }[] {
   const names = splitList(p.name)
-  if (names.length <= 1) return names.map((name) => ({ name, dyId: String(p.id) }))
+  const country = p.country?.trim().toUpperCase() || undefined
+  if (names.length <= 1) return names.map((name) => ({ name, dyId: String(p.id), country }))
   const ids = splitList(p.ids)
-  return names.map((name, i) => ({ name, dyId: ids[i] }))
+  return names.map((name, i) => ({ name, dyId: ids[i], country }))
 }
 
 /** Format a tournament date range for display ("" if no real dates). */

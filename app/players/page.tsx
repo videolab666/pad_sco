@@ -13,6 +13,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { SupabaseStatus } from "@/components/supabase-status"
 import { OfflineNotice } from "@/components/offline-notice"
 import { getPlayers, addPlayer, deletePlayers, subscribeToPlayersUpdates, updatePlayer } from "@/lib/player-storage"
+import { getMatches, updateMatch } from "@/lib/match-storage"
+import { applyPlayerToMatch } from "@/lib/player-live-sync"
+import { CountryCombobox } from "@/components/country-combobox"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +31,17 @@ import { logEvent } from "@/lib/error-logger"
 import { useLanguage } from "@/contexts/language-context"
 
 // Добавляем состояние для страны игрока
+/** Input с мелкой подписью-подсказкой под полем. */
+function FieldWithHint({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-0.5">
+      <div className="text-[11px] font-medium text-muted-foreground">{label}</div>
+      {children}
+      <div className="text-[10px] leading-tight text-muted-foreground/80">{hint}</div>
+    </div>
+  )
+}
+
 export default function PlayersPage() {
   const router = useRouter()
   const { t } = useLanguage()
@@ -35,6 +49,12 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true)
   const [newPlayerName, setNewPlayerName] = useState("")
   const [newPlayerCountry, setNewPlayerCountry] = useState("") // Новое состояние для страны
+  const [newPlayerAvatar, setNewPlayerAvatar] = useState("")
+  const [newPlayerClub, setNewPlayerClub] = useState("")
+  const [newPlayerSeed, setNewPlayerSeed] = useState("")
+  const [newPlayerAbbrev, setNewPlayerAbbrev] = useState("")
+  const [newPlayerNumber, setNewPlayerNumber] = useState("")
+  const [newPlayerColor, setNewPlayerColor] = useState("")
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([])
   const [showAlert, setShowAlert] = useState(false)
   const [alertMessage, setAlertMessage] = useState("")
@@ -46,7 +66,14 @@ export default function PlayersPage() {
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null)
   const [editedPlayerName, setEditedPlayerName] = useState("")
   const [editedPlayerCountry, setEditedPlayerCountry] = useState("")
+  const [editedPlayerAvatar, setEditedPlayerAvatar] = useState("")
+  const [editedPlayerClub, setEditedPlayerClub] = useState("")
+  const [editedPlayerSeed, setEditedPlayerSeed] = useState("")
+  const [editedPlayerAbbrev, setEditedPlayerAbbrev] = useState("")
+  const [editedPlayerNumber, setEditedPlayerNumber] = useState("")
+  const [editedPlayerColor, setEditedPlayerColor] = useState("")
   const [isEditingPlayer, setIsEditingPlayer] = useState(false)
+  const [applyToLive, setApplyToLive] = useState(true)
 
   // Обработчик обновления списка игроков
   const handlePlayersUpdate = useCallback((updatedPlayers: any[]) => {
@@ -103,6 +130,12 @@ export default function PlayersPage() {
         id: uuidv4(),
         name: newPlayerName.trim(),
         country: newPlayerCountry.trim() || undefined, // Добавляем страну
+        avatar: newPlayerAvatar.trim() || undefined,
+        club: newPlayerClub.trim() || undefined,
+        seed: newPlayerSeed.trim() || undefined,
+        abbreviation: newPlayerAbbrev.trim() || undefined,
+        number: Number.parseInt(newPlayerNumber) || undefined,
+        color: newPlayerColor.trim() || undefined,
       }
 
       logEvent("info", "Попытка добавления нового игрока", "PlayersPage", {
@@ -115,6 +148,8 @@ export default function PlayersPage() {
       if (result.success) {
         setNewPlayerName("")
         setNewPlayerCountry("") // Сбрасываем страну
+        setNewPlayerAvatar("")
+        setNewPlayerClub(""); setNewPlayerSeed(""); setNewPlayerAbbrev(""); setNewPlayerNumber(""); setNewPlayerColor("")
         showNotification(result.message)
         logEvent("info", "Игрок успешно добавлен", "PlayersPage", {
           id: newPlayer.id,
@@ -216,16 +251,46 @@ export default function PlayersPage() {
 
       const updatedPlayer = {
         name: editedPlayerName.trim(),
-        country: editedPlayerCountry.trim() || null,
+        country: editedPlayerCountry.trim() || undefined,
+        avatar: editedPlayerAvatar.trim() || undefined,
+        club: editedPlayerClub.trim() || undefined,
+        seed: editedPlayerSeed.trim() || undefined,
+        abbreviation: editedPlayerAbbrev.trim() || undefined,
+        number: Number.parseInt(editedPlayerNumber) || undefined,
+        color: editedPlayerColor.trim() || undefined,
       }
 
       const result = await updatePlayer(editingPlayerId, updatedPlayer)
 
       if (result.success) {
-        showNotification(result.message)
+        // Live-sync: push the display fields into active matches holding
+        // this player, so running scoreboards pick the fix up via realtime.
+        if (applyToLive) {
+          try {
+            const livePlayer = { id: editingPlayerId, ...updatedPlayer }
+            const matches = await getMatches()
+            let synced = 0
+            for (const m of matches) {
+              if (m?.isCompleted) continue
+              const next = applyPlayerToMatch(m, livePlayer as any)
+              if (next !== m) {
+                next.revision = (typeof m.revision === "number" ? m.revision : 0) + 1
+                await updateMatch(next)
+                synced++
+              }
+            }
+            if (synced > 0) showNotification(`${result.message} · ${t("players.liveSynced", { n: synced })}`)
+            else showNotification(result.message)
+          } catch (e) {
+            console.error("live-sync error", e)
+            showNotification(result.message)
+          }
+        } else showNotification(result.message)
         setEditingPlayerId(null)
         setEditedPlayerName("")
         setEditedPlayerCountry("")
+        setEditedPlayerAvatar("")
+        setEditedPlayerClub(""); setEditedPlayerSeed(""); setEditedPlayerAbbrev(""); setEditedPlayerNumber(""); setEditedPlayerColor("")
         logEvent("info", "Игрок успешно обновлен", "PlayersPage", {
           id: editingPlayerId,
           name: editedPlayerName,
@@ -252,6 +317,12 @@ export default function PlayersPage() {
     setEditingPlayerId(player.id)
     setEditedPlayerName(player.name)
     setEditedPlayerCountry(player.country || "")
+    setEditedPlayerAvatar(player.avatar || "")
+    setEditedPlayerClub(player.club || "")
+    setEditedPlayerSeed(player.seed || "")
+    setEditedPlayerAbbrev(player.abbreviation || "")
+    setEditedPlayerNumber(player.number ? String(player.number) : "")
+    setEditedPlayerColor(player.color || "")
   }
 
   // Отменить редактирование
@@ -259,6 +330,8 @@ export default function PlayersPage() {
     setEditingPlayerId(null)
     setEditedPlayerName("")
     setEditedPlayerCountry("")
+    setEditedPlayerAvatar("")
+    setEditedPlayerClub(""); setEditedPlayerSeed(""); setEditedPlayerAbbrev(""); setEditedPlayerNumber(""); setEditedPlayerColor("")
   }
 
   // Обновляем форму добавления игрока, чтобы включить поле для страны
@@ -316,15 +389,64 @@ export default function PlayersPage() {
                   disabled={isAddingPlayer}
                 />
               </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <FieldWithHint label={t("players.countryAbbreviation")} hint={t("players.countryHint")}>
+                  <CountryCombobox value={newPlayerCountry} onChange={setNewPlayerCountry} disabled={isAddingPlayer} />
+                </FieldWithHint>
+                <FieldWithHint label={t("players.avatarUrl")} hint={t("players.avatarHint")}>
+                  <Input
+                    value={newPlayerAvatar}
+                    onChange={(e) => setNewPlayerAvatar(e.target.value)}
+                    disabled={isAddingPlayer}
+                    onKeyDown={(e) => e.key === "Enter" && !isAddingPlayer && handleAddPlayer()}
+                  />
+                </FieldWithHint>
+                <FieldWithHint label={t("players.club")} hint={t("players.clubHint")}>
+                  <Input
+                    value={newPlayerClub}
+                    onChange={(e) => setNewPlayerClub(e.target.value)}
+                    disabled={isAddingPlayer}
+                    onKeyDown={(e) => e.key === "Enter" && !isAddingPlayer && handleAddPlayer()}
+                  />
+                </FieldWithHint>
+                <FieldWithHint label={t("players.seed")} hint={t("players.seedHint")}>
+                  <Input
+                    value={newPlayerSeed}
+                    onChange={(e) => setNewPlayerSeed(e.target.value)}
+                    maxLength={4}
+                    disabled={isAddingPlayer}
+                    onKeyDown={(e) => e.key === "Enter" && !isAddingPlayer && handleAddPlayer()}
+                  />
+                </FieldWithHint>
+                <FieldWithHint label={t("players.abbreviation")} hint={t("players.abbreviationHint")}>
+                  <Input
+                    value={newPlayerAbbrev}
+                    onChange={(e) => setNewPlayerAbbrev(e.target.value.toUpperCase())}
+                    maxLength={5}
+                    disabled={isAddingPlayer}
+                    onKeyDown={(e) => e.key === "Enter" && !isAddingPlayer && handleAddPlayer()}
+                  />
+                </FieldWithHint>
+                <FieldWithHint label={t("players.color")} hint={t("players.colorHint")}>
+                  <div className="flex gap-1">
+                    <Input
+                      type="color"
+                      value={newPlayerColor || "#1164a5"}
+                      onChange={(e) => setNewPlayerColor(e.target.value)}
+                      className="w-10 h-9 p-0.5"
+                      disabled={isAddingPlayer}
+                    />
+                    <Input
+                      value={newPlayerColor}
+                      onChange={(e) => setNewPlayerColor(e.target.value)}
+                      placeholder="#1164a5"
+                      disabled={isAddingPlayer}
+                      onKeyDown={(e) => e.key === "Enter" && !isAddingPlayer && handleAddPlayer()}
+                    />
+                  </div>
+                </FieldWithHint>
+              </div>
               <div className="flex gap-2">
-                <Input
-                  placeholder={t("players.countryAbbreviation")}
-                  value={newPlayerCountry}
-                  onChange={(e) => setNewPlayerCountry(e.target.value.toUpperCase())}
-                  maxLength={3}
-                  disabled={isAddingPlayer}
-                  onKeyDown={(e) => e.key === "Enter" && !isAddingPlayer && handleAddPlayer()}
-                />
                 <Button onClick={handleAddPlayer} disabled={isAddingPlayer || !newPlayerName.trim()}>
                   {isAddingPlayer ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -388,15 +510,48 @@ export default function PlayersPage() {
                             className="flex-1"
                             disabled={isEditingPlayer}
                           />
+                          <CountryCombobox value={editedPlayerCountry} onChange={setEditedPlayerCountry} disabled={isEditingPlayer} />
+                        </div>
+                        <div className="flex gap-2">
                           <Input
-                            value={editedPlayerCountry}
-                            onChange={(e) => setEditedPlayerCountry(e.target.value.toUpperCase())}
-                            placeholder={t("players.countryAbbreviation")}
-                            maxLength={3}
-                            className="w-20"
+                            value={editedPlayerAvatar}
+                            onChange={(e) => setEditedPlayerAvatar(e.target.value)}
+                            placeholder={t("players.avatarUrl")}
+                            className="flex-1"
                             disabled={isEditingPlayer}
                           />
                         </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          <FieldWithHint label={t("players.club")} hint={t("players.clubHint")}>
+                            <Input value={editedPlayerClub} onChange={(e) => setEditedPlayerClub(e.target.value)} disabled={isEditingPlayer} />
+                          </FieldWithHint>
+                          <FieldWithHint label={t("players.seed")} hint={t("players.seedHint")}>
+                            <Input value={editedPlayerSeed} onChange={(e) => setEditedPlayerSeed(e.target.value)} maxLength={4} disabled={isEditingPlayer} />
+                          </FieldWithHint>
+                          <FieldWithHint label={t("players.abbreviation")} hint={t("players.abbreviationHint")}>
+                            <Input value={editedPlayerAbbrev} onChange={(e) => setEditedPlayerAbbrev(e.target.value.toUpperCase())} maxLength={5} disabled={isEditingPlayer} />
+                          </FieldWithHint>
+                          <FieldWithHint label={t("players.color")} hint={t("players.colorHint")}>
+                            <div className="flex gap-1">
+                              <Input
+                                type="color"
+                                value={editedPlayerColor || "#1164a5"}
+                                onChange={(e) => setEditedPlayerColor(e.target.value)}
+                                className="w-10 h-9 p-0.5"
+                                disabled={isEditingPlayer}
+                              />
+                              <Input value={editedPlayerColor} onChange={(e) => setEditedPlayerColor(e.target.value)} placeholder="#1164a5" disabled={isEditingPlayer} />
+                            </div>
+                          </FieldWithHint>
+                        </div>
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={applyToLive}
+                            onChange={(e) => setApplyToLive(e.target.checked)}
+                          />
+                          {t("players.applyToLive")}
+                        </label>
                         <div className="flex gap-2">
                           <Button
                             onClick={handleUpdatePlayer}

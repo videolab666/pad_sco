@@ -15,6 +15,9 @@ import {
   getMatchDurationMs,
 } from "./match-timing"
 import { newBallsInXGames } from "./new-balls"
+import { splitNameParts, applyNameCase, formatPlayerName } from "./player-name-format"
+import { formatCountry, toIso2, getCountryName } from "./country-display"
+import type { ScoreboardSettings } from "./scoreboard-settings"
 
 type TeamKey = "teamA" | "teamB"
 
@@ -277,7 +280,11 @@ export function buildVmixFlatData(match: any): Record<string, any> {
  * `courtNumber` overrides the value from the match when provided (the court
  * endpoint knows its court); pass null to fall back to `match.courtNumber`.
  */
-export function buildCourtVmixPayload(match: any, courtNumber: number | null): Record<string, any> {
+export function buildCourtVmixPayload(
+  match: any,
+  courtNumber: number | null,
+  display?: Partial<ScoreboardSettings>,
+): Record<string, any> {
   const importantPoint = getImportantPoint(match)
   const totalSets = getMatchTotalSets(match)
   const { teamA: setsA, teamB: setsB } = getSetScoreColumns(match)
@@ -300,6 +307,12 @@ export function buildCourtVmixPayload(match: any, courtNumber: number | null): R
     teamA_player2_name: match?.teamA?.players?.[1]?.name || "",
     teamB_player1_name: match?.teamB?.players?.[0]?.name || "",
     teamB_player2_name: match?.teamB?.players?.[1]?.name || "",
+
+    // Display-projection fields (driven by the same URL settings as the
+    // scoreboard): ready-to-bind name lines, flags, avatars. vMix titles can
+    // bind {team}_player{n}_{line1|line2|first|last|flag|country_code|
+    // country_name|avatar} directly instead of re-implementing the layout.
+    ...buildPlayerDisplayFields(match, display),
 
     total_sets: totalSets,
     sets_to_win: getMatchSetsToWin(match),
@@ -326,6 +339,63 @@ export function buildCourtVmixPayload(match: any, courtNumber: number | null): R
 }
 
 // ─── Task 14 helpers (private to match-view) ──────────────────────────────────
+
+
+/**
+ * Per-player display fields for the JSON endpoints. `display` carries the same
+ * URL-parsed settings the HTML scoreboards use; omitted → sensible defaults
+ * (full name, as-is case, flag emoji when a country is known).
+ */
+function buildPlayerDisplayFields(match: any, d?: Partial<ScoreboardSettings>): Record<string, string> {
+  const nameCase = d?.nameCase ?? "as-is"
+  const nameLines = d?.nameLines ?? "single"
+  const nameLineOrder = d?.nameLineOrder ?? "first-top"
+  const countryAs = d?.countryAs ?? "flag"
+  const out: Record<string, string> = {}
+  const teams: TeamKey[] = ["teamA", "teamB"]
+  for (const team of teams) {
+    const players: any[] = match?.[team]?.players ?? []
+    for (let i = 0; i < 2; i++) {
+      const p = players[i]
+      const key = `${team}_player${i + 1}`
+      const rawName = p?.name || ""
+      out[`${key}_avatar`] = p?.avatar || ""
+
+      const country = p?.country || ""
+      out[`${key}_country_raw`] = country
+      out[`${key}_country_code`] = country ? toIso2(country) || country.toUpperCase() : ""
+      out[`${key}_country_name`] = country ? getCountryName(country) : ""
+      out[`${key}_flag`] = country ? formatCountry(country, "flag") : ""
+      out[`${key}_country_display`] = country ? formatCountry(country, countryAs) : ""
+
+      // nameAs=first/last collapses to a single styled part.
+      if (d?.playerNameFormat && d.playerNameFormat !== "full") {
+        const text = applyNameCase(formatPlayerName(rawName, d.playerNameFormat), nameCase)
+        out[`${key}_first`] = text
+        out[`${key}_last`] = ""
+        out[`${key}_line1`] = text
+        out[`${key}_line2`] = ""
+        continue
+      }
+
+      const { first, last } = splitNameParts(rawName)
+      const f = applyNameCase(first, nameCase)
+      const l = applyNameCase(last, nameCase)
+      out[`${key}_first`] = f
+      out[`${key}_last`] = l
+
+      if (nameLines === "two" && l) {
+        out[`${key}_line1`] = nameLineOrder === "last-top" ? l : f
+        out[`${key}_line2`] = nameLineOrder === "last-top" ? f : l
+      } else {
+        // Single line; "last-top" order reads as "Фамилия Имя".
+        out[`${key}_line1`] = l ? (nameLineOrder === "last-top" ? `${l} ${f}` : `${f} ${l}`) : f
+        out[`${key}_line2`] = ""
+      }
+    }
+  }
+  return out
+}
 
 function deriveTimerRemainingSec(timer: any): number {
   if (!timer?.startedAt) return 0

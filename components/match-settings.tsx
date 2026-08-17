@@ -4,9 +4,16 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Check, CircleAlert, Loader2, LockOpenIcon, Undo2 } from "lucide-react"
+import { Check, CircleAlert, Loader2, LockOpenIcon, RotateCcw, Undo2 } from "lucide-react"
+import { reseedJournal, undoBackOneGame, undoBackOneSet, verifyJournal } from "@/lib/match-undo"
+import { getPlayers } from "@/lib/player-storage"
+import { getOccupiedCourts } from "@/lib/court-utils"
+import { appendStateOverrideEvent, scoreStateOf } from "@/lib/match-events"
+import { UserCog, UserRoundSearch, X } from "lucide-react"
+import { CountryCombobox } from "@/components/country-combobox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -27,7 +34,6 @@ import {
 } from "@/lib/match-format-rules"
 import { commitSetWin, normalizeMatchState, recomputeMatchCompletion, restartCurrentSet } from "@/lib/scoring-logic"
 import { applyScoreEditRows, buildScoreEditRows, reopenSetAt, unlockMatchForPlay } from "@/lib/match-adjust"
-import { appendStateOverrideEvent, scoreStateOf } from "@/lib/match-events"
 import { classifyRuleChange } from "@/lib/match-rule-change"
 import { HandicapEditor } from "@/components/handicap-editor"
 import { ResultPosterSettings } from "@/components/result-poster-settings"
@@ -143,6 +149,19 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   // ─── Court draft ────────────────────────────────────────────────────────────
   const [courtDraft, setCourtDraft] = useState<number | null>(match?.courtNumber ?? null)
   const [courtSavedAt, setCourtSavedAt] = useState<number | null>(null)
+  // Керты, занятые ДРУГИМИ активными матчами: свой корт не считаем занятым,
+  // иначе нельзя было бы даже сохранить текущее назначение.
+  const [occupiedCourts, setOccupiedCourts] = useState<number[]>([])
+  useEffect(() => {
+    let alive = true
+    getOccupiedCourts()
+      .then((courts: number[]) => {
+        if (alive) setOccupiedCourts(courts.filter((c) => c !== match?.courtNumber))
+      })
+      .catch(() => {})
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match?.id, match?.courtNumber])
 
   // ─── Score-editing draft (per-set teamA/teamB; index 0..N-1 = completed sets,
   //     index N = current set while the match is live) ────────────────────────
@@ -524,6 +543,110 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     if (onChange && settings) onChange({ ...settings, [key]: value })
   }
 
+  // Откаты гейма/сета: replay-снимок несёт revision сида — поднимаем над live,
+  // иначе optimistic-guard отвергнет его как устаревшее состояние.
+  const canUndo = verifyJournal(match).canUndo
+  const undoWithRevision = (undone: any) => {
+    if (!undone || undone === match || !updateMatch) return
+    undone.revision = (typeof match?.revision === "number" ? match.revision : 0) + 1
+    updateMatch(undone)
+  }
+  const handleUndoGame = () => undoWithRevision(undoBackOneGame(match))
+  const handleJournalRepair = () => undoWithRevision(reseedJournal(match))
+
+  // ─── Игроки: замена из справочника / быстрая правка в матче ────────────────
+  const [playerPool, setPlayerPool] = useState<any[]>([])
+  const [replaceSlot, setReplaceSlot] = useState<string | null>(null) // "teamA:0"
+  const [editSlot, setEditSlot] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState({
+    name: "", country: "", avatar: "", club: "", seed: "", abbreviation: "", color: "",
+  })
+  const [editGlobal, setEditGlobal] = useState(true)
+  const [editSyncNote, setEditSyncNote] = useState("")
+
+  useEffect(() => {
+    if (!match) return
+    getPlayers().then(setPlayerPool).catch(() => {})
+  }, [match?.id])
+
+  const slotPlayer = (slot: string) => {
+    const [team, idx] = slot.split(":")
+    return (match as any)?.[team]?.players?.[Number(idx)]
+  }
+
+  /** Write new players arrays to the match (journal + revision, as elsewhere). */
+  const writePlayers = (updater: (m: any) => void) => {
+    if (!updateMatch) return
+    const next = JSON.parse(JSON.stringify(match))
+    updater(next)
+    // Players are absent from the undo fingerprint — journal the change as an
+    // audit-only state-override so the log stays complete without diverging.
+    const journaled = appendStateOverrideEvent(next, "player-edit", scoreStateOf(match))
+    journaled.revision = (typeof match?.revision === "number" ? match.revision : 0) + 1
+    updateMatch(journaled)
+    setReplaceSlot(null)
+    setEditSlot(null)
+  }
+
+  const handleReplacePlayer = (slot: string, poolId: string) => {
+    const pool = playerPool.find((p) => p.id === poolId)
+    if (!pool) return
+    const { local_expire_at: _e, dyId: _d, ...copy } = pool as any
+    const [team, idx] = slot.split(":")
+    writePlayers((m) => {
+      const players = [...(m[team]?.players ?? [])]
+      players[Number(idx)] = copy
+      m[team].players = players
+    })
+  }
+
+  const startEditSlot = (slot: string) => {
+    const p = slotPlayer(slot) ?? {}
+    setEditSlot(slot)
+    setReplaceSlot(null)
+    setEditSyncNote("")
+    setEditDraft({
+      name: p.name ?? "", country: p.country ?? "", avatar: p.avatar ?? "",
+      club: p.club ?? "", seed: p.seed ?? "", abbreviation: p.abbreviation ?? "",
+      color: p.color ?? "",
+    })
+  }
+
+  const applyEditSlot = async () => {
+    if (!editSlot || !editDraft.name.trim()) return
+    const [team, idx] = editSlot.split(":")
+    const fields = {
+      name: editDraft.name.trim(),
+      country: editDraft.country.trim().toUpperCase() || undefined,
+      avatar: editDraft.avatar.trim() || undefined,
+      club: editDraft.club.trim() || undefined,
+      seed: editDraft.seed.trim() || undefined,
+      abbreviation: editDraft.abbreviation.trim().toUpperCase() || undefined,
+      color: editDraft.color.trim() || undefined,
+    }
+    writePlayers((m) => {
+      const players = [...(m[team]?.players ?? [])]
+      players[Number(idx)] = { ...players[Number(idx)], ...fields }
+      m[team].players = players
+    })
+
+    // Глобальное применение: справочник + все остальные идущие матчи.
+    const poolPlayer = playerPool.find((p) => String(p.id) === String(slotPlayer(editSlot)?.id))
+    if (editGlobal && poolPlayer) {
+      try {
+        const { updatePlayer } = await import("@/lib/player-storage")
+        const { getMatches, updateMatch } = await import("@/lib/match-storage")
+        const { syncPlayerFields } = await import("@/lib/player-live-sync")
+        await updatePlayer(poolPlayer.id, fields)
+        const n = await syncPlayerFields(getMatches, updateMatch, poolPlayer.id, fields, match?.id)
+        setEditSyncNote(n > 0 ? t("players.liveSynced", { n }) : t("match.editPlayerGlobalDone"))
+      } catch (e) {
+        console.error("global player edit failed", e)
+      }
+    }
+  }
+  const handleUndoSet = () => undoWithRevision(undoBackOneSet(match))
+
   if (!match && settings && onChange) {
     return (
       <div className="space-y-6">
@@ -811,12 +934,17 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               <SelectContent>
                 <SelectItem value="none">{t("match.noCourt")}</SelectItem>
                 {COURT_OPTIONS.map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {t("match.court")} {n}
+                  <SelectItem key={n} value={String(n)} disabled={occupiedCourts.includes(n)}>
+                    {t("match.court")} {n}{occupiedCourts.includes(n) ? ` — ${t("newMatch.courtBusyShort")}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {occupiedCourts.length > 0 && (
+              <p className="mt-1 text-xs text-center text-gray-600">
+                {t("newMatch.occupiedCourts")}: {occupiedCourts.slice().sort((a, b) => a - b).join(", ")}
+              </p>
+            )}
             <SectionApplyBar
               isDirty={isCourtDirty}
               savedAt={courtSavedAt}
@@ -957,6 +1085,171 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
               savedAtLabel={savedAtFormatter}
             />
           </div>
+
+          {/* Откаты целого гейма/сета — открывают предыдущий гейм/сет на реальном счёте */}
+          <div className="border rounded-md py-3 px-3 bg-[#f8fdf9] shadow-md space-y-2">
+            <Label className="text-xs">{t("extras.undoSection")}</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                className="flex-1 py-2 px-2 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
+                disabled={!canUndo || match.isCompleted || !updateMatch}
+                title={!canUndo ? t("match.undoUnavailable") : undefined}
+                onClick={handleUndoGame}
+              >
+                <Undo2 className="h-4 w-4 mr-1" />
+                {t("match.undoGame")}
+              </Button>
+              <Button
+                className="flex-1 py-2 px-2 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
+                disabled={!canUndo || match.isCompleted || !updateMatch}
+                title={!canUndo ? t("match.undoUnavailable") : undefined}
+                onClick={handleUndoSet}
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                {t("match.undoSet")}
+              </Button>
+            </div>
+            {!canUndo && !match.isCompleted && updateMatch && (
+              <Button variant="outline" size="sm" className="w-full" onClick={handleJournalRepair}>
+                <Undo2 className="h-3 w-3 mr-1" />
+                {t("extras.undoRepair")}
+              </Button>
+            )}
+            <p className="text-[11px] leading-snug text-gray-600">{t("extras.undoHint")}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ─── Section: Player Editing ───────────────────────────────────────── */}
+      <Card className="w-full mb-4 bg-gradient-to-b from-[#019fe3] to-[#00336d]">
+        <CardHeader>
+          <CardTitle className="text-white">{t("match.playersCardTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-gray-800 px-[3px]">
+          {/* ─── Игроки: замена / быстрая правка ─────────────────────────── */}
+          <div className="py-3 px-3 bg-blue-50 border border-blue-200 rounded-md space-y-2">
+            <h3 className="font-medium text-center">{t("match.playersCard")}</h3>
+            <p className="text-[11px] leading-snug text-gray-600 text-center">{t("match.playersCardHint")}</p>
+            {(["teamA", "teamB"] as const).map((team) => (
+              <div key={team} className="space-y-1">
+                <div className="text-xs font-medium text-gray-700 text-center">
+                  {match[team]?.name || (team === "teamA" ? t("match.teamA") : t("match.teamB"))}
+                </div>
+                {(match[team]?.players ?? []).map((pl: any, idx: number) => {
+                  const slot = `${team}:${idx}`
+                  return (
+                    <div key={slot} className="border rounded-md p-2 bg-white space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-medium truncate">
+                          {pl.name}
+                          {pl.country ? <span className="ml-1 text-xs text-gray-500">{pl.country}</span> : null}
+                          {pl.seed ? <span className="ml-1 text-xs text-gray-500">[{pl.seed}]</span> : null}
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button size="sm" variant="outline" onClick={() => { setReplaceSlot(replaceSlot === slot ? null : slot); setEditSlot(null) }}>
+                            <UserRoundSearch className="h-3 w-3 mr-1" />
+                            {t("match.replacePlayer")}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { replaceSlot === slot && setReplaceSlot(null); editSlot === slot ? setEditSlot(null) : startEditSlot(slot) }}>
+                            <UserCog className="h-3 w-3 mr-1" />
+                            {t("match.editPlayer")}
+                          </Button>
+                        </div>
+                      </div>
+                      {replaceSlot === slot && (
+                        <div className="space-y-1">
+                          <Select onValueChange={(v) => handleReplacePlayer(slot, v)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t("match.pickPlayer")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {playerPool
+                                .filter((p) => p.id !== pl.id)
+                                .map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name}{p.country ? ` (${p.country})` : ""}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {editSlot === slot && (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              value={editDraft.name}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))}
+                              placeholder={t("players.name")}
+                            />
+                            <CountryCombobox
+                              value={editDraft.country}
+                              onChange={(code) => setEditDraft((d) => ({ ...d, country: code }))}
+                            />
+                            <Input
+                              value={editDraft.club}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, club: e.target.value }))}
+                              placeholder={t("players.club")} maxLength={40}
+                            />
+                            <Input
+                              value={editDraft.seed}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, seed: e.target.value }))}
+                              placeholder={t("players.seed")} maxLength={4}
+                            />
+                            <Input
+                              value={editDraft.abbreviation}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, abbreviation: e.target.value.toUpperCase() }))}
+                              placeholder={t("players.abbreviation")} maxLength={5}
+                            />
+                            <div className="flex gap-1">
+                              <Input
+                                type="color"
+                                value={editDraft.color || "#1164a5"}
+                                onChange={(e) => setEditDraft((d) => ({ ...d, color: e.target.value }))}
+                                className="w-10 h-9 p-0.5"
+                              />
+                              <Input
+                                value={editDraft.color}
+                                onChange={(e) => setEditDraft((d) => ({ ...d, color: e.target.value }))}
+                                placeholder="#1164a5"
+                              />
+                            </div>
+                            <Input
+                              value={editDraft.avatar}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, avatar: e.target.value }))}
+                              placeholder={t("players.avatarUrl")} className="col-span-2"
+                            />
+                          </div>
+                          <label className="flex items-center gap-2 text-xs text-gray-600">
+                            <input
+                              type="checkbox"
+                              checked={editGlobal}
+                              onChange={(e) => setEditGlobal(e.target.checked)}
+                              disabled={!playerPool.find((p) => String(p.id) === String(pl.id))}
+                            />
+                            {t("match.editPlayerGlobal")}
+                          </label>
+                          <p className="text-[10px] text-gray-500">{t("match.editPlayerHint")}</p>
+                          {editSyncNote && <p className="text-[11px] text-green-700">{editSyncNote}</p>}
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={applyEditSlot} disabled={!editDraft.name.trim()}>
+                              <Check className="h-3 w-3 mr-1" />
+                              {t_apply}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditSlot(null)}>
+                              <X className="h-3 w-3 mr-1" />
+                              {t("common.cancel")}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+
         </CardContent>
       </Card>
 

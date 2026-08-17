@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { logEvent } from "@/lib/error-logger"
 import { getMatchFromServerByCourtNumber } from "@/lib/server-match-storage"
 import { buildCourtVmixPayload } from "@/lib/match-view"
+import { parseScoreboardSettings } from "@/lib/scoreboard-settings"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ number: string }> }) {
   try {
@@ -26,7 +27,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // Единый источник плоского payload для vMix — lib/match-view
     // (тот же билдер, что и у /api/match/[id]).
-    const data = buildCourtVmixPayload(match, courtNumber)
+    // Те же URL-параметры отображения, что и у HTML-табло (nameLines/nameCase/...)
+    const display = parseScoreboardSettings(new URL(request.url).searchParams)
+    const data = buildCourtVmixPayload(match, courtNumber, display)
 
     logEvent("info", `Court API: данные матча на корте ${courtNumber} успешно отправлены`, "court-api")
 

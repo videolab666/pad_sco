@@ -12,9 +12,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Pencil } from "lucide-react"
+import { Pencil, RotateCcw, Undo2 } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 import { adjustCurrentGame, adjustCurrentSet, adjustCurrentServer } from "@/lib/match-adjust"
+import { reseedJournal, undoBackOneGame, undoBackOneSet, verifyJournal } from "@/lib/match-undo"
 import type { TeamKey } from "@/lib/types"
 
 interface Props {
@@ -43,6 +44,10 @@ export function AdjustScoreDialog({ match, updateMatch }: Props) {
   const [setA, setSetA] = useState<number>(cs?.teamA ?? 0)
   const [setB, setSetB] = useState<number>(cs?.teamB ?? 0)
 
+  // Journal-based undo availability (same cheap probe the scoreboard uses;
+  // integrity is fully verified at click time by verifyJournal).
+  const canUndo = verifyJournal(match).canUndo
+
   const onOpenChange = (next: boolean) => {
     setOpen(next)
     if (next) {
@@ -64,6 +69,15 @@ export function AdjustScoreDialog({ match, updateMatch }: Props) {
   const setServer = (team: TeamKey) => {
     if (!updateMatch || !match) return
     updateMatch(adjustCurrentServer(match, team, 0))
+  }
+
+  // Undo game/set: the replayed snapshot carries the SEED's revision, so bump
+  // it above the live one — otherwise the optimistic-state guard rejects it.
+  const undoWithRevision = (undone: any) => {
+    if (!undone || undone === match) return
+    undone.revision = (typeof match?.revision === "number" ? match.revision : 0) + 1
+    updateMatch(undone)
+    setOpen(false)
   }
 
   return (
@@ -101,6 +115,40 @@ export function AdjustScoreDialog({ match, updateMatch }: Props) {
               <Button variant={match?.currentServer?.team === "teamA" ? "default" : "outline"} onClick={() => setServer("teamA")}>{t("extras.teamA")}</Button>
               <Button variant={match?.currentServer?.team === "teamB" ? "default" : "outline"} onClick={() => setServer("teamB")}>{t("extras.teamB")}</Button>
             </div>
+          </div>
+
+          {/* Откаты целого гейма/сета — открывают предыдущий гейм/сет на реальном счёте */}
+          <div className="border-t pt-3 space-y-2">
+            <Label className="text-xs">{t("extras.undoSection")}</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                className="flex-1 py-2 px-2 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
+                disabled={!canUndo || match?.isCompleted}
+                title={!canUndo ? t("match.undoUnavailable") : undefined}
+                onClick={() => undoWithRevision(undoBackOneGame(match))}
+              >
+                <Undo2 className="h-4 w-4 mr-1" />
+                {t("match.undoGame")}
+              </Button>
+              <Button
+                className="flex-1 py-2 px-2 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
+                disabled={!canUndo || match?.isCompleted}
+                title={!canUndo ? t("match.undoUnavailable") : undefined}
+                onClick={() => undoWithRevision(undoBackOneSet(match))}
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                {t("match.undoSet")}
+              </Button>
+            </div>
+            {!canUndo && !match?.isCompleted && (
+              <Button variant="outline" size="sm" className="w-full" onClick={() => undoWithRevision(reseedJournal(match))}>
+                <Undo2 className="h-3 w-3 mr-1" />
+                {t("extras.undoRepair")}
+              </Button>
+            )}
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              {t("extras.undoHint")}
+            </p>
           </div>
         </div>
 

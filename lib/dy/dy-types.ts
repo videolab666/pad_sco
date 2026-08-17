@@ -69,6 +69,7 @@ export interface DyPlayer {
 export interface DyPlayerRow {
   name: string
   dyId?: string
+  country?: string
 }
 
 /** Categories -> items (plus a service "config" key). */

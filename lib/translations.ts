@@ -69,6 +69,7 @@ export type TranslationKeys = {
     newMatchDesc: string
     tennis: string
     padel: string
+    newPadelMatch: string
     managePlayers: string
     activeMatches: string
     activeMatchesDesc: string
@@ -134,6 +135,15 @@ export type TranslationKeys = {
     startTiebreakManually: string
     teamWonTiebreak: string
     matchCode: string
+    playersCard: string
+    playersCardTitle: string
+    playersCardHint: string
+    replacePlayer: string
+    editPlayer: string
+    pickPlayer: string
+    editPlayerHint: string
+    editPlayerGlobal: string
+    editPlayerGlobalDone: string
     scoringSystem: string
     classicScoring: string
     noAdScoring: string
@@ -338,6 +348,22 @@ export type TranslationKeys = {
     name: string
     country: string
     countryAbbreviation: string
+    avatarUrl: string
+    avatarHint: string
+    countryHint: string
+    countryPick: string
+    countrySearch: string
+    countryUseCustom: string
+    club: string
+    clubHint: string
+    seed: string
+    seedHint: string
+    abbreviation: string
+    abbreviationHint: string
+    color: string
+    colorHint: string
+    applyToLive: string
+    liveSynced: string
     selectPlayer: string
     searchPlayer: string
     playerNotFound: string
@@ -413,6 +439,7 @@ export type TranslationKeys = {
     selectAllPlayers: string
     selectAllPlayersForDoubles: string
     courtOccupied: string
+    courtBusyShort: string
     superSet: string
     matchRound: string
     selectMatchRound: string
@@ -616,6 +643,36 @@ export type TranslationKeys = {
     showSetScore: string
     showServingPlayer: string
     showCountries: string
+    showAvatars: string
+    nameAs: string
+    nameAsFull: string
+    nameLines: string
+    nameLinesSingle: string
+    nameLinesTwo: string
+    nameLineOrderSingle: string
+    nameLineOrderTwo: string
+    nameOrderFirstLast: string
+    nameOrderLastFirst: string
+    nameTopFirst: string
+    nameTopLast: string
+    nameCase: string
+    nameCaseAsIs: string
+    nameCaseUpper: string
+    nameCaseLower: string
+    nameCaseCapitalize: string
+    nameStyleLinked: string
+    nameSizeFirst: string
+    nameSizeLast: string
+    nameWeightFirst: string
+    nameWeightLast: string
+    nameAsFirst: string
+    nameAsLast: string
+    hideSameAvatar: string
+    countryAs: string
+    countryAsFlag: string
+    countryAsCode: string
+    countryAsName: string
+    hideSameCountry: string
     nameGradientStartColor: string
     nameGradientEndColor: string
     countryGradientStartColor: string
@@ -750,6 +807,36 @@ export type TranslationKeys = {
     showSetsScore: string
     showServer: string
     showCountries: string
+    showAvatars: string
+    nameAs: string
+    nameAsFull: string
+    nameLines: string
+    nameLinesSingle: string
+    nameLinesTwo: string
+    nameLineOrderSingle: string
+    nameLineOrderTwo: string
+    nameOrderFirstLast: string
+    nameOrderLastFirst: string
+    nameTopFirst: string
+    nameTopLast: string
+    nameCase: string
+    nameCaseAsIs: string
+    nameCaseUpper: string
+    nameCaseLower: string
+    nameCaseCapitalize: string
+    nameStyleLinked: string
+    nameSizeFirst: string
+    nameSizeLast: string
+    nameWeightFirst: string
+    nameWeightLast: string
+    nameAsFirst: string
+    nameAsLast: string
+    hideSameAvatar: string
+    countryAs: string
+    countryAsFlag: string
+    countryAsCode: string
+    countryAsName: string
+    hideSameCountry: string
     savedSettings: string
     selectSaveOrDeleteSettings: string
     saveSettingsDialog: string
@@ -1047,6 +1134,15 @@ export type TranslationKeys = {
     timerTimeout: string
     timerInjury: string
     timerTowel: string
+    timerPauseFirst: string
+    timerInjurySelf: string
+    timerInjuryBlood: string
+    timerInjuryContributed: string
+    timerInjuryOpponent: string
+    timerExpired: string
+    timerChooseInjury: string
+    timerChooseTeam: string
+    setDuration: string
     toss: string
     tossTitle: string
     tossWhoWon: string
@@ -1074,6 +1170,9 @@ export type TranslationKeys = {
     adjustGamePoints: string
     adjustSetGames: string
     adjustServingTeam: string
+    undoSection: string
+    undoHint: string
+    undoRepair: string
     teamA: string
     teamB: string
     cancel: string
@@ -1193,6 +1292,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       newMatchDesc: "Настройте новую игру с выбранными параметрами",
       tennis: "Теннис",
       padel: "Падел",
+      newPadelMatch: "Создать новый матч (падел)",
       managePlayers: "Управление игроками",
       activeMatches: "Активные матчи",
       activeMatchesDesc: "Текущие и недавние матчи",
@@ -1259,6 +1359,15 @@ export const translations: { [key in Language]: TranslationKeys } = {
       startTiebreakManually: "Начать тай-брейк вручную",
       teamWonTiebreak: "Тай-брейк выиграла",
       matchCode: "Код матча",
+      playersCard: "Игроки",
+      playersCardTitle: "Редактирование игроков",
+      playersCardHint: "Замените игрока из справочника или быстро поправьте имя/страну/посев прямо в этом матче",
+      replacePlayer: "Заменить",
+      editPlayer: "Изменить",
+      pickPlayer: "Выберите игрока из справочника",
+      editPlayerHint: "Правка действует только на этот матч; справочник меняется на странице «Управление игроками»",
+      editPlayerGlobal: "Применить глобально: справочник и все идущие матчи",
+      editPlayerGlobalDone: "Применено глобально (других идущих матчей с игроком нет)",
       scoringSystem: "Система счета",
       classicScoring: "Классическая (AD)",
       noAdScoring: "No-Ad (ровно → решающий мяч)",
@@ -1463,6 +1572,22 @@ export const translations: { [key in Language]: TranslationKeys } = {
       name: "Имя",
       country: "Страна",
       countryAbbreviation: "Аббревиатура страны (ENG, RUS, ESP...)",
+      avatarUrl: "URL фото игрока (необязательно)",
+      avatarHint: "Ссылка на фото — показывается на vMix-табло и fullscreen при включённой колонке фото",
+      countryHint: "Код страны (UA, ESP...) — превращается в флаг на табло; 2 или 3 буквы",
+      countryPick: "Выберите страну",
+      countrySearch: "Код или название страны…",
+      countryUseCustom: "Использовать как введено",
+      club: "Клуб",
+      clubHint: "Клуб игрока — для турниров и протоколов",
+      seed: "Посев",
+      seedHint: "Посевной номер (4) — показывается в скобках у имени на табло: «Петрова [4]»",
+      abbreviation: "Аббревиатура",
+      abbreviationHint: "Короткое имя (PET) — для тесных табло, пока не используется в выводе",
+      color: "Цвет",
+      colorHint: "Персональный цвет игрока (hex) — для подсветки на табло",
+      applyToLive: "Применить изменения к идущим матчам (счёт не трогается)",
+      liveSynced: "обновлено матчей: {n}",
       selectPlayer: "Выберите игрока",
       searchPlayer: "Поиск игрока...",
       playerNotFound: "Игрок не найден",
@@ -1535,6 +1660,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       selectAllPlayers: "Выберите игроков для обеих команд",
       selectAllPlayersForDoubles: "Для парной игры необходимо выбрать всех игроков",
       courtOccupied: "Корт {{court}} уже занят. Выберите другой корт.",
+      courtBusyShort: "занят",
       superSet: "ПРО сет до 8 геймов",
       matchRound: "Раунд матча",
       selectMatchRound: "Выберите раунд матча",
@@ -1741,6 +1867,36 @@ export const translations: { [key in Language]: TranslationKeys } = {
       showSetScore: "Показывать счёт по сетам",
       showServingPlayer: "Показывать подающего",
       showCountries: "Показывать страны",
+      showAvatars: "Показывать фото игроков",
+      nameAs: "Имя игрока",
+      nameAsFull: "Полностью (Анна Петрова)",
+      nameLines: "Расположение имени и фамилии",
+      nameLinesSingle: "В одну строку",
+      nameLinesTwo: "В две строки",
+      nameLineOrderSingle: "Порядок слов",
+      nameLineOrderTwo: "Что на верхней строке",
+      nameOrderFirstLast: "Имя Фамилия",
+      nameOrderLastFirst: "Фамилия Имя",
+      nameTopFirst: "Имя сверху, фамилия снизу",
+      nameTopLast: "Фамилия сверху, имя снизу",
+      nameCase: "Регистр букв",
+      nameCaseAsIs: "Как введено",
+      nameCaseUpper: "ЗАГЛАВНЫЕ",
+      nameCaseLower: "строчные",
+      nameCaseCapitalize: "Первая Заглавная",
+      nameStyleLinked: "Размер и жирность — вместе для имени и фамилии",
+      nameSizeFirst: "Размер имени",
+      nameSizeLast: "Размер фамилии",
+      nameWeightFirst: "Жирность имени",
+      nameWeightLast: "Жирность фамилии",
+      nameAsFirst: "Только имя (Анна)",
+      nameAsLast: "Только фамилия (Петрова)",
+      hideSameAvatar: "Скрывать одинаковые фото",
+      countryAs: "Страна в виде",
+      countryAsFlag: "Флаг (эмодзи)",
+      countryAsCode: "Код (UA)",
+      countryAsName: "Название (Украина)",
+      hideSameCountry: "Скрывать при одинаковой стране",
       nameGradientStartColor: "Начальный цвет градиента имен",
       nameGradientEndColor: "Конечный цвет градиента имен",
       countryGradientStartColor: "Начальный цвет градиента стран",
@@ -1876,6 +2032,36 @@ export const translations: { [key in Language]: TranslationKeys } = {
       showSetsScore: "Показывать счет сетов",
       showServer: "Показывать подачу",
       showCountries: "Показывать страны",
+      showAvatars: "Показывать фото игроков",
+      nameAs: "Имя игрока",
+      nameAsFull: "Полностью (Анна Петрова)",
+      nameLines: "Расположение имени и фамилии",
+      nameLinesSingle: "В одну строку",
+      nameLinesTwo: "В две строки",
+      nameLineOrderSingle: "Порядок слов",
+      nameLineOrderTwo: "Что на верхней строке",
+      nameOrderFirstLast: "Имя Фамилия",
+      nameOrderLastFirst: "Фамилия Имя",
+      nameTopFirst: "Имя сверху, фамилия снизу",
+      nameTopLast: "Фамилия сверху, имя снизу",
+      nameCase: "Регистр букв",
+      nameCaseAsIs: "Как введено",
+      nameCaseUpper: "ЗАГЛАВНЫЕ",
+      nameCaseLower: "строчные",
+      nameCaseCapitalize: "Первая Заглавная",
+      nameStyleLinked: "Размер и жирность — вместе для имени и фамилии",
+      nameSizeFirst: "Размер имени",
+      nameSizeLast: "Размер фамилии",
+      nameWeightFirst: "Жирность имени",
+      nameWeightLast: "Жирность фамилии",
+      nameAsFirst: "Только имя (Анна)",
+      nameAsLast: "Только фамилия (Петрова)",
+      hideSameAvatar: "Скрывать одинаковые фото",
+      countryAs: "Страна в виде",
+      countryAsFlag: "Флаг (эмодзи)",
+      countryAsCode: "Код (UA)",
+      countryAsName: "Название (Украина)",
+      hideSameCountry: "Скрывать при одинаковой стране",
       savedSettings: "Сохраненные настройки",
       selectSaveOrDeleteSettings: "Выберите, сохраните или удалите настройки vMix",
       saveSettingsDialog: "Сохранение настроек vMix",
@@ -2173,6 +2359,15 @@ export const translations: { [key in Language]: TranslationKeys } = {
       timerTimeout: "Таймаут",
       timerInjury: "Травма",
       timerTowel: "Полотенце",
+      timerPauseFirst: "Перед 1-м геймом",
+      timerInjurySelf: "Своя травма (3 мин)",
+      timerInjuryBlood: "Своя кровавая (5 мин)",
+      timerInjuryContributed: "Обоюдная (15 мин)",
+      timerInjuryOpponent: "Травма от соперника (15 мин)",
+      timerExpired: "Время истекло!",
+      timerChooseInjury: "Тип травмы?",
+      timerChooseTeam: "Чей тайм-аут?",
+      setDuration: "Сет",
       toss: "Жребий",
       tossTitle: "Розыгрыш жребия",
       tossWhoWon: "Кто выиграл жребий?",
@@ -2200,6 +2395,9 @@ export const translations: { [key in Language]: TranslationKeys } = {
       adjustGamePoints: "Очки в гейме",
       adjustSetGames: "Геймы в сете",
       adjustServingTeam: "Подающая команда",
+      undoSection: "Откат гейма / сета",
+      undoRepair: "Восстановить откат (журнал расходится со счётом)",
+      undoHint: "«Гейм» отменяет очки текущего гейма и закрывающее очко предыдущего — тот снова открывается на реальном счёте (например, 40:30) для исправлений. «Сет» делает то же с целым сетом: текущий сет откатывается, а предыдущий открывается на момент перед его последним очком. Подающий и стороны восстанавливаются автоматически.",
       teamA: "Команда A",
       teamB: "Команда B",
       cancel: "Отмена",
@@ -2317,6 +2515,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       newMatchDesc: "Set up a new game with selected parameters",
       tennis: "Tennis",
       padel: "Padel",
+      newPadelMatch: "Create new padel match",
       managePlayers: "Manage Players",
       activeMatches: "Active Matches",
       activeMatchesDesc: "Current and recent matches",
@@ -2382,6 +2581,15 @@ export const translations: { [key in Language]: TranslationKeys } = {
       startTiebreakManually: "Start Tiebreak Manually",
       teamWonTiebreak: "Team won tiebreak",
       matchCode: "Match Code",
+      playersCard: "Players",
+      playersCardTitle: "Player Editing",
+      playersCardHint: "Replace a player from the pool or quickly fix the name/country/seed in this match only",
+      replacePlayer: "Replace",
+      editPlayer: "Edit",
+      pickPlayer: "Pick a player from the pool",
+      editPlayerHint: "The edit applies to this match only; edit the pool on the Players page",
+      editPlayerGlobal: "Apply globally: the pool and every live match",
+      editPlayerGlobalDone: "Applied globally (no other live matches hold this player)",
       scoringSystem: "Scoring System",
       classicScoring: "Classic (AD)",
       noAdScoring: "No-Ad (deuce → deciding point)",
@@ -2586,6 +2794,22 @@ export const translations: { [key in Language]: TranslationKeys } = {
       name: "Name",
       country: "Country",
       countryAbbreviation: "Country Abbreviation (ENG, RUS, ESP...)",
+      avatarUrl: "Player photo URL (optional)",
+      avatarHint: "Photo link — shown on the vMix/fullscreen scoreboard when the photo column is on",
+      countryHint: "Country code (UA, ESP...) — becomes a flag on the scoreboard; 2 or 3 letters",
+      countryPick: "Pick a country",
+      countrySearch: "Code or country name…",
+      countryUseCustom: "Use as typed",
+      club: "Club",
+      clubHint: "Player's club — for tournaments and protocols",
+      seed: "Seed",
+      seedHint: "Seeding number (4) — shown in brackets next to the name: 'Petrova [4]'",
+      abbreviation: "Abbreviation",
+      abbreviationHint: "Short name (PET) — for tight scoreboards, not rendered yet",
+      color: "Color",
+      colorHint: "Personal player color (hex) — for scoreboard highlighting",
+      applyToLive: "Apply the change to live matches (the score is untouched)",
+      liveSynced: "matches updated: {n}",
       selectPlayer: "Select Player",
       searchPlayer: "Search player...",
       playerNotFound: "Player not found",
@@ -2658,6 +2882,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       selectAllPlayers: "Select players for both teams",
       selectAllPlayersForDoubles: "All players must be selected for doubles",
       courtOccupied: "Court {{court}} is already occupied. Select another court.",
+      courtBusyShort: "busy",
       superSet: "PRO set to 8 games",
       matchRound: "Match Round",
       selectMatchRound: "Select Match Round",
@@ -2864,6 +3089,36 @@ export const translations: { [key in Language]: TranslationKeys } = {
       showSetScore: "Show Set Score",
       showServingPlayer: "Show Serving Player",
       showCountries: "Show Countries",
+      showAvatars: "Show player photos",
+      nameAs: "Player name",
+      nameAsFull: "Full (Anna Petrova)",
+      nameLines: "First/last name layout",
+      nameLinesSingle: "Single line",
+      nameLinesTwo: "Two lines",
+      nameLineOrderSingle: "Word order",
+      nameLineOrderTwo: "Top line",
+      nameOrderFirstLast: "First Last",
+      nameOrderLastFirst: "Last First",
+      nameTopFirst: "First name on top",
+      nameTopLast: "Last name on top",
+      nameCase: "Letter case",
+      nameCaseAsIs: "As typed",
+      nameCaseUpper: "UPPERCASE",
+      nameCaseLower: "lowercase",
+      nameCaseCapitalize: "Capitalized",
+      nameStyleLinked: "One size & weight for both parts",
+      nameSizeFirst: "First name size",
+      nameSizeLast: "Last name size",
+      nameWeightFirst: "First name weight",
+      nameWeightLast: "Last name weight",
+      nameAsFirst: "First name only (Anna)",
+      nameAsLast: "Last name only (Petrova)",
+      hideSameAvatar: "Hide identical photos",
+      countryAs: "Country as",
+      countryAsFlag: "Flag (emoji)",
+      countryAsCode: "Code (UA)",
+      countryAsName: "Name (Ukraine)",
+      hideSameCountry: "Hide when both sides share a country",
       nameGradientStartColor: "Names Gradient Start Color",
       nameGradientEndColor: "Names Gradient End Color",
       countryGradientStartColor: "Countries Gradient Start Color",
@@ -2999,6 +3254,36 @@ export const translations: { [key in Language]: TranslationKeys } = {
       showSetsScore: "Show Sets Score",
       showServer: "Show Server",
       showCountries: "Show Countries",
+      showAvatars: "Show player photos",
+      nameAs: "Player name",
+      nameAsFull: "Full (Anna Petrova)",
+      nameLines: "First/last name layout",
+      nameLinesSingle: "Single line",
+      nameLinesTwo: "Two lines",
+      nameLineOrderSingle: "Word order",
+      nameLineOrderTwo: "Top line",
+      nameOrderFirstLast: "First Last",
+      nameOrderLastFirst: "Last First",
+      nameTopFirst: "First name on top",
+      nameTopLast: "Last name on top",
+      nameCase: "Letter case",
+      nameCaseAsIs: "As typed",
+      nameCaseUpper: "UPPERCASE",
+      nameCaseLower: "lowercase",
+      nameCaseCapitalize: "Capitalized",
+      nameStyleLinked: "One size & weight for both parts",
+      nameSizeFirst: "First name size",
+      nameSizeLast: "Last name size",
+      nameWeightFirst: "First name weight",
+      nameWeightLast: "Last name weight",
+      nameAsFirst: "First name only (Anna)",
+      nameAsLast: "Last name only (Petrova)",
+      hideSameAvatar: "Hide identical photos",
+      countryAs: "Country as",
+      countryAsFlag: "Flag (emoji)",
+      countryAsCode: "Code (UA)",
+      countryAsName: "Name (Ukraine)",
+      hideSameCountry: "Hide when both sides share a country",
       savedSettings: "Saved Settings",
       selectSaveOrDeleteSettings: "Select, save or delete vMix settings",
       saveSettingsDialog: "Save vMix Settings",
@@ -3296,6 +3581,15 @@ export const translations: { [key in Language]: TranslationKeys } = {
       timerTimeout: "Timeout",
       timerInjury: "Injury",
       timerTowel: "Towel",
+      timerPauseFirst: "Before 1st game",
+      timerInjurySelf: "Self injury (3 min)",
+      timerInjuryBlood: "Self blood injury (5 min)",
+      timerInjuryContributed: "Contributed (15 min)",
+      timerInjuryOpponent: "Opponent-inflicted (15 min)",
+      timerExpired: "Time is up!",
+      timerChooseInjury: "Type of injury?",
+      timerChooseTeam: "Whose timeout?",
+      setDuration: "Set",
       toss: "Toss",
       tossTitle: "Coin toss",
       tossWhoWon: "Who won the toss?",
@@ -3323,6 +3617,9 @@ export const translations: { [key in Language]: TranslationKeys } = {
       adjustGamePoints: "Game points",
       adjustSetGames: "Set games",
       adjustServingTeam: "Serving team",
+      undoSection: "Undo game / set",
+      undoRepair: "Repair undo (journal diverges from the score)",
+      undoHint: "'Game' undoes the current game's points plus the previous game's closing point, reopening that game at its real score (e.g. 40-30) for corrections. 'Set' does the same for a whole set: the current set rolls back and the previous one reopens at the moment just before its final point. Server and sides are restored automatically.",
       teamA: "Team A",
       teamB: "Team B",
       cancel: "Cancel",
@@ -3440,6 +3737,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       newMatchDesc: "Налаштуйте нову гру з вибраними параметрами",
       tennis: "Теніс",
       padel: "Падел",
+      newPadelMatch: "Створити новий матч (падел)",
       managePlayers: "Управління гравцями",
       activeMatches: "Активні матчі",
       activeMatchesDesc: "Поточні та останні матчі",
@@ -3505,6 +3803,15 @@ export const translations: { [key in Language]: TranslationKeys } = {
       startTiebreakManually: "Почати тай-брейк вручну",
       teamWonTiebreak: "Тай-брейк виграла команда",
       matchCode: "Код матчу",
+      playersCard: "Гравці",
+      playersCardTitle: "Редагування гравців",
+      playersCardHint: "Замініть гравця з довідника або швидко виправте ім’я/країну/посів лише в цьому матчі",
+      replacePlayer: "Замінити",
+      editPlayer: "Змінити",
+      pickPlayer: "Оберіть гравця з довідника",
+      editPlayerHint: "Правка діє лише на цей матч; довідник змінюється на сторінці «Керування гравцями»",
+      editPlayerGlobal: "Застосувати глобально: довідник і всі матчі, що тривають",
+      editPlayerGlobalDone: "Застосовано глобально (інших матчів, що тривають, з цим гравцем немає)",
       scoringSystem: "Система рахунку",
       classicScoring: "Класична (AD)",
       noAdScoring: "No-Ad (рівно → вирішальний м'яч)",
@@ -3709,6 +4016,22 @@ export const translations: { [key in Language]: TranslationKeys } = {
       name: "Ім'я",
       country: "Країна",
       countryAbbreviation: "Абревіатура країни (ENG, UKR, ESP...)",
+      avatarUrl: "URL фото гравця (необов’язково)",
+      avatarHint: "Посилання на фото — показується на vMix-табло та fullscreen при увімкненій колонці фото",
+      countryHint: "Код країни (UA, ESP...) — перетворюється на прапорець на табло; 2 або 3 літери",
+      countryPick: "Оберіть країну",
+      countrySearch: "Код або назва країни…",
+      countryUseCustom: "Використати як введено",
+      club: "Клуб",
+      clubHint: "Клуб гравця — для турнірів і протоколів",
+      seed: "Посів",
+      seedHint: "Посівний номер (4) — показується в дужках біля імені: «Петрова [4]»",
+      abbreviation: "Абревіатура",
+      abbreviationHint: "Коротке ім’я (PET) — для вузьких табло, поки не виводиться",
+      color: "Колір",
+      colorHint: "Особистий колір гравця (hex) — для підсвітки на табло",
+      applyToLive: "Застосувати зміни до матчів, що тривають (рахунок не змінюється)",
+      liveSynced: "оновлено матчів: {n}",
       selectPlayer: "Виберіть гравця",
       searchPlayer: "Пошук гравця...",
       playerNotFound: "Гравець не знайдений",
@@ -3781,6 +4104,7 @@ export const translations: { [key in Language]: TranslationKeys } = {
       selectAllPlayers: "Виберіть гравців для обох команд",
       selectAllPlayersForDoubles: "Для парної гри необхідно вибрати всіх гравців",
       courtOccupied: "Корт {{court}} вже зайнятий. Виберіть інший корт.",
+      courtBusyShort: "зайнятий",
       superSet: "ПРО сет до 8 геймів",
       matchRound: "Раунд матчу",
       selectMatchRound: "Виберіть раунд матчу",
@@ -3987,6 +4311,36 @@ export const translations: { [key in Language]: TranslationKeys } = {
       showSetScore: "Показувати рахунок по сетах",
       showServingPlayer: "Показувати подавача",
       showCountries: "Показувати країни",
+      showAvatars: "Показувати фото гравців",
+      nameAs: "Ім’я гравця",
+      nameAsFull: "Повністю (Анна Петрова)",
+      nameLines: "Розташування імені та прізвища",
+      nameLinesSingle: "В один рядок",
+      nameLinesTwo: "В два рядки",
+      nameLineOrderSingle: "Порядок слів",
+      nameLineOrderTwo: "Що на верхньому рядку",
+      nameOrderFirstLast: "Ім’я Прізвище",
+      nameOrderLastFirst: "Прізвище Ім’я",
+      nameTopFirst: "Ім’я зверху, прізвище знизу",
+      nameTopLast: "Прізвище зверху, ім’я знизу",
+      nameCase: "Регістр літер",
+      nameCaseAsIs: "Як введено",
+      nameCaseUpper: "ВЕЛИКІ",
+      nameCaseLower: "малі",
+      nameCaseCapitalize: "Перша Велика",
+      nameStyleLinked: "Розмір і жирність — разом для імені та прізвища",
+      nameSizeFirst: "Розмір імені",
+      nameSizeLast: "Розмір прізвища",
+      nameWeightFirst: "Жирність імені",
+      nameWeightLast: "Жирність прізвища",
+      nameAsFirst: "Тільки ім’я (Анна)",
+      nameAsLast: "Тільки прізвище (Петрова)",
+      hideSameAvatar: "Ховати однакові фото",
+      countryAs: "Країна як",
+      countryAsFlag: "Прапорець (емодзі)",
+      countryAsCode: "Код (UA)",
+      countryAsName: "Назва (Україна)",
+      hideSameCountry: "Ховати при однаковій країні",
       nameGradientStartColor: "Початковий колір градієнта імен",
       nameGradientEndColor: "Кінцевий колір градієнта імен",
       countryGradientStartColor: "Початковий колір градієнта країн",
@@ -4122,6 +4476,36 @@ export const translations: { [key in Language]: TranslationKeys } = {
       showSetsScore: "Показувати рахунок сетів",
       showServer: "Показувати подаючого",
       showCountries: "Показувати країни",
+      showAvatars: "Показувати фото гравців",
+      nameAs: "Ім’я гравця",
+      nameAsFull: "Повністю (Анна Петрова)",
+      nameLines: "Розташування імені та прізвища",
+      nameLinesSingle: "В один рядок",
+      nameLinesTwo: "В два рядки",
+      nameLineOrderSingle: "Порядок слів",
+      nameLineOrderTwo: "Що на верхньому рядку",
+      nameOrderFirstLast: "Ім’я Прізвище",
+      nameOrderLastFirst: "Прізвище Ім’я",
+      nameTopFirst: "Ім’я зверху, прізвище знизу",
+      nameTopLast: "Прізвище зверху, ім’я знизу",
+      nameCase: "Регістр літер",
+      nameCaseAsIs: "Як введено",
+      nameCaseUpper: "ВЕЛИКІ",
+      nameCaseLower: "малі",
+      nameCaseCapitalize: "Перша Велика",
+      nameStyleLinked: "Розмір і жирність — разом для імені та прізвища",
+      nameSizeFirst: "Розмір імені",
+      nameSizeLast: "Розмір прізвища",
+      nameWeightFirst: "Жирність імені",
+      nameWeightLast: "Жирність прізвища",
+      nameAsFirst: "Тільки ім’я (Анна)",
+      nameAsLast: "Тільки прізвище (Петрова)",
+      hideSameAvatar: "Ховати однакові фото",
+      countryAs: "Країна як",
+      countryAsFlag: "Прапорець (емодзі)",
+      countryAsCode: "Код (UA)",
+      countryAsName: "Назва (Україна)",
+      hideSameCountry: "Ховати при однаковій країні",
       savedSettings: "Збережені налаштування",
       selectSaveOrDeleteSettings: "Виберіть, збережіть або видаліть налаштування vMix",
       saveSettingsDialog: "Збереження налаштувань vMix",
@@ -4419,6 +4803,15 @@ export const translations: { [key in Language]: TranslationKeys } = {
       timerTimeout: "Таймаут",
       timerInjury: "Травма",
       timerTowel: "Рушник",
+      timerPauseFirst: "Перед 1-м геймом",
+      timerInjurySelf: "Власна травма (3 хв)",
+      timerInjuryBlood: "Власна кривава (5 хв)",
+      timerInjuryContributed: "Взаємна (15 хв)",
+      timerInjuryOpponent: "Травма від суперника (15 хв)",
+      timerExpired: "Час вичерпано!",
+      timerChooseInjury: "Тип травми?",
+      timerChooseTeam: "Чий тайм-аут?",
+      setDuration: "Сет",
       toss: "Жереб",
       tossTitle: "Розіграш жеребу",
       tossWhoWon: "Хто виграв жереб?",
@@ -4446,6 +4839,9 @@ export const translations: { [key in Language]: TranslationKeys } = {
       adjustGamePoints: "Очки в геймі",
       adjustSetGames: "Гейми в сеті",
       adjustServingTeam: "Команда, що подає",
+      undoSection: "Відкат гейму / сету",
+      undoRepair: "Відновити відкат (журнал розходиться з рахунком)",
+      undoHint: "«Гейм» скасовує очки поточного гейму та очко, що закрило попередній, — той знову відкривається на реальному рахунку (наприклад, 40:30) для виправлень. «Сет» робить те саме з цілим сетом: поточний сет відкочується, а попередній відкривається на момент перед його останнім очком. Подаючий і сторони відновлюються автоматично.",
       teamA: "Команда A",
       teamB: "Команда B",
       cancel: "Скасувати",

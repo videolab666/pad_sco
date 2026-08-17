@@ -17,6 +17,9 @@ import React, { useState, useEffect } from "react"
 import { Trophy } from "lucide-react"
 import { getImportantPoint, isBreakPoint, getBreakPointCount } from "@/lib/scoring-logic"
 import { getImportantEventType, getGameScoreDisplay, getSetCellDisplay, isPlayerServing } from "@/lib/match-view"
+import { formatCountry, isSameCountryAllPlayers } from "@/lib/country-display"
+import { isSameAvatarAllPlayers } from "@/lib/avatar-display"
+import { formatPlayerName, splitNameParts, applyNameCase } from "@/lib/player-name-format"
 import type { ScoreboardSettings } from "@/lib/scoreboard-settings"
 
 export type VmixVariant = "court" | "overlay" | "fullscreen"
@@ -29,11 +32,142 @@ export interface VmixScoreboardProps {
   matchOverLabel?: string
 }
 
-/** Player country for display — a space instead of an empty cell. */
-function getPlayerCountryDisplay(team: "teamA" | "teamB", playerIndex: number, match: any): string {
+/** Player country for display — flag / code / name per settings (APK
+ *  ShowCountryAs); a space instead of an empty cell. */
+function getPlayerCountryDisplay(
+  team: "teamA" | "teamB",
+  playerIndex: number,
+  match: any,
+  settings?: ScoreboardSettings,
+): string {
   if (!match) return " "
-  return match[team]?.players?.[playerIndex]?.country || " "
+  const country = match[team]?.players?.[playerIndex]?.country
+  if (!country) return " "
+  // APK hideFlagForSameCountry — one country on both sides carries no signal.
+  if (settings?.hideSameCountry && isSameCountryAllPlayers(match)) return " "
+  return formatCountry(country, settings?.countryAs ?? "flag") || " "
 }
+
+/**
+ * One player's name, styled by the name typography settings: single/two
+ * lines, per-part size & weight (or linked), and letter case.
+ */
+function PlayerNameBlock({ player, settings, baseEm }: { player: any; settings: ScoreboardSettings; baseEm: number }) {
+  const {
+    playerNameFormat, nameLines, nameLineOrder, nameCase,
+    nameSizeLinked, nameSizeFirst, nameSizeLast,
+    nameWeightLinked, nameWeightFirst, nameWeightLast,
+  } = settings
+  // Linked → the "first" value drives both parts.
+  const sizeLast = nameSizeLinked ? nameSizeFirst : nameSizeLast
+  const weightLast = nameWeightLinked ? nameWeightFirst : nameWeightLast
+  const line = (text: string, size: number, weight: string) => (
+    <span
+      style={{
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        fontSize: `${baseEm * size}em`,
+        fontWeight: weight,
+        lineHeight: 1.05,
+      }}
+    >
+      {text}
+    </span>
+  )
+
+  // nameAs=first/last collapses everything to one styled part.
+  if (playerNameFormat !== "full") {
+    return line(applyNameCase(formatPlayerName(player?.name, playerNameFormat), nameCase), nameSizeFirst, nameWeightFirst)
+  }
+
+  const { first, last } = splitNameParts(player?.name)
+  const f = applyNameCase(first, nameCase)
+  const l = applyNameCase(last, nameCase)
+
+  if (nameLines === "two" && l) {
+    const seed = (player?.seed ?? "").toString().trim()
+    const seedSuffix = seed ? ` [${seed}]` : ""
+    return (
+      <span style={{ display: "flex", flexDirection: "column", width: "100%", minWidth: 0 }}>
+        {nameLineOrder === "last-top" ? (
+          <>
+            {line(l + seedSuffix, sizeLast, weightLast)}
+            {line(f, nameSizeFirst, nameWeightFirst)}
+          </>
+        ) : (
+          <>
+            {line(f, nameSizeFirst, nameWeightFirst)}
+            {line(l + seedSuffix, sizeLast, weightLast)}
+          </>
+        )}
+      </span>
+    )
+  }
+
+  // Single line; "last on top" order reads as "Фамилия Имя".
+  const seed = (player?.seed ?? "").toString().trim()
+  const suffix = seed ? ` [${seed}]` : ""
+  const text = l ? (nameLineOrder === "last-top" ? `${l} ${f}` : `${f} ${l}`) : f
+  return line(text + suffix, nameSizeFirst, nameWeightFirst)
+}
+
+
+/** Round avatar photo cell, or null when hidden / not configured. */
+function getAvatarCell(
+  team: "teamA" | "teamB",
+  match: any,
+  settings?: ScoreboardSettings,
+  widthPx = 44,
+): React.ReactNode {
+  if (!match || !settings?.showAvatar) return null
+  const hideSame = settings.hideSameAvatar && isSameAvatarAllPlayers(match)
+  const avatarWidth = widthPx
+  const cell = (team: "teamA" | "teamB") => (
+    <div
+      style={{
+        padding: "2px",
+        flex: "0 0 auto",
+        width: `${avatarWidth}px`,
+        minWidth: `${avatarWidth}px`,
+        maxWidth: `${avatarWidth}px`,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "transparent",
+      }}
+    >
+      {match[team].players.map((p: any, idx: number) => (
+        <div
+          key={idx}
+          style={{
+            height: match[team].players.length > 1 ? "50%" : "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {!hideSame && p?.avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={p.avatar}
+              alt=""
+              style={{
+                width: `${avatarWidth - 10}px`,
+                height: `${avatarWidth - 10}px`,
+                borderRadius: "50%",
+                objectFit: "cover",
+              }}
+            />
+          ) : null}
+        </div>
+      ))}
+    </div>
+  )
+  return cell(team)
+}
+
 
 /** Top-to-bottom linear-gradient background, or {} when the gradient is off. */
 function getGradientStyle(useGradient: boolean, fromColor: string, toColor: string): React.CSSProperties {
@@ -148,7 +282,8 @@ interface FlexLayoutProps {
 
 function FlexLayout({ match, settings, indicatorState, breakPointState, prevImportantPoint }: FlexLayoutProps) {
   const {
-    theme, showPoints, showSets, showServer, showCountry, fontSize, showBreakPoint,
+    theme, showPoints, showSets, showServer, showCountry, fontSize, showBreakPoint, showAvatar,
+    playerNameFormat,
     textColor, accentColor, playerNamesFontSize,
     namesBgColor, countryBgColor, pointsBgColor, setsBgColor, setsTextColor,
     indicatorBgColor, indicatorTextColor, indicatorGradient, indicatorGradientFrom, indicatorGradientTo,
@@ -166,11 +301,13 @@ function FlexLayout({ match, settings, indicatorState, breakPointState, prevImpo
 
   // Column widths — fixed so the break-point bar can match the table width.
   const nameColumnWidth = 300
+  const avatarColumnWidth = 44
   const countryColumnWidth = 50
   const serveColumnWidth = 30
 
   const tableWidth =
     nameColumnWidth +
+    (showAvatar ? avatarColumnWidth : 0) +
     (showCountry ? countryColumnWidth : 0) +
     (showServer ? serveColumnWidth : 0) +
     (match.score.sets?.length || 0) * 40 +
@@ -240,17 +377,8 @@ function FlexLayout({ match, settings, indicatorState, breakPointState, prevImpo
       <div style={{ display: "flex", flexDirection: "column", width: "100%", overflow: "hidden" }}>
         {match[team].players.map((player: any, idx: number) => (
           <div key={idx} style={{ display: "flex", alignItems: "center" }}>
-            <span
-              style={{
-                flex: 1,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                fontSize: `${playerNamesFontSize}em`,
-                paddingLeft: "10px",
-              }}
-            >
-              {player?.name}
+            <span style={{ flex: 1, minWidth: 0, paddingLeft: "10px" }}>
+              <PlayerNameBlock player={player} settings={settings} baseEm={playerNamesFontSize} />
             </span>
           </div>
         ))}
@@ -287,7 +415,7 @@ function FlexLayout({ match, settings, indicatorState, breakPointState, prevImpo
               justifyContent: "center",
             }}
           >
-            {getPlayerCountryDisplay(team, idx, match)}
+            {getPlayerCountryDisplay(team, idx, match, settings)}
           </div>
         ))}
       </div>
@@ -448,6 +576,7 @@ function FlexLayout({ match, settings, indicatorState, breakPointState, prevImpo
           {/* Team A */}
           <div style={{ display: "flex", marginBottom: "1px" }}>
             {getNameCell("teamA")}
+            {getAvatarCell("teamA", match, settings, avatarColumnWidth)}
             {getCountryCell("teamA")}
             {getServeCell("teamA")}
             {getSetsCells("teamA")}
@@ -457,6 +586,7 @@ function FlexLayout({ match, settings, indicatorState, breakPointState, prevImpo
           {/* Team B */}
           <div style={{ display: "flex" }}>
             {getNameCell("teamB")}
+            {getAvatarCell("teamB", match, settings, avatarColumnWidth)}
             {getCountryCell("teamB")}
             {getServeCell("teamB")}
             {getSetsCells("teamB")}
@@ -538,7 +668,8 @@ interface FullscreenLayoutProps {
 
 function FullscreenLayout({ match, settings, matchOverLabel }: FullscreenLayoutProps) {
   const {
-    theme, showNames, showPoints, showSets, showServer, showCountry, showBreakPoint,
+    theme, showNames, showPoints, showSets, showServer, showCountry, showBreakPoint, showAvatar,
+    playerNameFormat,
     textColor, accentColor,
     namesBgColor, countryBgColor, pointsBgColor, setsBgColor, setsTextColor,
     indicatorBgColor, indicatorTextColor, indicatorGradient, indicatorGradientFrom, indicatorGradientTo,
@@ -578,11 +709,27 @@ function FullscreenLayout({ match, settings, matchOverLabel }: FullscreenLayoutP
           {match[team].players.map((player: any, idx: number) => (
             <div key={idx} className="player-name-container">
               <div className="player-name pl-6" title={player.name}>
-                {player.name}
+                <PlayerNameBlock player={player} settings={settings} baseEm={1} />
               </div>
             </div>
           ))}
           {match.format === "doubles" && <div className="player-divider"></div>}
+        </div>
+      )}
+
+      {showAvatar && !(settings.hideSameAvatar && isSameAvatarAllPlayers(match)) && (
+        <div className="cell avatar-cell" style={{ background: "transparent" }}>
+          {match[team].players.map((p: any, idx: number) => (
+            <div
+              key={idx}
+              style={{ height: `${100 / match[team].players.length}%`, display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              {p?.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.avatar} alt="" className="rounded-full object-cover" style={{ width: "70%", height: "70%" }} />
+              ) : null}
+            </div>
+          ))}
         </div>
       )}
 
@@ -603,7 +750,7 @@ function FullscreenLayout({ match, settings, matchOverLabel }: FullscreenLayoutP
               key={idx}
               style={{ height: `${100 / match[team].players.length}%`, display: "flex", alignItems: "center" }}
             >
-              {getPlayerCountryDisplay(team, idx, match)}
+              {getPlayerCountryDisplay(team, idx, match, settings)}
             </div>
           ))}
         </div>
@@ -712,7 +859,7 @@ function FullscreenLayout({ match, settings, matchOverLabel }: FullscreenLayoutP
 
         .team-row {
           display: grid;
-          grid-template-columns: ${showNames ? "4.6fr " : ""}${showCountry ? "1fr " : ""}${showServer ? "0.5fr " : ""}${showSets ? `repeat(${setCount}, 0.8fr) ` : ""}${showPoints ? "1.4fr 0fr" : ""};
+          grid-template-columns: ${showNames ? "4.6fr " : ""}${showAvatar ? "0.7fr " : ""}${showCountry ? "1fr " : ""}${showServer ? "0.5fr " : ""}${showSets ? `repeat(${setCount}, 0.8fr) ` : ""}${showPoints ? "1.4fr 0fr" : ""};
           height: 100%;
           width: 100%;
           gap: 0;

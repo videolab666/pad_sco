@@ -1017,9 +1017,18 @@ export const subscribeToMatchUpdates = (idOrCode: string, callback: any) => {
   if (typeof window === "undefined") return () => { }
 
   let unsubscribe: (() => void) | null = null
+  // Компонент может размонтироваться ДО того, как асинхронная настройка
+  // подписки завершится (быстрый уход со страницы). Без флага cleanup
+  // отработал бы вхолостую, а канал/интервал утекли бы навсегда.
+  let disposed = false
+  const teardown = () => {
+    if (unsubscribe) unsubscribe()
+    unsubscribe = null
+  }
 
   // Проверяем доступность Supabase
   isSupabaseAvailable().then(async (supabaseAvailable) => {
+    if (disposed) return
     if (supabaseAvailable) {
       // Проверяем существование таблиц
       const tablesStatus = await checkTablesExist()
@@ -1039,6 +1048,9 @@ export const subscribeToMatchUpdates = (idOrCode: string, callback: any) => {
         const matchId = match.id // Используем UUID для подписки в Supabase
 
         const supabase = createClientSupabaseClient()
+
+        // Ушли со страницы, пока шла асинхронная настройка — не подписываемся.
+        if (disposed) return
 
         // Подписываемся на изменения матча в Supabase
         const channel = supabase
@@ -1090,6 +1102,7 @@ export const subscribeToMatchUpdates = (idOrCode: string, callback: any) => {
           logEvent("info", tSync("logMessages.unsubscribeMatch", { id: matchId }), "subscribeToMatchUpdates")
           supabase.removeChannel(channel)
         }
+        if (disposed) teardown() // размонтировались, пока канал настраивался
       } else {
         logEvent("warn", tSync("logMessages.tablesNotExistLocalSubscribe"), "subscribeToMatchUpdates")
         setupLocalSubscription()
@@ -1127,19 +1140,34 @@ export const subscribeToMatchUpdates = (idOrCode: string, callback: any) => {
       window.removeEventListener("storage", handleStorageChange)
       clearInterval(interval)
     }
+    if (disposed) teardown() // размонтировались, пока шла настройка
   }
 
   // Возвращаем функцию отписки
   return () => {
-    if (unsubscribe) unsubscribe()
+    disposed = true
+    teardown()
   }
 }
 
 // Подписка на обновления списка матчей в реальном времени
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const subscribeToMatchesListUpdates = (callback: any) => {
+  if (typeof window === "undefined") return () => { }
+
+  // Асинхронная настройка возвращала cleanup из промиса «в никуда» — никто
+  // его не вызывал, и каждый монтированный список матчей навсегда оставлял
+  // realtime-канал либо интервал+storage-listener. Ведём teardown явно.
+  let unsubscribe: (() => void) | null = null
+  let disposed = false
+  const teardown = () => {
+    if (unsubscribe) unsubscribe()
+    unsubscribe = null
+  }
+
   // Проверяем доступность Supabase
   isSupabaseAvailable().then(async (supabaseAvailable) => {
+    if (disposed) return
     if (supabaseAvailable) {
       // Проверяем существование таблиц
       const tablesStatus = await checkTablesExist()
@@ -1149,6 +1177,9 @@ export const subscribeToMatchesListUpdates = (callback: any) => {
         await checkAndEnableRealtime()
 
         const supabase = createClientSupabaseClient()
+
+        // Ушли со страницы, пока шла асинхронная настройка — не подписываемся.
+        if (disposed) return
 
         // Подписываемся на изменения списка матчей в Supabase
         const subscription = supabase
@@ -1168,10 +1199,11 @@ export const subscribeToMatchesListUpdates = (callback: any) => {
           )
           .subscribe()
 
-        // Возвращаем функцию для отписки
-        return () => {
+        unsubscribe = () => {
           supabase.removeChannel(subscription)
         }
+        if (disposed) teardown()
+        return
       } else {
         logEvent(
           "warn",
@@ -1194,14 +1226,18 @@ export const subscribeToMatchesListUpdates = (callback: any) => {
     // Также настраиваем периодическую проверку обновлений
     const interval = setInterval(handleStorageChange, 5000)
 
-    return () => {
+    unsubscribe = () => {
       window.removeEventListener("storage", handleStorageChange)
       clearInterval(interval)
     }
+    if (disposed) teardown()
   })
 
-  // Возвращаем пустую функцию отписки по умолчанию
-  return () => { }
+  // Возвращаем функцию отписки
+  return () => {
+    disposed = true
+    teardown()
+  }
 }
 
 // Сохранение матча в URL для шаринга

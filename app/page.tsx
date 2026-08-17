@@ -111,7 +111,7 @@ export default function HomePage() {
                     transition-all duration-300 hover:scale-105 hover:shadow-lg hover:brightness-110 
                     active:scale-95 active:shadow-inner"
                   >
-                    {t("home.padel")}
+                    {t("home.newPadelMatch")}
                   </Button>
                 </Link>
               </div>

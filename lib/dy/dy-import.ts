@@ -1,7 +1,7 @@
 // Import players from a feed into local player storage (dedup by dyId / name).
 
 import { v4 as uuidv4 } from "uuid"
-import { getPlayers, addPlayer } from "@/lib/player-storage"
+import { getPlayers, addPlayer, updatePlayer } from "@/lib/player-storage"
 import { hasCyrillic, transliterate } from "@/lib/dy/translit"
 import type { Player } from "@/lib/types"
 
@@ -13,6 +13,8 @@ export interface ImportedPlayer {
 export interface FeedPlayer {
   name: string
   dyId?: string
+  /** ISO2 country code from the feed, when the tournament provides one. */
+  country?: string
 }
 
 export interface ImportOptions {
@@ -51,12 +53,21 @@ export async function ensureLocalPlayer(
     : undefined
   const byName = players.find((p: Player) => names.includes(p.name.trim().toLowerCase()))
   const existing = byDyId ?? byName
-  if (existing) return { id: existing.id, name: existing.name }
+  if (existing) {
+    // Feed knows the country but the local record does not — backfill it so
+    // the scoreboard can show the flag without manual editing.
+    const feedCountry = feedPlayer.country?.trim().toUpperCase()
+    if (feedCountry && !existing.country) {
+      await updatePlayer(existing.id, { country: feedCountry })
+    }
+    return { id: existing.id, name: existing.name }
+  }
 
   const newPlayer: Player = {
     id: uuidv4(),
     name: displayName,
     dyId: feedPlayer.dyId,
+    country: feedPlayer.country?.trim().toUpperCase() || undefined,
   }
   const res = await addPlayer(newPlayer) // writes to localStorage + Supabase
   if (!res.success) {

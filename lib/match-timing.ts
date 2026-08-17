@@ -129,6 +129,20 @@ export function getCurrentGameDurationMs(match: any, now: Date = new Date()): nu
   return Math.max(0, new Date(end).getTime() - new Date(cur.startedAt).getTime())
 }
 
+/** Current set duration in milliseconds — sum of all its games (incl. ongoing). */
+export function getCurrentSetDurationMs(match: any, now: Date = new Date()): number {
+  const timing: MatchTiming | undefined = match?.timing
+  if (!timing || !Array.isArray(timing.games)) return 0
+  const setIndex = match?.score?.sets?.length ?? 0
+  let total = 0
+  for (const g of timing.games) {
+    if (g.setIndex !== setIndex) continue
+    const end = g.endedAt ?? now.toISOString()
+    total += Math.max(0, new Date(end).getTime() - new Date(g.startedAt).getTime())
+  }
+  return total
+}
+
 /** Format an mm:ss / hh:mm:ss string for the scoreboard duration display. */
 export function formatDurationMs(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000))

@@ -6,6 +6,7 @@ import {
   finalizeMatchTiming,
   formatDurationMs,
   getCurrentGameDurationMs,
+  getCurrentSetDurationMs,
   getMatchDurationMs,
   removeLastPointTiming,
 } from "../lib/match-timing"
@@ -117,5 +118,20 @@ describe("Task 3 — duration helpers and formatter", () => {
     expect(formatDurationMs(59_000)).toBe("00:59")
     expect(formatDurationMs(60_000)).toBe("01:00")
     expect(formatDurationMs(3 * 60 * 60_000 + 5 * 60_000 + 7_000)).toBe("3:05:07")
+  })
+
+  it("getCurrentSetDurationMs sums finished and ongoing games of the current set only", () => {
+    const now = new Date("2026-05-27T10:00:00.000Z")
+    let m = ensureCurrentGameTiming(baseMatch(), now)
+    m = endCurrentGameTiming(m, new Date("2026-05-27T10:04:00.000Z")) // game 0-0: 4 min
+    // advance to the next game inside the same set
+    m.score.currentSet.games.push({ teamA: 1, teamB: 0 })
+    m = ensureCurrentGameTiming(m, new Date("2026-05-27T10:05:00.000Z"))
+    const at = new Date("2026-05-27T10:07:30.000Z")
+    expect(getCurrentSetDurationMs(m, at)).toBe(4 * 60_000 + 2.5 * 60_000)
+
+    // finished game from a previous set must not count toward the current set
+    m.timing.games[0].setIndex = -1
+    expect(getCurrentSetDurationMs(m, at)).toBe(2.5 * 60_000)
   })
 })

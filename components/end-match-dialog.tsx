@@ -52,6 +52,9 @@ export function EndMatchDialog({ match, updateMatch }: Props) {
     setReason(null)
   }
 
+  const chosen = REASONS.find((r) => r.key === reason)
+  const ChosenIcon = chosen?.icon
+
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setReason(null) }}>
       <DialogTrigger asChild>
@@ -85,11 +88,18 @@ export function EndMatchDialog({ match, updateMatch }: Props) {
           </div>
         )}
 
-        {reason && (
-          <div className="grid grid-cols-2 gap-2">
-            <Button onClick={() => onWinner("teamA")}>{t("extras.tossWins", { name: teamAName })}</Button>
-            <Button onClick={() => onWinner("teamB")}>{t("extras.tossWins", { name: teamBName })}</Button>
-          </div>
+        {reason && chosen && ChosenIcon && (
+          <>
+            <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm">
+              <ChosenIcon className="h-4 w-4 shrink-0" />
+              <span className="font-medium">{t(`extras.${chosen.labelKey}`)}</span>
+              <span className="text-xs text-muted-foreground">{t(`extras.${chosen.descKey}`)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={() => onWinner("teamA")}>{t("extras.tossWins", { name: teamAName })}</Button>
+              <Button onClick={() => onWinner("teamB")}>{t("extras.tossWins", { name: teamBName })}</Button>
+            </div>
+          </>
         )}
 
         <DialogFooter>

@@ -42,6 +42,30 @@ export interface EditorSettings {
   showSets: boolean
   showServer: boolean
   showCountry: boolean
+  /** How a country is rendered: flag emoji / ISO code / country name. */
+  countryAs: "flag" | "code" | "name"
+  /** Hide the country column when both sides share one country (APK parity). */
+  hideSameCountry: boolean
+  /** Show the player avatar (photo) column. */
+  showAvatar: boolean
+  /** Hide avatars when every player uses the same image (APK parity). */
+  hideSameAvatar: boolean
+  /** Which part of the player name to show: full / first / last (APK NamePart). */
+  playerNameFormat: "full" | "first" | "last"
+  /** One line or two (surname on its own line). */
+  nameLines: "single" | "two"
+  /** Two lines: which part is on top; single line: word order. */
+  nameLineOrder: "first-top" | "last-top"
+  /** Letter case for displayed names. */
+  nameCase: "as-is" | "upper" | "lower" | "capitalize"
+  /** Per-part font size (em); linked = first value drives both. */
+  nameSizeLinked: boolean
+  nameSizeFirst: number
+  nameSizeLast: number
+  /** Per-part font weight; linked = first value drives both. */
+  nameWeightLinked: boolean
+  nameWeightFirst: string
+  nameWeightLast: string
   showBreakPoint: boolean
   fontSize: string
   bgOpacity: number
@@ -83,6 +107,20 @@ const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   showSets: true,
   showServer: true,
   showCountry: true,
+  countryAs: "flag",
+  hideSameCountry: false,
+  showAvatar: false,
+  hideSameAvatar: true,
+  playerNameFormat: "full",
+  nameLines: "single",
+  nameLineOrder: "first-top",
+  nameCase: "as-is",
+  nameSizeLinked: true,
+  nameSizeFirst: 1,
+  nameSizeLast: 1,
+  nameWeightLinked: true,
+  nameWeightFirst: "700",
+  nameWeightLast: "700",
   showBreakPoint: true,
   fontSize: "normal",
   bgOpacity: 0.5,
@@ -292,6 +330,20 @@ export function VmixSettingsEditor({ variant, matchId, courtNumber, matchTitle }
     url.searchParams.set("showSets", String(s.showSets))
     url.searchParams.set("showServer", String(s.showServer))
     url.searchParams.set("showCountry", String(s.showCountry))
+    url.searchParams.set("countryAs", s.countryAs)
+    url.searchParams.set("hideSameCountry", String(s.hideSameCountry))
+    url.searchParams.set("showAvatar", String(s.showAvatar))
+    url.searchParams.set("hideSameAvatar", String(s.hideSameAvatar))
+    url.searchParams.set("nameAs", s.playerNameFormat)
+    url.searchParams.set("nameLines", s.nameLines)
+    url.searchParams.set("nameLineOrder", s.nameLineOrder)
+    url.searchParams.set("nameCase", s.nameCase)
+    url.searchParams.set("nameSizeLinked", String(s.nameSizeLinked))
+    url.searchParams.set("nameSizeFirst", String(s.nameSizeFirst))
+    url.searchParams.set("nameSizeLast", String(s.nameSizeLast))
+    url.searchParams.set("nameWeightLinked", String(s.nameWeightLinked))
+    url.searchParams.set("nameWeightFirst", s.nameWeightFirst)
+    url.searchParams.set("nameWeightLast", s.nameWeightLast)
     url.searchParams.set("showBreakPoint", String(s.showBreakPoint))
     url.searchParams.set("fontSize", s.fontSize)
     url.searchParams.set("bgOpacity", String(s.bgOpacity))
@@ -334,7 +386,25 @@ export function VmixSettingsEditor({ variant, matchId, courtNumber, matchTitle }
 
   const generateJsonUrl = () => {
     const base = window.location.origin
-    return variant === "court" ? `${base}/api/court/${courtNumber}` : `${base}/api/vmix/${matchId}`
+    const path = variant === "court" ? `/api/court/${courtNumber}` : `/api/vmix/${matchId}`
+    // The JSON endpoint honours the same display params as the HTML scoreboard
+    // (nameLines/nameCase/...), so the JSON fields match what the preview shows.
+    const display = new URLSearchParams({
+      nameAs: s.playerNameFormat,
+      nameLines: s.nameLines,
+      nameLineOrder: s.nameLineOrder,
+      nameCase: s.nameCase,
+      nameSizeLinked: String(s.nameSizeLinked),
+      nameSizeFirst: String(s.nameSizeFirst),
+      nameSizeLast: String(s.nameSizeLast),
+      nameWeightLinked: String(s.nameWeightLinked),
+      nameWeightFirst: s.nameWeightFirst,
+      nameWeightLast: s.nameWeightLast,
+      countryAs: s.countryAs,
+      hideSameCountry: String(s.hideSameCountry),
+      showAvatar: String(s.showAvatar),
+    })
+    return `${base}${path}?${display.toString()}`
   }
 
   // --- Actions --------------------------------------------------------------
@@ -533,6 +603,168 @@ export function VmixSettingsEditor({ variant, matchId, courtNumber, matchTitle }
                       checked={s.showCountry}
                       onChange={(v) => set({ showCountry: v })}
                     />
+                    <div className="space-y-2">
+                      <Label htmlFor="nameAs">{t("vmixSettings.nameAs")}</Label>
+                      <Select value={s.playerNameFormat} onValueChange={(v: "full" | "first" | "last") => set({ playerNameFormat: v })}>
+                        <SelectTrigger id="nameAs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="full">{t("vmixSettings.nameAsFull")}</SelectItem>
+                          <SelectItem value="first">{t("vmixSettings.nameAsFirst")}</SelectItem>
+                          <SelectItem value="last">{t("vmixSettings.nameAsLast")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {s.playerNameFormat === "full" && (
+                      <div className="space-y-3 border rounded-md p-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="nameLines">{t("vmixSettings.nameLines")}</Label>
+                          <Select value={s.nameLines} onValueChange={(v: "single" | "two") => set({ nameLines: v })}>
+                            <SelectTrigger id="nameLines">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="single">{t("vmixSettings.nameLinesSingle")}</SelectItem>
+                              <SelectItem value="two">{t("vmixSettings.nameLinesTwo")}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="nameLineOrder">
+                            {s.nameLines === "two" ? t("vmixSettings.nameLineOrderTwo") : t("vmixSettings.nameLineOrderSingle")}
+                          </Label>
+                          <Select value={s.nameLineOrder} onValueChange={(v: "first-top" | "last-top") => set({ nameLineOrder: v })}>
+                            <SelectTrigger id="nameLineOrder">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="first-top">
+                                {s.nameLines === "two" ? t("vmixSettings.nameTopFirst") : t("vmixSettings.nameOrderFirstLast")}
+                              </SelectItem>
+                              <SelectItem value="last-top">
+                                {s.nameLines === "two" ? t("vmixSettings.nameTopLast") : t("vmixSettings.nameOrderLastFirst")}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="nameCase">{t("vmixSettings.nameCase")}</Label>
+                          <Select value={s.nameCase} onValueChange={(v: "as-is" | "upper" | "lower" | "capitalize") => set({ nameCase: v })}>
+                            <SelectTrigger id="nameCase">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="as-is">{t("vmixSettings.nameCaseAsIs")}</SelectItem>
+                              <SelectItem value="upper">{t("vmixSettings.nameCaseUpper")}</SelectItem>
+                              <SelectItem value="lower">{t("vmixSettings.nameCaseLower")}</SelectItem>
+                              <SelectItem value="capitalize">{t("vmixSettings.nameCaseCapitalize")}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <ToggleRow
+                          id="nameStyleLinked"
+                          label={t("vmixSettings.nameStyleLinked")}
+                          checked={s.nameSizeLinked && s.nameWeightLinked}
+                          onChange={(v) => set({ nameSizeLinked: v, nameWeightLinked: v })}
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="nameSizeFirst">{t("vmixSettings.nameSizeFirst")}</Label>
+                            <Input
+                              id="nameSizeFirst"
+                              type="number"
+                              step="0.1"
+                              min="0.3"
+                              value={s.nameSizeFirst}
+                              onChange={(e) => set({ nameSizeFirst: Number.parseFloat(e.target.value) || 1 })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="nameWeightFirst">{t("vmixSettings.nameWeightFirst")}</Label>
+                            <Select value={s.nameWeightFirst} onValueChange={(v) => set({ nameWeightFirst: v })}>
+                              <SelectTrigger id="nameWeightFirst">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="300">Light</SelectItem>
+                                <SelectItem value="400">Regular</SelectItem>
+                                <SelectItem value="600">SemiBold</SelectItem>
+                                <SelectItem value="700">Bold</SelectItem>
+                                <SelectItem value="800">ExtraBold</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        {!s.nameSizeLinked && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="nameSizeLast">{t("vmixSettings.nameSizeLast")}</Label>
+                              <Input
+                                id="nameSizeLast"
+                                type="number"
+                                step="0.1"
+                                min="0.3"
+                                value={s.nameSizeLast}
+                                onChange={(e) => set({ nameSizeLast: Number.parseFloat(e.target.value) || 1 })}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="nameWeightLast">{t("vmixSettings.nameWeightLast")}</Label>
+                              <Select value={s.nameWeightLast} onValueChange={(v) => set({ nameWeightLast: v })}>
+                              <SelectTrigger id="nameWeightLast">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="300">Light</SelectItem>
+                                <SelectItem value="400">Regular</SelectItem>
+                                <SelectItem value="600">SemiBold</SelectItem>
+                                <SelectItem value="700">Bold</SelectItem>
+                                <SelectItem value="800">ExtraBold</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <ToggleRow
+                      id="showAvatar"
+                      label={t("vmixSettings.showAvatars")}
+                      checked={s.showAvatar}
+                      onChange={(v) => set({ showAvatar: v })}
+                    />
+                    {s.showAvatar && (
+                      <ToggleRow
+                        id="hideSameAvatar"
+                        label={t("vmixSettings.hideSameAvatar")}
+                        checked={s.hideSameAvatar}
+                        onChange={(v) => set({ hideSameAvatar: v })}
+                      />
+                    )}
+                    {s.showCountry && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="countryAs">{t("vmixSettings.countryAs")}</Label>
+                          <Select value={s.countryAs} onValueChange={(v: "flag" | "code" | "name") => set({ countryAs: v })}>
+                            <SelectTrigger id="countryAs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="flag">{t("vmixSettings.countryAsFlag")}</SelectItem>
+                              <SelectItem value="code">{t("vmixSettings.countryAsCode")}</SelectItem>
+                              <SelectItem value="name">{t("vmixSettings.countryAsName")}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <ToggleRow
+                          id="hideSameCountry"
+                          label={t("vmixSettings.hideSameCountry")}
+                          checked={s.hideSameCountry}
+                          onChange={(v) => set({ hideSameCountry: v })}
+                        />
+                      </>
+                    )}
                     <ToggleRow
                       id="showBreakPoint"
                       label={t("vmixSettings.showBreakPoint")}

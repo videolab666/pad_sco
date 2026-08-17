@@ -27,9 +27,13 @@ export const createServerSupabaseClient = () => {
 }
 
 // Создаем клиент Supabase для использования на стороне клиента
-// Используем синглтон для предотвращения создания множества экземпляров
+// Используем синглтон для предотвращения создания множества экземпляров.
+// Кэш живёт на globalThis: в dev-режиме Turbopack может загрузить этот модуль
+// в нескольких чанках — свой синглтон на каждый чанк снова давал бы
+// "Multiple GoTrueClient instances" и войну за auth-lock.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let clientSupabaseInstance: any = null
+const globalAny = globalThis as any
+let clientSupabaseInstance: any = globalAny.__padelSupabaseClient ?? null
 
 export const createClientSupabaseClient = () => {
   if (clientSupabaseInstance) return clientSupabaseInstance
@@ -73,6 +77,7 @@ export const createClientSupabaseClient = () => {
         },
       },
     })
+    globalAny.__padelSupabaseClient = clientSupabaseInstance
     return clientSupabaseInstance
   } catch (error) {
     logEvent("error", tSync("logMessages.errorCreatingClient"), "createClientSupabaseClient", error)
@@ -94,38 +99,48 @@ export const isSupabaseAvailable = async () => {
       return false
     }
 
-    // Выполняем простой запрос для проверки соединения
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 секунды таймаут
+    // Выполняем простой запрос для проверки соединения.
+    // Два попытки: быстрый 3с-таймаут, затем щедрый 8с-ретрай — единичный
+    // лаг сети/cold start Supabase больше не мигает статусом «недоступен».
+    let lastErr: unknown = null
+    for (const timeoutMs of [3000, 8000]) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-      const { error } = await supabase
-        .from("_http_response")
-        .select("*")
-        .limit(1)
-        .maybeSingle()
-        .abortSignal(controller.signal)
+        const { error } = await supabase
+          .from("_http_response")
+          .select("*")
+          .limit(1)
+          .maybeSingle()
+          .abortSignal(controller.signal)
 
-      clearTimeout(timeoutId)
+        clearTimeout(timeoutId)
 
-      // Если получили ошибку о том, что таблица не существует - это нормально,
-      // главное что соединение работает
-      if (error && !error.message.includes("does not exist")) {
-        return false
+        // Если получили ошибку о том, что таблица не существует - это нормально,
+        // главное что соединение работает
+        if (error && !error.message.includes("does not exist")) {
+          return false
+        }
+
+        return true
+      } catch (err) {
+        lastErr = err
+        // Реальный отказ (не таймаут) — ретраить бессмысленно.
+        if ((err as Error)?.name !== "AbortError") break
       }
-
-      return true
-    } catch (err) {
-      const fetchError = err as Error;
-      if (fetchError.name === "AbortError") {
+    }
+    const err = lastErr as Error | null
+    if (err) {
+      if (err.name === "AbortError") {
         logEvent("error", tSync("logMessages.timeoutAvailability"), "isSupabaseAvailable")
       } else {
-        logEvent("error", tSync("logMessages.supabaseQueryError", { error: fetchError.message }), "isSupabaseAvailable", {
-          error: fetchError,
+        logEvent("error", tSync("logMessages.supabaseQueryError", { error: err.message }), "isSupabaseAvailable", {
+          error: err,
         })
       }
-      return false
     }
+    return false
   } catch (err) {
     const error = err as Error;
     logEvent("error", tSync("logMessages.exceptionAvailability"), "isSupabaseAvailable", {

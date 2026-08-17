@@ -13,7 +13,8 @@
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "e2e:report": "playwright show-report logs/playwright-report",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "licenses": "node scripts/check-licenses.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

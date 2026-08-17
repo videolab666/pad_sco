@@ -51,6 +51,7 @@ function run(name, cmd, args) {
 }
 
 const steps = [
+  ["License gate (check-licenses)", "node", ["scripts/check-licenses.mjs"]],
   ["Typecheck (tsc --noEmit)", "npx", ["tsc", "--noEmit"]],
   ["Tests + coverage (vitest)", "npx", ["vitest", "run", "--coverage"]],
 ]

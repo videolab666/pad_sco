@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-17T09:41:03.151Z",
+  "generatedAt": "2026-08-17T09:59:35.015Z",
   "policy": "permissive-only (plan-4 §205): MIT, Apache-2.0, BSD-2/3-Clause, ISC, 0BSD, Unlicense, CC0-1.0",
   "allowlist": [
     "0BSD",
@@ -1537,49 +1537,49 @@
       "name": "pg",
       "version": "8.23.0",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "pg-cloudflare",
       "version": "1.4.0",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "pg-connection-string",
       "version": "2.14.0",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "pg-int8",
       "version": "1.0.1",
       "license": "ISC",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "pg-pool",
       "version": "3.14.0",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "pg-protocol",
       "version": "1.16.0",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "pg-types",
       "version": "2.2.0",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "pgpass",
       "version": "1.0.5",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "picocolors",
@@ -1663,25 +1663,25 @@
       "name": "postgres-array",
       "version": "2.0.0",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "postgres-bytea",
       "version": "1.0.1",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "postgres-date",
       "version": "1.0.7",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "postgres-interval",
       "version": "1.2.0",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "pretty-format",
@@ -1885,7 +1885,7 @@
       "name": "split2",
       "version": "4.2.0",
       "license": "ISC",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "stackback",
@@ -2179,7 +2179,7 @@
       "name": "xtend",
       "version": "4.0.2",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "zod",

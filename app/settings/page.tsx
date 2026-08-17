@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AdsSettings } from "@/components/settings/ads-settings"
+import { CourtsSettings } from "@/components/settings/courts-settings"
 
 export default function SettingsPage() {
   const [authState, setAuthState] = useState<"checking" | "login" | "ok">("checking")
@@ -114,9 +115,13 @@ export default function SettingsPage() {
       <Tabs defaultValue="ads">
         <TabsList>
           <TabsTrigger value="ads">Настройка рекламы</TabsTrigger>
+          <TabsTrigger value="courts">Корты</TabsTrigger>
         </TabsList>
         <TabsContent value="ads" className="mt-4">
           <AdsSettings />
+        </TabsContent>
+        <TabsContent value="courts" className="mt-4">
+          <CourtsSettings />
         </TabsContent>
       </Tabs>
     </div>

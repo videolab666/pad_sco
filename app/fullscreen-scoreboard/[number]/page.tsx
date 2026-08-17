@@ -21,9 +21,14 @@ type FullscreenScoreboardParams = {
   params: Promise<{
     number: string
   }>
+  /**
+   * Режим по ID матча (Шаг 2, §247): вечная ссылка /c/{code} для нечисловых
+   * кортов — матч резолвится серверно и передаётся напрямую, без номера корта.
+   */
+  matchId?: string
 }
 
-export default function FullscreenScoreboard({ params }: FullscreenScoreboardParams) {
+export default function FullscreenScoreboard({ params, matchId }: FullscreenScoreboardParams) {
   const resolvedParams = React.use(params)
   // --- All state hooks must be at the top ---
   // TODO: Replace 'any' with a proper Match type if available
@@ -39,6 +44,8 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   // guard against double-tap double-counting a point (debounce window)
   const scoringRef = useRef(false);
   const courtNumber = Number.parseInt(resolvedParams.number);
+  // §247: в режиме matchId гард «матч на этом корте» заменяется на совпадение ID.
+  const isOnThisCourt = (m: any) => (matchId ? m?.id === matchId : isMatchOnCourt(m, courtNumber));
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -98,7 +105,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
   // Handler to increment score for Team A or B
   const handleIncrementScore = async (team: 'teamA' | 'teamB') => {
-    if (!match || match.isCompleted || !isMatchOnCourt(match, courtNumber)) return;
+    if (!match || match.isCompleted || !isOnThisCourt(match)) return;
     // Защита от двойного тапа — иначе одно очко засчитывается дважды.
     if (scoringRef.current) return;
     scoringRef.current = true;
@@ -125,7 +132,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
   // Undo last score change
   const handleUndoScoreChange = async () => {
-    if (!matchHistory.length || !isMatchOnCourt(match, courtNumber)) return;
+    if (!matchHistory.length || !isOnThisCourt(match)) return;
     const prevMatch = matchHistory[matchHistory.length - 1];
     setMatch(prevMatch);
     setMatchHistory(history => history.slice(0, -1));
@@ -144,7 +151,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
   // Handler to finish the match
   const handleFinishMatch = async () => {
-    if (!match || match.isCompleted || !isMatchOnCourt(match, courtNumber)) return;
+    if (!match || match.isCompleted || !isOnThisCourt(match)) return;
     const updatedMatch = { ...match, isCompleted: true, winner: null };
     setMatch(updatedMatch);
     setIsCompletedMatch(true);
@@ -432,21 +439,26 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
   // Функция для загрузки матча
   const loadMatch = async () => {
     try {
-      if (isNaN(courtNumber) || courtNumber < 1 || courtNumber > 10) {
-        setError(
-          (translations[language] as any).common.error +
-          ": " +
-          ((translations[language] as any).scoreboard.invalidCourt || "Invalid court number"),
-        )
-        setLoading(false)
-        logEvent("error", "Fullscreen Scoreboard: invalid court number", "fullscreen-scoreboard")
-        return
+      // §247: режим matchId — матч уже резолвлен серверно по вечной ссылке.
+      let matchData: any = null
+      if (matchId) {
+        const { getMatch } = await import("@/lib/match-storage")
+        matchData = await getMatch(matchId)
+      } else {
+        if (isNaN(courtNumber) || courtNumber < 1 || courtNumber > 10) {
+          setError(
+            (translations[language] as any).common.error +
+            ": " +
+            ((translations[language] as any).scoreboard.invalidCourt || "Invalid court number"),
+          )
+          setLoading(false)
+          logEvent("error", "Fullscreen Scoreboard: invalid court number", "fullscreen-scoreboard")
+          return
+        }
+
+        logEvent("info", `Fullscreen Scoreboard: начало загрузки матча на корте ${courtNumber}`, "fullscreen-scoreboard")
+        matchData = await getMatchByCourtNumber(courtNumber)
       }
-
-      logEvent("info", `Fullscreen Scoreboard: начало загрузки матча на корте ${courtNumber}`, "fullscreen-scoreboard")
-
-      // Получаем матч по номеру корта
-      const matchData = await getMatchByCourtNumber(courtNumber)
 
       if (matchData) {
         // Проверяем, изменился ли ID матча
@@ -468,7 +480,7 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
         return matchData
       } else {
         setError(
-          (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", courtNumber) ||
+          (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", matchId ? "" : courtNumber) ||
           `No active matches on court ${courtNumber}`,
         )
         logEvent("warn", `Fullscreen Scoreboard: no active matches on court ${courtNumber}`, "fullscreen-scoreboard")
@@ -511,11 +523,11 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           return
         }
 
-        if (!isMatchOnCourt(updatedMatch, courtNumber)) {
+        if (!isOnThisCourt(updatedMatch)) {
           setMatch(null)
           setIsCompletedMatch(false)
           setError(
-            (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", courtNumber) ||
+            (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", matchId ? "" : courtNumber) ||
             `No active matches on court ${courtNumber}`,
           )
           return
@@ -574,8 +586,10 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
 
     // Настраиваем перидическую проверку наличия нового матча
     checkInterval = setInterval(async () => {
-      // Если текущий матч завершен, проверяем наличие нового матча
-      if (isCompletedMatch) {
+      // §247: в режиме matchId (вечная ссылка /c/{code} нечислового корта)
+      // автопереключение на «следующий матч корта» не работает — страницу
+      // обновит серверный резолв; здесь только числовой режим.
+      if (isCompletedMatch && !matchId) {
         const newMatchData = await getMatchByCourtNumber(courtNumber)
 
         // Если найден новый матч с другим ID
@@ -595,11 +609,11 @@ export default function FullscreenScoreboard({ params }: FullscreenScoreboardPar
           unsubscribe = subscribeToMatchUpdates(newMatchData.id, (updatedMatch: any) => {
             if (!updatedMatch) return
 
-            if (!isMatchOnCourt(updatedMatch, courtNumber)) {
+            if (!isOnThisCourt(updatedMatch)) {
               setMatch(null)
               setIsCompletedMatch(false)
               setError(
-                (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", courtNumber) ||
+                (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", matchId ? "" : courtNumber) ||
                 `No active matches on court ${courtNumber}`,
               )
               return

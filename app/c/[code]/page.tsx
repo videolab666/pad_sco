@@ -12,6 +12,7 @@
 import { notFound } from "next/navigation"
 import FullscreenScoreboard from "../../fullscreen-scoreboard/[number]/page"
 import { ensureCourtSchema, getCourtByShortCode } from "@/lib/court-registry"
+import { getMatchFromServerByCourt } from "@/lib/server-match-storage"
 import { logEvent } from "@/lib/error-logger"
 
 export const dynamic = "force-dynamic"
@@ -28,15 +29,29 @@ export default async function CourtByCodePage({ params }: { params: Promise<{ co
   if (!court) notFound()
 
   if (court.legacyNumber !== null) {
-    // Существующий корт 1..10 — полное табло (params как Promise, компонент
-    // сам резолвит его через React.use).
+    // Числовой корт — полный режим: тот же клиентский компонент, что и на
+    // legacy-странице /fullscreen-scoreboard/[number] (включая автопереключение
+    // на следующий матч корта).
     return (
       <FullscreenScoreboard params={Promise.resolve({ number: String(court.legacyNumber) })} />
     )
   }
 
-  // Новый нечисловой корт: привязка матча появится в Шаге 2 (court_id в
-  // matches + court_sessions). Пока — информация о корте.
+  // Нечисловой корт (§246): матч резолвим серверно по court_id и включаем
+  // режим matchId — тот же компонент рендерит табло без номера корта.
+  const match = await getMatchFromServerByCourt({ id: court.id, legacyNumber: null }).catch(() => null)
+  if (match?.id) {
+    return (
+      <FullscreenScoreboard
+        key={match.id}
+        params={Promise.resolve({ number: "0" })}
+        matchId={match.id}
+      />
+    )
+  }
+
+  // Матч не привязан — информационный экран (привязка появится в UI
+  // назначения матча на корт и в court_sessions Шага 2).
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#0a0f0a] p-8 text-white">
       <div className="text-sm uppercase tracking-widest text-white/50">Court</div>

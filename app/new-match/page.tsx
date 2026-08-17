@@ -30,6 +30,7 @@ import type { ImportedPlayer } from "@/lib/dy/dy-import"
 
 // Добавим импорт функций для работы с кортами
 import { getOccupiedCourts, isCourtAvailable } from "@/lib/court-utils"
+import { fetchActiveCourts, type PublicCourt } from "@/lib/public-courts"
 
 // Custom animations for the button
 const customStyles = `
@@ -175,8 +176,12 @@ export default function NewMatchPage() {
   // Импорт из публичного фида турниров
   const [feedOpen, setFeedOpen] = useState(false)
 
-  // Добавим состояние для выбора корта и списка занятых кортов
+  // Добавим состояние для выбора корта и списка занятых кортов.
+  // Шаг 2 (§246): выбор идёт по courtId из реестра (корт может быть назван
+  // любым именем); courtNumber — производное от legacy-корта для совместимости.
   const [courtNumber, setCourtNumber] = useState<number | null>(courtParam ? Number(courtParam) : null)
+  const [courtId, setCourtId] = useState<string | null>(null)
+  const [courtsList, setCourtsList] = useState<PublicCourt[]>([])
   const [occupiedCourts, setOccupiedCourts] = useState<number[]>([])
   const [loadingCourts, setLoadingCourts] = useState(true)
   const [isCourtOccupied, setIsCourtOccupied] = useState(false);
@@ -191,12 +196,21 @@ export default function NewMatchPage() {
   const checkCourtStatus = async () => {
     setLoadingCourts(true);
     try {
-      const courts = await getOccupiedCourts();
-      setOccupiedCourts(courts);
+      // Реестр кортов (может содержать именованные корты без номера) и
+      // занятость по legacy-номерам — параллельно.
+      const [courts, occupied] = await Promise.all([
+        fetchActiveCourts().catch(() => [] as PublicCourt[]),
+        getOccupiedCourts(),
+      ]);
+      setCourtsList(courts);
+      setOccupiedCourts(occupied);
       if (courtParam) {
         const courtNum = Number(courtParam);
-        setIsCourtOccupied(courts.includes(courtNum));
+        setIsCourtOccupied(occupied.includes(courtNum));
         setCourtNumber(courtNum);
+        // Предвыбор корта из реестра по legacy-номеру (?court=N).
+        const byLegacy = courts.find((c) => c.legacyNumber === courtNum);
+        if (byLegacy) setCourtId(byLegacy.id);
       }
     } finally {
       setLoadingCourts(false);
@@ -518,6 +532,7 @@ export default function NewMatchPage() {
       history: [],
       isCompleted: false,
       courtNumber: courtNumber,
+      courtId: courtId ?? null,
       created_via_court_link: !!courtParam,
       // Add special handling for Super Set
       superSetRules:
@@ -1128,12 +1143,19 @@ export default function NewMatchPage() {
               <div className="border rounded-md p-2 sm:p-3 bg-white mt-2">
                 <div className="mb-2">
                   <RadioGroup
-                    value={courtNumber === null ? "no-court" : courtNumber.toString()}
+                    value={courtId === null && courtNumber === null ? "no-court" : courtId ?? (courtNumber !== null ? `legacy-${courtNumber}` : "no-court")}
                     onValueChange={(value) => {
                       if (value === "no-court") {
+                        setCourtId(null)
                         setCourtNumber(null)
+                      } else if (value.startsWith("legacy-")) {
+                        // fallback-режим без реестра — только номера
+                        setCourtId(null)
+                        setCourtNumber(Number.parseInt(value.slice("legacy-".length)))
                       } else {
-                        setCourtNumber(Number.parseInt(value))
+                        const court = courtsList.find((c) => c.id === value)
+                        setCourtId(value)
+                        setCourtNumber(court?.legacyNumber ?? null)
                       }
                     }}
                   >
@@ -1141,7 +1163,7 @@ export default function NewMatchPage() {
                       <RadioGroupItem value="no-court" id="no-court" className="scale-75 sm:scale-100" />
                       <Label
                         htmlFor="no-court"
-                        className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${courtNumber === null
+                        className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${courtId === null && courtNumber === null
                           ? "bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 font-medium shadow-md"
                           : "hover:bg-gray-100"
                           }`}
@@ -1150,57 +1172,99 @@ export default function NewMatchPage() {
                       </Label>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-2">
-                        {/* Первый столбец: корты 1-5 */}
-                        {Array.from({ length: 5 }, (_, i) => i + 1).map((num) => (
-                          <div key={num} className="flex items-center space-x-2">
-                            <RadioGroupItem
-                              value={num.toString()}
-                              id={`court-${num}`}
-                              disabled={isCourtOccupiedFn(num) || loadingCourts}
-                              className="scale-75 sm:scale-100"
-                            />
-                            <Label
-                              htmlFor={`court-${num}`}
-                              className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${courtNumber === num
-                                ? "bg-gradient-to-r from-green-100 to-green-200 text-green-800 font-medium shadow-md"
-                                : isCourtOccupiedFn(num)
-                                  ? "text-muted-foreground line-through"
-                                  : "hover:bg-gray-100"
-                                }`}
-                            >
-                              {t("newMatch.court")} {num}
-                            </Label>
+                    {courtsList.length > 0 ? (
+                      /* Реестр кортов: любой корт, включая именованные (§246) */
+                      <div className="grid grid-cols-2 gap-2">
+                        {[0, 1].map((col) => (
+                          <div key={col} className="space-y-2">
+                            {courtsList
+                              .filter((_, i) => i % 2 === col)
+                              .map((court) => {
+                                const occupied = court.legacyNumber !== null && isCourtOccupiedFn(court.legacyNumber)
+                                const selected = courtId === court.id
+                                const label =
+                                  court.legacyNumber !== null
+                                    ? `${t("newMatch.court")} ${court.name}`
+                                    : court.name
+                                return (
+                                  <div key={court.id} className="flex items-center space-x-2">
+                                    <RadioGroupItem
+                                      value={court.id}
+                                      id={`court-${court.id}`}
+                                      disabled={occupied || loadingCourts}
+                                      className="scale-75 sm:scale-100"
+                                    />
+                                    <Label
+                                      htmlFor={`court-${court.id}`}
+                                      className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${selected
+                                        ? "bg-gradient-to-r from-green-100 to-green-200 text-green-800 font-medium shadow-md"
+                                        : occupied
+                                          ? "text-muted-foreground line-through"
+                                          : "hover:bg-gray-100"
+                                        }`}
+                                    >
+                                      {label}
+                                    </Label>
+                                  </div>
+                                )
+                              })}
                           </div>
                         ))}
                       </div>
+                    ) : (
+                      /* Fallback: реестр недоступен — прежняя сетка 1..10 */
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-2">
+                          {/* Первый столбец: корты 1-5 */}
+                          {Array.from({ length: 5 }, (_, i) => i + 1).map((num) => (
+                            <div key={num} className="flex items-center space-x-2">
+                              <RadioGroupItem
+                                value={`legacy-${num}`}
+                                id={`court-${num}`}
+                                disabled={isCourtOccupiedFn(num) || loadingCourts}
+                                className="scale-75 sm:scale-100"
+                              />
+                              <Label
+                                htmlFor={`court-${num}`}
+                                className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${courtNumber === num && courtId === null
+                                  ? "bg-gradient-to-r from-green-100 to-green-200 text-green-800 font-medium shadow-md"
+                                  : isCourtOccupiedFn(num)
+                                    ? "text-muted-foreground line-through"
+                                    : "hover:bg-gray-100"
+                                  }`}
+                              >
+                                {t("newMatch.court")} {num}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
 
-                      <div className="space-y-2">
-                        {/* Второй столбец: корты 6-10 */}
-                        {Array.from({ length: 5 }, (_, i) => i + 6).map((num) => (
-                          <div key={num} className="flex items-center space-x-2">
-                            <RadioGroupItem
-                              value={num.toString()}
-                              id={`court-${num}`}
-                              disabled={isCourtOccupiedFn(num) || loadingCourts}
-                              className="scale-75 sm:scale-100"
-                            />
-                            <Label
-                              htmlFor={`court-${num}`}
-                              className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${courtNumber === num
-                                ? "bg-gradient-to-r from-green-100 to-green-200 text-green-800 font-medium shadow-md"
-                                : isCourtOccupiedFn(num)
-                                  ? "text-muted-foreground line-through"
-                                  : "hover:bg-gray-100"
-                                }`}
-                            >
-                              {t("newMatch.court")} {num}
-                            </Label>
-                          </div>
-                        ))}
+                        <div className="space-y-2">
+                          {/* Второй столбец: корты 6-10 */}
+                          {Array.from({ length: 5 }, (_, i) => i + 6).map((num) => (
+                            <div key={num} className="flex items-center space-x-2">
+                              <RadioGroupItem
+                                value={`legacy-${num}`}
+                                id={`court-${num}`}
+                                disabled={isCourtOccupiedFn(num) || loadingCourts}
+                                className="scale-75 sm:scale-100"
+                              />
+                              <Label
+                                htmlFor={`court-${num}`}
+                                className={`text-[1.3rem] sm:text-sm px-2 py-1 rounded-md transition-all duration-200 ${courtNumber === num && courtId === null
+                                  ? "bg-gradient-to-r from-green-100 to-green-200 text-green-800 font-medium shadow-md"
+                                  : isCourtOccupiedFn(num)
+                                    ? "text-muted-foreground line-through"
+                                    : "hover:bg-gray-100"
+                                  }`}
+                              >
+                                {t("newMatch.court")} {num}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </RadioGroup>
                 </div>
 

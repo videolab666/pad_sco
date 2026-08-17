@@ -7,7 +7,7 @@ import { mediaItemFromRow, mediaPublicUrl } from "@/lib/media-core"
 import { getMediaConfig, getMediaUsedBytes, mediaSupabase } from "@/lib/media-server"
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorizedSettingsRequest(request)) {
+  if (!(await isAuthorizedSettingsRequest(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
   const supabase = mediaSupabase()

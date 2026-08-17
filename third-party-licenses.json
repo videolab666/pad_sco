@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-17T09:59:35.015Z",
+  "generatedAt": "2026-08-17T19:38:29.827Z",
   "policy": "permissive-only (plan-4 §205): MIT, Apache-2.0, BSD-2/3-Clause, ISC, 0BSD, Unlicense, CC0-1.0",
   "allowlist": [
     "0BSD",
@@ -19,7 +19,7 @@
     "lightningcss-win32-x64-msvc": "MPL-2.0 — dev-only native binary for lightningcss",
     "lru-cache": "BlueOak-1.0.0 — modern permissive MIT-equivalent license; dev-only (toolchain)"
   },
-  "total": 361,
+  "total": 360,
   "packages": [
     {
       "name": "@alloc/quick-lru",
@@ -599,37 +599,49 @@
     },
     {
       "name": "@supabase/auth-js",
-      "version": "2.99.3",
+      "version": "2.112.3",
       "license": "MIT",
       "devOnly": false
     },
     {
       "name": "@supabase/functions-js",
-      "version": "2.99.3",
+      "version": "2.112.3",
+      "license": "MIT",
+      "devOnly": false
+    },
+    {
+      "name": "@supabase/phoenix",
+      "version": "0.4.5",
       "license": "MIT",
       "devOnly": false
     },
     {
       "name": "@supabase/postgrest-js",
-      "version": "2.99.3",
+      "version": "2.112.3",
       "license": "MIT",
       "devOnly": false
     },
     {
       "name": "@supabase/realtime-js",
-      "version": "2.99.3",
+      "version": "2.112.3",
+      "license": "MIT",
+      "devOnly": false
+    },
+    {
+      "name": "@supabase/ssr",
+      "version": "0.12.4",
       "license": "MIT",
       "devOnly": false
     },
     {
       "name": "@supabase/storage-js",
-      "version": "2.99.3",
+      "version": "2.112.3",
       "license": "MIT",
       "devOnly": false
     },
     {
       "name": "@supabase/supabase-js",
-      "version": "2.99.3",
+      "version": "2.112.3",
       "license": "MIT",
       "devOnly": false
     },
@@ -739,13 +751,7 @@
       "name": "@types/node",
       "version": "22.19.15",
       "license": "MIT",
-      "devOnly": false
-    },
-    {
-      "name": "@types/phoenix",
-      "version": "1.6.7",
-      "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "@types/react",
@@ -758,12 +764,6 @@
       "version": "19.2.3",
       "license": "MIT",
       "devOnly": true
-    },
-    {
-      "name": "@types/ws",
-      "version": "8.18.1",
-      "license": "MIT",
-      "devOnly": false
     },
     {
       "name": "@vitest/coverage-v8",
@@ -2053,7 +2053,7 @@
       "name": "undici-types",
       "version": "6.21.0",
       "license": "MIT",
-      "devOnly": false
+      "devOnly": true
     },
     {
       "name": "update-browserslist-db",
@@ -2156,12 +2156,6 @@
       "version": "2.3.0",
       "license": "MIT",
       "devOnly": true
-    },
-    {
-      "name": "ws",
-      "version": "8.20.0",
-      "license": "MIT",
-      "devOnly": false
     },
     {
       "name": "xml-name-validator",

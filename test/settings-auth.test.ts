@@ -39,14 +39,14 @@ describe("settings-auth: fail-closed SETTINGS_PASSWORD", () => {
     expect(settingsSessionToken()).toBe("")
   })
 
-  it("never authorizes a cookie when the env is unset (even an empty one)", () => {
-    expect(isAuthorizedSettingsRequest(requestWithCookie(""))).toBe(false)
+  it("never authorizes a cookie when the env is unset (even an empty one)", async () => {
+    expect(await isAuthorizedSettingsRequest(requestWithCookie(""))).toBe(false)
     expect(
-      isAuthorizedSettingsRequest(requestWithCookie(settingsSessionToken())),
+      await isAuthorizedSettingsRequest(requestWithCookie(settingsSessionToken())),
     ).toBe(false)
   })
 
-  it("accepts the configured password and issues a working cookie", () => {
+  it("accepts the configured password and issues a working cookie", async () => {
     process.env.SETTINGS_PASSWORD = "correct horse battery staple"
     expect(checkSettingsPassword("correct horse battery staple")).toBe(true)
     expect(checkSettingsPassword("111")).toBe(false)
@@ -54,14 +54,14 @@ describe("settings-auth: fail-closed SETTINGS_PASSWORD", () => {
 
     const token = settingsSessionToken()
     expect(token).not.toBe("")
-    expect(isAuthorizedSettingsRequest(requestWithCookie(token))).toBe(true)
+    expect(await isAuthorizedSettingsRequest(requestWithCookie(token))).toBe(true)
   })
 
-  it("rejects a cookie signed with a different password (rotation kills sessions)", () => {
+  it("rejects a cookie signed with a different password (rotation kills sessions)", async () => {
     process.env.SETTINGS_PASSWORD = "first"
     const oldToken = settingsSessionToken()
     process.env.SETTINGS_PASSWORD = "second"
-    expect(isAuthorizedSettingsRequest(requestWithCookie(oldToken))).toBe(false)
-    expect(isAuthorizedSettingsRequest(requestWithCookie(settingsSessionToken()))).toBe(true)
+    expect(await isAuthorizedSettingsRequest(requestWithCookie(oldToken))).toBe(false)
+    expect(await isAuthorizedSettingsRequest(requestWithCookie(settingsSessionToken()))).toBe(true)
   })
 })

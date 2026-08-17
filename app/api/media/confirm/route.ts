@@ -11,7 +11,7 @@ import { mediaSupabase } from "@/lib/media-server"
 const BUCKET = "media"
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorizedSettingsRequest(request)) {
+  if (!(await isAuthorizedSettingsRequest(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
   let body: {

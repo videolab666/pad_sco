@@ -15,7 +15,7 @@ import {
 import { logEvent } from "@/lib/error-logger"
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!isAuthorizedSettingsRequest(request)) {
+  if (!(await isAuthorizedSettingsRequest(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
   if (!(await ensureCourtSchema())) {
@@ -45,7 +45,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!isAuthorizedSettingsRequest(request)) {
+  if (!(await isAuthorizedSettingsRequest(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
   if (!(await ensureCourtSchema())) {

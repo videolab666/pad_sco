@@ -14,7 +14,7 @@ import {
 } from "@/lib/settings-auth"
 
 export async function GET(request: NextRequest) {
-  return NextResponse.json({ authenticated: isAuthorizedSettingsRequest(request) })
+  return NextResponse.json({ authenticated: await isAuthorizedSettingsRequest(request) })
 }
 
 export async function POST(request: NextRequest) {

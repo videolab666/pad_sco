@@ -10,7 +10,7 @@
 
 import { createHash, timingSafeEqual } from "node:crypto"
 import type { NextRequest } from "next/server"
-import { isAuthorizedApiRequest } from "./api-auth"
+import { isAuthorizedStaffRequest } from "./staff-auth"
 
 export const SETTINGS_COOKIE_NAME = "settings_session"
 export const SETTINGS_SESSION_MAX_AGE_SEC = 30 * 24 * 3600 // 30 days
@@ -69,9 +69,12 @@ export function checkSettingsPassword(password: unknown): boolean {
   return safeEqual(password, expected)
 }
 
-/** Cookie or API key — either unlocks the settings/media write endpoints. */
-export function isAuthorizedSettingsRequest(request: NextRequest | Request): boolean {
-  if (isAuthorizedApiRequest(request)) return true
+/** Cookie или API key или staff-сессия — открывает settings/media write API. */
+export async function isAuthorizedSettingsRequest(request: NextRequest | Request): Promise<boolean> {
+  // Шаг 1B: машина (X-API-Key) или персонал (Supabase Auth + роль в клубе).
+  if (await isAuthorizedStaffRequest(request)) return true
+  // Legacy-переход: password-cookie (удаляется после создания логинов
+  // персонала — см. scripts/create-admin.mjs; §248 «password-cookie удалён»).
   const expectedToken = settingsSessionToken()
   // SETTINGS_PASSWORD unset → no session can be valid (fail-closed; also
   // guards against an empty cookie value matching an empty token).

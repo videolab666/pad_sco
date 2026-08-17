@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorizedSettingsRequest(request)) {
+  if (!(await isAuthorizedSettingsRequest(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
   let body: {

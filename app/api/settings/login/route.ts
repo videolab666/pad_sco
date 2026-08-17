@@ -2,7 +2,7 @@
 // GET    /api/settings/login — { authenticated }
 // DELETE /api/settings/login — clears the cookie
 //
-// Password: SETTINGS_PASSWORD env (default "111", see lib/settings-auth.ts).
+// Password: mandatory SETTINGS_PASSWORD env (fail-closed — see lib/settings-auth.ts).
 
 import { NextResponse, type NextRequest } from "next/server"
 import {

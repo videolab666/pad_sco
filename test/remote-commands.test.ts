@@ -295,6 +295,16 @@ describe("applyRemoteCommand — toss / assign-court", () => {
     // тип courtId валидируется
     expect(err(() => applyRemoteCommand(freshMatch(), "assign-court", { courtId: 42 })).code).toBe("invalid_args")
   })
+
+  it("switch-sides: единый swapCourtSides из движка (Шаг 3, §99)", () => {
+    const m = applyRemoteCommand(freshMatch(), "switch-sides")
+    expect(m.courtSides).toEqual({ teamA: "right", teamB: "left" })
+    // повторный вызов возвращает обратно
+    const back = applyRemoteCommand(m, "switch-sides")
+    expect(back.courtSides).toEqual({ teamA: "left", teamB: "right" })
+    // match остаётся тем же объектом по составу
+    expect(m.id).toBe(freshMatch().id)
+  })
 })
 
 describe("applyRemoteBatch", () => {

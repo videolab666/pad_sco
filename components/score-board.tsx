@@ -330,7 +330,23 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
       const journaled = appendStateOverrideEvent(updatedMatch, "score-decrease", scoreStateOf(activeMatchState))
       latestMatchRef.current = journaled
       setLocalMatchState(journaled)
-      updateMatch(journaled)
+
+      // Шаг 3 (§99): вне тайбрейка коррекция уходит командой adjust-game
+      // (абсолютные индексы очков). В тайбрейке adjust-game не принимает
+      // числа > 3 — редкий путь остаётся на снапшоте.
+      if (!currentSet.isTiebreak) {
+        const toIndex = (v: unknown): 0 | 1 | 2 | 3 | "Ad" =>
+          v === "Ad" ? "Ad" : v === 40 ? 3 : v === 30 ? 2 : v === 15 ? 1 : 0
+        updateMatch(journaled, { localOnly: true })
+        void sendMatchCommand(
+          activeMatchState.id,
+          "adjust-game",
+          { teamA: toIndex(journaled.score.currentSet.currentGame.teamA), teamB: toIndex(journaled.score.currentSet.currentGame.teamB) },
+          { clientId: "score-board" },
+        ).then(reconcileOnConflict)
+      } else {
+        updateMatch(journaled)
+      }
     }
   }
 
@@ -445,8 +461,14 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     // Switch server
     switchServer(updatedMatch)
 
-    // Update match
-    updateMatch(updatedMatch)
+    // Update match (§99): команда set-server, снапшот — локально
+    updateMatch(updatedMatch, { localOnly: true })
+    void sendMatchCommand(
+      match.id,
+      "set-server",
+      { team: updatedMatch.currentServer.team, playerIndex: updatedMatch.currentServer.playerIndex },
+      { clientId: "score-board" },
+    ).then(reconcileOnConflict)
   }
 
   const manualSwitchSides = () => {
@@ -463,8 +485,11 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     // Switch sides
     updatedMatch.courtSides = swapCourtSides(updatedMatch.courtSides)
 
-    // Update match
-    updateMatch(updatedMatch)
+    // Update match (§99): команда switch-sides, снапшот — локально
+    updateMatch(updatedMatch, { localOnly: true })
+    void sendMatchCommand(match.id, "switch-sides", {}, { clientId: "score-board" }).then(
+      reconcileOnConflict,
+    )
   }
 
   // Stage 2: текущий счёт гейма берётся из общего проектора (lib/match-view),

@@ -16,6 +16,7 @@ import { Pencil, RotateCcw, Undo2 } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 import { adjustCurrentGame, adjustCurrentSet, adjustCurrentServer } from "@/lib/match-adjust"
 import { reseedJournal, undoBackOneGame, undoBackOneSet, verifyJournal } from "@/lib/match-undo"
+import { sendMatchCommand } from "@/lib/match-command-client"
 import type { TeamKey } from "@/lib/types"
 
 interface Props {
@@ -58,25 +59,44 @@ export function AdjustScoreDialog({ match, updateMatch }: Props) {
     }
   }
 
+  // Шаг 3 (§99): коррекции уходят командами; снапшот — локально (один раз
+  // на пачку правок, команды — по одной на каждую).
+  const sendCommands = (commands: Array<{ command: string; args: Record<string, unknown> }>, next: any) => {
+    updateMatch(next, { localOnly: true })
+    for (const { command, args } of commands) {
+      void sendMatchCommand(match.id, command, args, { clientId: "adjust-dialog" })
+    }
+  }
+
   const apply = () => {
     if (!updateMatch || !match) return
     let next = adjustCurrentGame(match, { teamA: gameA, teamB: gameB })
     next = adjustCurrentSet(next, { teamA: setA, teamB: setB })
-    updateMatch(next)
+    sendCommands(
+      [
+        { command: "adjust-game", args: { teamA: gameA, teamB: gameB } },
+        { command: "adjust-set", args: { teamA: setA, teamB: setB } },
+      ],
+      next,
+    )
     setOpen(false)
   }
 
   const setServer = (team: TeamKey) => {
     if (!updateMatch || !match) return
-    updateMatch(adjustCurrentServer(match, team, 0))
+    sendCommands([{ command: "set-server", args: { team, playerIndex: 0 } }], adjustCurrentServer(match, team, 0))
   }
 
   // Undo game/set: the replayed snapshot carries the SEED's revision, so bump
   // it above the live one — otherwise the optimistic-state guard rejects it.
-  const undoWithRevision = (undone: any) => {
+  const undoWithRevision = (undone: any, command?: string) => {
     if (!undone || undone === match) return
     undone.revision = (typeof match?.revision === "number" ? match.revision : 0) + 1
-    updateMatch(undone)
+    if (command) {
+      sendCommands([{ command, args: {} }], undone)
+    } else {
+      updateMatch(undone)
+    }
     setOpen(false)
   }
 
@@ -125,7 +145,7 @@ export function AdjustScoreDialog({ match, updateMatch }: Props) {
                 className="flex-1 py-2 px-2 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
                 disabled={!canUndo || match?.isCompleted}
                 title={!canUndo ? t("match.undoUnavailable") : undefined}
-                onClick={() => undoWithRevision(undoBackOneGame(match))}
+                onClick={() => undoWithRevision(undoBackOneGame(match), "undo-game")}
               >
                 <Undo2 className="h-4 w-4 mr-1" />
                 {t("match.undoGame")}
@@ -134,7 +154,7 @@ export function AdjustScoreDialog({ match, updateMatch }: Props) {
                 className="flex-1 py-2 px-2 bg-gradient-to-br from-blue-800 to-blue-950 hover:from-blue-700 hover:to-blue-900 active:from-blue-600 active:to-blue-800 text-white border border-blue-700 rounded-md text-sm font-medium flex items-center justify-center transition-all shadow-md transform active:scale-95 active:translate-y-1 active:shadow-inner disabled:opacity-50 disabled:pointer-events-none"
                 disabled={!canUndo || match?.isCompleted}
                 title={!canUndo ? t("match.undoUnavailable") : undefined}
-                onClick={() => undoWithRevision(undoBackOneSet(match))}
+                onClick={() => undoWithRevision(undoBackOneSet(match), "undo-set")}
               >
                 <RotateCcw className="h-4 w-4 mr-1" />
                 {t("match.undoSet")}

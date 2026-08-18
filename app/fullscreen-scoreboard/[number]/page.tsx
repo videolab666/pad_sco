@@ -148,7 +148,17 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
     try {
       if (typeof window !== "undefined") {
         const { updateMatch } = await import("@/lib/match-storage");
-        await updateMatch(prevMatch);
+        // Шаг 3 (§99): undo — командой (журнальный replay на сервере);
+        // при неудаче (нет журнала/оффлайн-очередь) — fallback-снапшот.
+        const res = await sendMatchCommand(match.id, "undo-point", {}, { clientId: "fullscreen" });
+        if (res.status === "conflict" && res.match) {
+          setMatch(res.match);
+          await updateMatch(res.match);
+        } else if (res.status === "failed") {
+          await updateMatch(prevMatch);
+        } else {
+          await updateMatch(prevMatch, { localOnly: true });
+        }
       }
     } catch (e) {
       if (process.env.NODE_ENV !== 'production') {

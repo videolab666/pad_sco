@@ -26,7 +26,7 @@ import {
 import { undoBackOneGame, undoBackOneSet, undoLastScoringEvent, verifyJournal } from "./match-undo"
 import { endMatchManually } from "./match-end-reason"
 import { commitToss } from "./toss"
-import { normalizeMatchState, recomputeMatchCompletion } from "./scoring-logic"
+import { normalizeMatchState, recomputeMatchCompletion, swapCourtSides } from "./scoring-logic"
 import { appendStateOverrideEvent, scoreStateOf } from "./match-events"
 import { safeUuid } from "./utils/safe-uuid"
 import { v5 as uuidv5 } from "uuid"
@@ -75,6 +75,7 @@ export const REMOTE_COMMANDS = [
   "set-rules",
   "toss",
   "assign-court",
+  "switch-sides",
 ] as const
 
 export type RemoteCommandName = (typeof REMOTE_COMMANDS)[number]
@@ -297,6 +298,19 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
       }
       const teamOnLeft = assertTeam(args?.teamOnLeft, "args.teamOnLeft")
       return commitToss(match, { winner, choice: choice as TossChoice, teamOnLeft })
+    }
+
+    case "switch-sides": {
+      // Смена сторон (§99): display-only — журнальное событие не нужно
+      // (как assign-court). Единая реализация swapCourtSides из движка.
+      if (!match?.courtSides) {
+        throw new RemoteCommandError("invalid_args", "The match has no courtSides to swap")
+      }
+      return {
+        ...JSON.parse(JSON.stringify(match)),
+        courtSides: swapCourtSides(match.courtSides),
+        history: [],
+      }
     }
 
     case "assign-court": {

@@ -1,0 +1,56 @@
+# Padel Venue Gateway — MediaMTX v1.20 (plan-4 §126/§149-150/§192)
+#
+# Роль: медиа-хаб клуба. Принимает SRT с камер-телефонов (Court Camera
+# Agent), пишет запись СЕГМЕНТАМИ на диск (крэш не уничтожает матч),
+# раздаёт HLS/WebRTC для просмотра, отдаёт VOD через playback API.
+#
+# Потоки именуем по кортам: srt://host:8890?streamid=publish:court-3-main
+# Записываются только потоки с префиксом court- (см. paths внизу).
+# Пропущенные параметры получают значения по умолчанию (v1.20).
+
+# ── API/метрика (мониторинг из платформы, §152) ──────────────────────────
+api: true
+apiAddress: :9997
+metrics: true
+metricsAddress: :9998
+
+# ── Приём потоков ─────────────────────────────────────────────────────────
+srt: true
+srtAddress: :8890          # основной транспорт камер (устойчив к потерям)
+rtsp: true
+rtspTransports: [tcp]      # только TCP — меньше открытых UDP-портов
+rtspAddress: :8554         # IP-камеры / тесты
+rtmp: false
+moq: false
+
+# ── Раздача просмотра ─────────────────────────────────────────────────────
+hls: true
+hlsAddress: :8888          # браузеры, vMix, OBS
+hlsVariant: lowLatency
+hlsSegmentCount: 7
+hlsSegmentDuration: 1s
+hlsAllowOrigins: ["*"]
+
+webrtc: true
+webrtcAddress: :8889       # мгновенный превью-просмотр (телефон/ноутбук)
+webrtcAllowOrigins: ["*"]
+webrtcAdditionalHosts: []  # на VPS добавить публичный IP/домен
+
+# ── Playback API (§146: VOD сразу после игры) ────────────────────────────
+playback: true
+playbackAddress: :9996
+
+# ── Запись (§192: сегментированная локальная запись) ─────────────────────
+pathDefaults:
+  record: false            # по умолчанию НЕ пишем — только court-* (paths)
+  recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S_%f
+  recordFormat: fmp4
+  recordSegmentDuration: 30s   # короткие сегменты = устойчивость + pre-roll (§193)
+  recordDeleteAfter: 7d        # retention v1 (§148: 7/30/90 — по тарифу)
+
+# ── Пути потоков ──────────────────────────────────────────────────────────
+paths:
+  # court-{номер|slug}-{роль}: court-3-main, court-centre-tactical…
+  "~^court-":
+    record: true
+  all_others: {}

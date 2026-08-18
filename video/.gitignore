@@ -1,0 +1,7 @@
+# Бинарник и архив не хранятся в репозитории (качаются по RELEASES.md)
+mediamtx.exe
+mediamtx.zip
+mediamtx.log
+
+# Записи — локальные данные venue gateway (§149), не для git
+recordings/

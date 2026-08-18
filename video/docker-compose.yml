@@ -1,0 +1,19 @@
+# Padel Venue Gateway (Docker) — для VPS или любой машины с Docker.
+# На Windows-машине без Docker используйте нативный mediamtx.exe (README §A).
+
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest   # multi-arch: amd64 + arm64 (Oracle A1)
+    container_name: padel-venue-gateway
+    restart: unless-stopped
+    ports:
+      - "8554:8554"        # RTSP (приём/чтение)
+      - "8888:8888"        # HLS
+      - "8889:8889"        # WebRTC (TCP)
+      - "8889:8889/udp"    # WebRTC (ICE/UDP)
+      - "8890:8890/udp"    # SRT — приём с камер
+      - "9996:9996"        # Playback (VOD)
+      - "9997:9997"        # API
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+      - ./recordings:/mediamtx/recordings   # сегменты записи (§192)

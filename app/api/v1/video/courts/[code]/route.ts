@@ -77,6 +77,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         .eq("status", "ready")
         .limit(50)
 
+      const reels = await supabase
+        .from("highlight_reels")
+        .select("id, duration_ms")
+        .eq("recording_session_id", rec.id)
+        .eq("status", "ready")
+        .limit(10)
+
       const startedMs = Date.parse(rec.started_at)
       const endedMs = rec.ended_at ? Date.parse(rec.ended_at) : Date.now()
       const durationSec = Number.isFinite(startedMs) && endedMs > startedMs ? (endedMs - startedMs) / 1000 : 0
@@ -101,6 +108,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
           durationMs: Number(c.duration_ms ?? 0),
           fileUrl: buildClipFileUrl(String(c.id)),
           thumbUrl: buildClipFileUrl(String(c.id), true),
+        })),
+        reels: (reels.data ?? []).map((r: Record<string, unknown>) => ({
+          id: r.id,
+          durationMs: Number(r.duration_ms ?? 0),
+          fileUrl: `/api/v1/video/reels/${r.id}/file`,
+          thumbUrl: `/api/v1/video/reels/${r.id}/file?variant=thumb`,
         })),
       })
     }

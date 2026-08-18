@@ -34,6 +34,7 @@ interface Recording {
   vodUrl: string | null
   markers: Marker[]
   clips: Clip[]
+  reels: { id: string; durationMs: number; fileUrl: string; thumbUrl: string }[]
 }
 interface VideoOverview {
   court: { name: string; shortCode: string }
@@ -187,6 +188,27 @@ export default function CourtVideoPage() {
                 </div>
               )}
             </>
+          )}
+
+          {rec.reels?.length > 0 && (
+            <div className="mt-4">
+              <div className="mb-2 flex items-center gap-1 text-xs uppercase tracking-widest text-[#a4fb23]/70">
+                <Zap className="h-3 w-3" /> Highlight Reel — лучшие моменты
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {rec.reels.map((r) => (
+                  <video
+                    key={r.id}
+                    controls
+                    preload="none"
+                    playsInline
+                    poster={r.thumbUrl}
+                    src={r.fileUrl}
+                    className="h-64 rounded-lg bg-black"
+                  />
+                ))}
+              </div>
+            </div>
           )}
 
           {rec.clips.length > 0 && (

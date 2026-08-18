@@ -112,6 +112,7 @@ export interface ClipRequestRecord {
   thumbName: string | null
   durationMs: number | null
   error: string | null
+  variant: 'wide' | 'vertical'
   /** Обогащение для воркера: где лежат сегменты записи и когда она началась. */
   streamKey: string | null
   recordingStatus: string | null
@@ -132,6 +133,7 @@ function rowToClip(row: any, streamKey?: string | null, recordingStatus?: string
     thumbName: row.thumb_name ?? null,
     durationMs: row.duration_ms === null || row.duration_ms === undefined ? null : Number(row.duration_ms),
     error: row.error ?? null,
+    variant: row.variant ?? 'wide',
     streamKey: streamKey ?? null,
     recordingStatus: recordingStatus ?? null,
     recordingStartedAt: recordingStartedAt ?? null,
@@ -139,7 +141,7 @@ function rowToClip(row: any, streamKey?: string | null, recordingStatus?: string
 }
 
 /** Создать clip_request из маркера: диапазон считается из роллов маркера. */
-export async function createClipFromMarker(markerId: string): Promise<ClipRequestRecord> {
+export async function createClipFromMarker(markerId: string, variant: 'wide' | 'vertical' = 'wide'): Promise<ClipRequestRecord> {
   const supabase = createServerSupabaseClient()
   const marker = await supabase.from("video_markers").select("*").eq("id", markerId).single()
   if (marker.error || !marker.data) throw new ClipValidationError("Маркер не найден")
@@ -165,6 +167,7 @@ export async function createClipFromMarker(markerId: string): Promise<ClipReques
       match_id: marker.data.match_id ?? null,
       in_ms: inMs,
       out_ms: outMs,
+      variant,
     })
     .select("*")
     .single()

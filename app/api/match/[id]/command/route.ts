@@ -16,7 +16,7 @@
 // 404 for an unknown match, 409 on revision conflicts.
 
 import { NextResponse } from "next/server"
-import { isAuthorizedApiRequest } from "@/lib/api-auth"
+import { isAuthorizedMatchCommandRequest } from "@/lib/api-auth"
 import { getMatchFromServer } from "@/lib/server-match-storage"
 import { logEvent } from "@/lib/error-logger"
 import { createServerSupabaseClient } from "@/lib/supabase"
@@ -25,7 +25,7 @@ import { applyRemoteCommand, RemoteCommandError, stableOperationUuid } from "@/l
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    if (!isAuthorizedApiRequest(request)) {
+    if (!isAuthorizedMatchCommandRequest(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

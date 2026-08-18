@@ -35,3 +35,32 @@ export function isAuthorizedApiRequest(request: Request): boolean {
   if (!provided) return false
   return safeEqual(provided, expected)
 }
+
+/**
+ * Чистая проверка «тот же сайт» (Шаг 3, §99): Origin (fallback Referer)
+ * совпадает с собственным хостом запроса. Браузеры всегда шлют Origin на
+ * same-origin POST — публичные табло могут слать команды матча без ключа,
+ * внешние клиенты (curl/интеграции) — нет (им нужен X-API-Key).
+ */
+export function isSameOriginRequest(request: Request): boolean {
+  const origin = request.headers.get("origin")
+  const referer = request.headers.get("referer")
+  const ownOrigin = new URL(request.url).origin
+  const originToCheck = origin ?? (referer ? new URL(referer, request.url).origin : null)
+  if (!originToCheck) return false
+  try {
+    return new URL(originToCheck).origin === ownOrigin
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Командный доступ матча (§99): X-API-Key (машины/интеграции) или браузер
+ * того же сайта (публичные табло). Уровень доверия не ниже текущего
+ * (pre-Step3: anon может писать matches напрямую) — но теперь централизованно:
+ * один код-путь, идемпотентность, журнал, позже — rate limit (§117).
+ */
+export function isAuthorizedMatchCommandRequest(request: Request): boolean {
+  return isAuthorizedApiRequest(request) || isSameOriginRequest(request)
+}

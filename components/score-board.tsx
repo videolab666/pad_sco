@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CircleDot } from "lucide-react"
 import { switchServer, swapCourtSides } from "@/lib/scoring-logic"
 import { applyPointWithExtras } from "@/lib/apply-point"
+import { sendMatchCommand, type SendCommandResult } from "@/lib/match-command-client"
 import { postResultIfConfigured } from "@/lib/result-poster"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -238,12 +239,34 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
       setLocalMatchState(resultMatch)
       latestMatchRef.current = resultMatch
       setShowMatchEndDialog(true)
+      // Финальное очко уходит на сервер той же командой — матч завершится
+      // и там; подтверждение оператора — чисто UI-действие (§99).
+      void sendMatchCommand(activeMatchState.id, "point", { team }, { clientId: "score-board" }).then(
+        reconcileOnConflict,
+      )
       return
     }
 
     latestMatchRef.current = resultMatch
     setLocalMatchState(resultMatch)
-    updateMatch(resultMatch)
+    // Шаг 3 (§99): снапшот — только локально; на сервер ушла КОМАНДА.
+    updateMatch(resultMatch, { localOnly: true })
+    void sendMatchCommand(activeMatchState.id, "point", { team }, { clientId: "score-board" }).then(
+      reconcileOnConflict,
+    )
+  }
+
+  /**
+   * 409-реконсиляция (§99): сервер опередил нашу оптимистику — его снапшот
+   * авторитетен. Переписываем локальное состояние и выравниваем sync-очередь
+   * обычным снапшот-пушем (редкий путь: параллельный писатель).
+   */
+  const reconcileOnConflict = (res: SendCommandResult) => {
+    if (res.status === "conflict" && res.match) {
+      latestMatchRef.current = res.match
+      setLocalMatchState(res.match)
+      void updateMatch(res.match)
+    }
   }
 
   // Обработчик уменьшения счета
@@ -324,18 +347,23 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
   // bump the revision above the live one (a replayed match carries the SEED's
   // revision, which the optimistic-state guard would reject as stale) and
   // refresh the optimistic layer so the scoreboard updates immediately.
-  const applyUndoneMatch = (undone: any) => {
+  const applyUndoneMatch = (undone: any, viaCommand = false) => {
     const liveRev = typeof match?.revision === "number" ? match.revision : 0
     undone.revision = liveRev + 1
     latestMatchRef.current = undone
     setLocalMatchState(undone)
-    updateMatch(undone)
+    // Шаг 3 (§99): undo с рабочим журналом уходит командой (localOnly);
+    // fallback-ветка (снапшот из истории) остаётся снапшот-пушем.
+    updateMatch(undone, { localOnly: viaCommand })
+    if (viaCommand) {
+      void sendMatchCommand(undone.id, "undo-point", {}, { clientId: "score-board" }).then(reconcileOnConflict)
+    }
   }
 
   const handleUndoPoint = () => {
     setUndoNotice(false)
     if (verifyJournal(match).canUndo) {
-      applyUndoneMatch(undoLastScoringEvent(match))
+      applyUndoneMatch(undoLastScoringEvent(match), true)
       // Keep the in-memory fallback stack roughly in sync with the rollback.
       setMatchHistory((prev) => prev.slice(0, -1))
     } else if (matchHistory.length > 0) {

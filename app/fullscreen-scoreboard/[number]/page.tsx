@@ -9,6 +9,7 @@ import { logEvent } from "@/lib/error-logger"
 import { subscribeToMatchUpdates } from "@/lib/match-storage"
 import { getMatchSyncState } from "@/lib/match-sync"
 import { applyScoreIncrement } from "@/lib/scoring-logic"
+import { sendMatchCommand } from "@/lib/match-command-client"
 import { Maximize2, Minimize2, ArrowLeft, Clock } from "lucide-react"
 import { translations, type Language } from "@/lib/translations"
 import { getDefaultVmixSettings } from "@/lib/vmix-settings-storage"
@@ -120,7 +121,15 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
     try {
       if (typeof window !== "undefined") {
         const { updateMatch } = await import("@/lib/match-storage");
-        await updateMatch(resultMatch);
+        // Шаг 3 (§99): снапшот — локально; на сервер уходит команда point
+        // (журнал/тайминги на сервере ставит applyPointWithExtras в роуте).
+        await updateMatch(resultMatch, { localOnly: true });
+        void sendMatchCommand(match.id, "point", { team }, { clientId: "fullscreen" }).then((res) => {
+          if (res.status === "conflict" && res.match) {
+            setMatch(res.match);
+            void updateMatch(res.match);
+          }
+        });
       }
     } catch (e) {
       if (process.env.NODE_ENV !== 'production') {

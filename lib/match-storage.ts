@@ -733,7 +733,7 @@ export const createMatch = async (match: any) => {
 // Обновление существующего матча
 // Оптимизируем функцию updateMatch для более быстрой работы
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const updateMatch = async (updatedMatch: any) => {
+export const updateMatch = async (updatedMatch: any, opts?: { localOnly?: boolean }) => {
   if (typeof window === "undefined") return false
 
   try {
@@ -841,7 +841,13 @@ export const updateMatch = async (updatedMatch: any) => {
     // Durable sync: persist the change as an idempotent, revisioned operation
     // and let the sync engine replay it (offline-safe, retry, conflict-aware).
     // Local storage above is already authoritative; this never blocks the UI.
-    syncMatchToServer(updatedMatch)
+    //
+    // localOnly (Шаг 3, §99): снапшот-пуш пропускается, когда мутация уже
+    // ушла на сервер КОМАНДОЙ (lib/match-command-client) — два писателя
+    // друг другу конфликтуют.
+    if (!opts?.localOnly) {
+      syncMatchToServer(updatedMatch)
+    }
 
     return true
   } catch (err) {

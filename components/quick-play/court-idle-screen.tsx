@@ -47,6 +47,13 @@ export function CourtIdleScreen({
         Быстрая игра
       </Link>
 
+      <Link
+        href={`/c/${code}/video`}
+        className="rounded-lg border border-white/15 px-5 py-2.5 text-sm font-semibold text-white/70 transition-colors hover:border-white/40 hover:text-white"
+      >
+        🎥 Видео корта
+      </Link>
+
       <div className="flex items-center gap-2 text-xs text-white/25">
         <RefreshCw className="h-3 w-3" />
         обновляется автоматически · /c/{code}

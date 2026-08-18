@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-17T19:38:29.827Z",
+  "generatedAt": "2026-08-18T14:33:41.809Z",
   "policy": "permissive-only (plan-4 §205): MIT, Apache-2.0, BSD-2/3-Clause, ISC, 0BSD, Unlicense, CC0-1.0",
   "allowlist": [
     "0BSD",
@@ -19,7 +19,7 @@
     "lightningcss-win32-x64-msvc": "MPL-2.0 — dev-only native binary for lightningcss",
     "lru-cache": "BlueOak-1.0.0 — modern permissive MIT-equivalent license; dev-only (toolchain)"
   },
-  "total": 360,
+  "total": 361,
   "packages": [
     {
       "name": "@alloc/quick-lru",
@@ -1262,6 +1262,12 @@
       "version": "2.0.2",
       "license": "MIT",
       "devOnly": true
+    },
+    {
+      "name": "hls.js",
+      "version": "1.7.0",
+      "license": "Apache-2.0",
+      "devOnly": false
     },
     {
       "name": "html-encoding-sniffer",

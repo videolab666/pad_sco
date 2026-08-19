@@ -638,29 +638,31 @@ export const createMatch = async (match: any) => {
         await checkAndEnableRealtime()
 
         logEvent("debug", tSync("logMessages.supabaseAvailableSaving"), "createMatch")
-        const supabase = createClientSupabaseClient()
-        const transformedMatch = transformMatchForSupabase(newMatch)
-        const { error, status, statusText } = await supabase.from("matches").insert(transformedMatch)
 
-        if (error) {
-          logEvent("error", tSync("logMessages.errorSavingSupabase", { error: error.message }), "createMatch", {
-            error,
-            status,
-            statusText,
-            matchId: newMatch.id,
-            matchCode: newMatch.code,
+        // Шаг 3 (§99): создание через серверный роут — после снятия
+        // pre-step3 RLS-политик прямой INSERT с anon-ключа не работает.
+        // Браузер проходит по Origin; офлайн — фолбэк на локальное хранилище.
+        try {
+          const res = await fetch("/api/matches/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ match: newMatch }),
           })
-          // Явный вывод ошибки в консоль для быстрой отладки
-          console.error("Ошибка Supabase:", error, { status, statusText, transformedMatch });
-        } else {
-          logEvent("info", tSync("logMessages.matchSavedSupabase"), "createMatch", {
-            matchId: newMatch.id,
-            matchCode: newMatch.code,
-          })
-
-          // Добавляем в кэш по ID и коду
-          matchCache.set(newMatch.id, { data: newMatch, timestamp: Date.now() })
-          matchCache.set(newMatch.code, { data: newMatch, timestamp: Date.now() })
+          if (!res.ok && res.status !== 409) {
+            // 409 = дубликат (идемпотентный повтор) — это OK
+            logEvent("error", `Create match via API failed: ${res.status}`, "createMatch")
+          } else {
+            logEvent("info", tSync("logMessages.matchSavedSupabase"), "createMatch", {
+              matchId: newMatch.id,
+              matchCode: newMatch.code,
+            })
+            matchCache.set(newMatch.id, { data: newMatch, timestamp: Date.now() })
+            matchCache.set(newMatch.code, { data: newMatch, timestamp: Date.now() })
+          }
+        } catch (fetchErr) {
+          // Оффлайн или сервер недоступен — матч останется в localStorage,
+          // sync-движок дольёт его позже при первом updateMatch.
+          logEvent("warn", "Create match API unreachable — saved locally only", "createMatch", fetchErr)
         }
       } else {
         logEvent("warn", tSync("logMessages.tablesNotExistSaveLocal"), "createMatch")

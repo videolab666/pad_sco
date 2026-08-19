@@ -17,6 +17,7 @@
 
 import { NextResponse } from "next/server"
 import { isAuthorizedMatchCommandRequest } from "@/lib/api-auth"
+import { autoMarkVideoEvents } from "@/lib/video-registry"
 import { getMatchFromServer } from "@/lib/server-match-storage"
 import { logEvent } from "@/lib/error-logger"
 import { createServerSupabaseClient } from "@/lib/supabase"
@@ -118,6 +119,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           logEvent("error", `Command API operation insert failed: ${op.error.message}`, "command-api")
         }
       }
+
+      // Шаг 3 slice C (§70): после успешной point-команды — автопривязка
+      // видео-маркеров к активной записи (MATCH_POINT / SET_POINT / GAME_POINT).
+      if (command === "point") {
+        void autoMarkVideoEvents(updated)
+      }
+
       return NextResponse.json({
         status: "ok",
         idempotent: false,

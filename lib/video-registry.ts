@@ -7,6 +7,7 @@
 
 import { createServerSupabaseClient } from "./supabase"
 import { logEvent } from "./error-logger"
+import { isGamePoint, isSetPoint, isMatchPoint } from "./scoring-logic"
 
 // ─── Чистые хелперы ─────────────────────────────────────────────────────────
 
@@ -409,6 +410,84 @@ export async function listMarkers(filter: { recordingSessionId?: string; matchId
     postRollMs: row.post_roll_ms,
     metadata: row.metadata ?? {},
   }))
+}
+
+// ─── Автопривязка маркеров к событиям матча (§70, Шаг 3 slice C) ──────────
+
+/**
+ * После point-команды: находит активную запись для корта/сессии матча и
+ * создаёт видео-маркеры для ключевых моментов (MATCH_POINT, SET_POINT,
+ * GAME_POINT, SET_WON, MATCH_WON) из движковых индикаторов.
+ *
+ * Вызывается из командного роута — ТОЛЬКО после успешной записи команды.
+ * Не бросает: ошибки логируются, но не ломают счёт.
+ */
+export async function autoMarkVideoEvents(match: any): Promise<void> {
+  try {
+    const supabase = createServerSupabaseClient()
+    if (!supabase) return
+
+    // Ищем активную запись: по courtId или court_session_id (sessionId)
+    const courtId = match?.courtId
+    const courtSessionId = match?.sessionId
+    if (!courtId && !courtSessionId) return
+
+    let query = supabase
+      .from("recording_sessions")
+      .select("id, started_at")
+      .eq("status", "recording")
+      .limit(1)
+    if (courtSessionId) {
+      query = query.eq("court_session_id", courtSessionId)
+    } else if (courtId) {
+      query = query.eq("court_id", courtId)
+    }
+    const { data: recs } = await query
+    const rec = recs?.[0]
+    if (!rec) return // нет активной записи — выходим тихо
+
+    // Индикаторы из движка (единый источник, lib/scoring-logic)
+    const markers: Array<{ type: string; importance: number }> = []
+    const mp = isMatchPoint(match)
+    const sp = isSetPoint(match)
+    const gp = isGamePoint(match)
+
+    if (match?.isCompleted && match?.winner) markers.push({ type: "MATCH_WON", importance: 8 })
+    if (mp) markers.push({ type: "MATCH_POINT", importance: 7 })
+    if (sp && !mp) markers.push({ type: "SET_POINT", importance: 5 })
+    if (gp && !sp && !mp) markers.push({ type: "GAME_POINT", importance: 2 })
+
+    if (markers.length === 0) return
+
+    // Позиция в записи: elapsed от started_at записи до occurred_at матча
+    const occurredAt = new Date()
+    const recordingStart = new Date(rec.started_at)
+    const videoPositionMs = Math.max(0, occurredAt.getTime() - recordingStart.getTime())
+
+    for (const m of markers) {
+      const defaults = markerDefaults(m.type)
+      await supabase.from("video_markers").insert({
+        recording_session_id: rec.id,
+        match_id: match?.id ?? null,
+        marker_type: m.type,
+        occurred_at: occurredAt.toISOString(),
+        video_position_ms: videoPositionMs,
+        importance: m.importance,
+        pre_roll_ms: defaults.preRollMs,
+        post_roll_ms: defaults.postRollMs,
+        metadata: { source: "auto", command: "point" },
+      })
+    }
+
+    logEvent(
+      "info",
+      `autoMarkVideoEvents: ${markers.length} маркер(ов) для записи ${rec.id.slice(0, 8)} (${markers.map((m) => m.type).join(", ")})`,
+      "auto-mark-video",
+    )
+  } catch (err) {
+    // Тихо: маркеры — опциональная функция, не ломают счёт
+    logEvent("warn", `autoMarkVideoEvents: ${(err as Error).message}`, "auto-mark-video")
+  }
 }
 
 export class VideoValidationError extends Error {

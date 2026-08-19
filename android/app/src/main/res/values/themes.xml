@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.PadelCamera" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">#A4FB23</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="android:statusBarColor">#0A0F0A</item>
+    </style>
+</resources>

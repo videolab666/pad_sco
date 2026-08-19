@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AdsSettings } from "@/components/settings/ads-settings"
 import { CourtsSettings } from "@/components/settings/courts-settings"
+import { VideoSettings } from "@/components/settings/video-settings"
 
 export default function SettingsPage() {
   const [authState, setAuthState] = useState<"checking" | "login" | "ok">("checking")
@@ -124,12 +125,16 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="ads">Настройка рекламы</TabsTrigger>
           <TabsTrigger value="courts">Корты</TabsTrigger>
+          <TabsTrigger value="video">Видео</TabsTrigger>
         </TabsList>
         <TabsContent value="ads" className="mt-4">
           <AdsSettings />
         </TabsContent>
         <TabsContent value="courts" className="mt-4">
           <CourtsSettings />
+        </TabsContent>
+        <TabsContent value="video" className="mt-4">
+          <VideoSettings />
         </TabsContent>
       </Tabs>
     </div>

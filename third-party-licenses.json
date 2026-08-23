@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-18T14:33:41.809Z",
+  "generatedAt": "2026-08-23T20:49:44.627Z",
   "policy": "permissive-only (plan-4 §205): MIT, Apache-2.0, BSD-2/3-Clause, ISC, 0BSD, Unlicense, CC0-1.0",
   "allowlist": [
     "0BSD",
@@ -17,9 +17,10 @@
     "caniuse-lite": "CC-BY-4.0 — browserslist DATA tables, not bundled executable code",
     "lightningcss": "MPL-2.0 — dev-only build tool (Tailwind CSS), never shipped to product",
     "lightningcss-win32-x64-msvc": "MPL-2.0 — dev-only native binary for lightningcss",
-    "lru-cache": "BlueOak-1.0.0 — modern permissive MIT-equivalent license; dev-only (toolchain)"
+    "lru-cache": "BlueOak-1.0.0 — modern permissive MIT-equivalent license; dev-only (toolchain)",
+    "@stdlib/math-base-special-erfinv": "Apache-2.0 AND BSL-1.0 — dual-licensed under two permissive licenses (openskill.js transitive dep); Boost BSL is MIT-equivalent"
   },
-  "total": 361,
+  "total": 515,
   "packages": [
     {
       "name": "@alloc/quick-lru",
@@ -592,6 +593,882 @@
       "devOnly": true
     },
     {
+      "name": "@stdlib/array-float32",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/array-float64",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/array-uint16",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/array-uint32",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/array-uint8",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-has-float32array-support",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-has-float64array-support",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-has-own-property",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-has-symbol-support",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-has-to-primitive-symbol-support",
+      "version": "0.1.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-has-tostringtag-support",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-has-uint16array-support",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-has-uint32array-support",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-has-uint8array-support",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-array",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-big-endian",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-boolean",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-buffer",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-float32array",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-float64array",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-function",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-little-endian",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-number",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-object",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-object-like",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-plain-object",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-regexp",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-string",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-uint16array",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-uint32array",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-is-uint8array",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-napi-equal-types",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-napi-is-type",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-napi-status-ok",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/assert-tools-array-function",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/boolean-ctor",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/complex-float32-ctor",
+      "version": "0.1.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/complex-float32-reim",
+      "version": "0.1.4",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/complex-float64-ctor",
+      "version": "0.1.2",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/complex-float64-reim",
+      "version": "0.1.4",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float16-eps",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float16-exponent-bias",
+      "version": "0.3.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float16-exponent-mask",
+      "version": "0.1.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float16-max",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float16-num-significand-bits",
+      "version": "0.0.2",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float16-sign-mask",
+      "version": "0.1.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float16-significand-mask",
+      "version": "0.1.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float16-smallest-normal",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float32-abs-mask",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float32-eps",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float32-exponent-bias",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float32-exponent-mask",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float32-ninf",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float32-num-significand-bits",
+      "version": "0.1.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float32-pinf",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float32-sign-mask",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float32-significand-mask",
+      "version": "0.2.4",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-eps",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-exponent-bias",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-high-word-abs-mask",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-high-word-exponent-mask",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-high-word-sign-mask",
+      "version": "0.2.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-max-base2-exponent",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-max-base2-exponent-subnormal",
+      "version": "0.2.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-min-base2-exponent-subnormal",
+      "version": "0.2.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-ninf",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-pinf",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-smallest-normal",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-float64-sqrt-two",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-uint16-max",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-uint32-max",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/constants-uint8-max",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/error-tools-fmtprodmsg",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/fs-exists",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/fs-resolve-parent-path",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-assert-is-finite",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-assert-is-finitef",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-assert-is-infinite",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-assert-is-nan",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-assert-is-nanf",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-napi-binary",
+      "version": "0.3.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-napi-ternary",
+      "version": "0.3.2",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-napi-unary",
+      "version": "0.2.7",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-abs",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-absf",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-ceil",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-copysign",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-erf",
+      "version": "0.2.6",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-erfinv",
+      "version": "0.3.1",
+      "license": "Apache-2.0 AND BSL-1.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-exp",
+      "version": "0.2.5",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-floor",
+      "version": "0.2.4",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-ldexp",
+      "version": "0.2.5",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-ln",
+      "version": "0.2.5",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-sqrt",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/math-base-special-trunc",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/napi-argv",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/napi-argv-double",
+      "version": "0.2.2",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/napi-argv-float",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/napi-argv-int32",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/napi-create-int32",
+      "version": "0.0.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/napi-export",
+      "version": "0.3.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-ctor",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float16-base-to-float32",
+      "version": "0.1.2",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float16-base-to-float64",
+      "version": "0.1.2",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float16-ctor",
+      "version": "0.1.2",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float32-base-exponent",
+      "version": "0.2.4",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float32-base-to-float16",
+      "version": "0.1.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float32-base-to-word",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float64-base-exponent",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float64-base-from-words",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float64-base-get-high-word",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float64-base-normalize",
+      "version": "0.2.4",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float64-base-set-high-word",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float64-base-set-low-word",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float64-base-to-float16",
+      "version": "0.1.2",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float64-base-to-float32",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/number-float64-base-to-words",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/object-ctor",
+      "version": "0.2.2",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/os-byte-order",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/os-float-word-order",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/process-cwd",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/regexp-extended-length-path",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/regexp-function-name",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/stats-base-dists-degenerate-quantile",
+      "version": "0.3.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/stats-base-dists-normal-quantile",
+      "version": "0.3.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/string-base-format-interpolate",
+      "version": "0.2.4",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/string-base-format-tokenize",
+      "version": "0.2.4",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/string-base-lowercase",
+      "version": "0.4.1",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/string-base-replace",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/string-format",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/string-replace",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/symbol-ctor",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/symbol-to-primitive",
+      "version": "0.1.2",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/types",
+      "version": "0.4.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-constant-function",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-constructor-name",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-convert-path",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-define-nonenumerable-read-only-property",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-define-property",
+      "version": "0.2.5",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-define-read-only-property",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-escape-regexp-string",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-get-prototype-of",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-global",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-library-manifest",
+      "version": "0.2.4",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-native-class",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
+      "name": "@stdlib/utils-type-of",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
       "name": "@supabase/auth-helpers-nextjs",
       "version": "0.15.0",
       "license": "MIT",
@@ -752,6 +1629,12 @@
       "version": "22.19.15",
       "license": "MIT",
       "devOnly": true
+    },
+    {
+      "name": "@types/ramda",
+      "version": "0.31.1",
+      "license": "MIT",
+      "devOnly": false
     },
     {
       "name": "@types/react",
@@ -1078,6 +1961,12 @@
       "devOnly": false
     },
     {
+      "name": "debug",
+      "version": "2.6.9",
+      "license": "MIT",
+      "devOnly": false
+    },
+    {
       "name": "decimal.js",
       "version": "10.6.0",
       "license": "MIT",
@@ -1237,7 +2126,7 @@
       "name": "function-bind",
       "version": "1.1.2",
       "license": "MIT",
-      "devOnly": true
+      "devOnly": false
     },
     {
       "name": "get-nonce",
@@ -1261,7 +2150,7 @@
       "name": "hasown",
       "version": "2.0.2",
       "license": "MIT",
-      "devOnly": true
+      "devOnly": false
     },
     {
       "name": "hls.js",
@@ -1309,7 +2198,7 @@
       "name": "is-core-module",
       "version": "2.16.1",
       "license": "MIT",
-      "devOnly": true
+      "devOnly": false
     },
     {
       "name": "is-extglob",
@@ -1462,6 +2351,12 @@
       "devOnly": true
     },
     {
+      "name": "ms",
+      "version": "2.0.0",
+      "license": "MIT",
+      "devOnly": false
+    },
+    {
       "name": "mz",
       "version": "2.7.0",
       "license": "MIT",
@@ -1522,6 +2417,12 @@
       "devOnly": true
     },
     {
+      "name": "openskill",
+      "version": "5.0.1",
+      "license": "MIT",
+      "devOnly": false
+    },
+    {
       "name": "parse5",
       "version": "8.0.1",
       "license": "MIT",
@@ -1531,7 +2432,7 @@
       "name": "path-parse",
       "version": "1.0.7",
       "license": "MIT",
-      "devOnly": true
+      "devOnly": false
     },
     {
       "name": "pathe",
@@ -1726,6 +2627,12 @@
       "devOnly": true
     },
     {
+      "name": "ramda",
+      "version": "0.32.0",
+      "license": "MIT",
+      "devOnly": false
+    },
+    {
       "name": "react",
       "version": "19.2.4",
       "license": "MIT",
@@ -1825,7 +2732,7 @@
       "name": "resolve",
       "version": "1.22.11",
       "license": "MIT",
-      "devOnly": true
+      "devOnly": false
     },
     {
       "name": "reusify",
@@ -1882,6 +2789,12 @@
       "devOnly": false
     },
     {
+      "name": "sort-unwind",
+      "version": "3.1.0",
+      "license": "MIT",
+      "devOnly": false
+    },
+    {
       "name": "source-map-js",
       "version": "1.2.1",
       "license": "BSD-3-Clause",
@@ -1927,7 +2840,7 @@
       "name": "supports-preserve-symlinks-flag",
       "version": "1.0.0",
       "license": "MIT",
-      "devOnly": true
+      "devOnly": false
     },
     {
       "name": "symbol-tree",
@@ -2038,9 +2951,21 @@
       "devOnly": true
     },
     {
+      "name": "ts-toolbelt",
+      "version": "9.6.0",
+      "license": "Apache-2.0",
+      "devOnly": false
+    },
+    {
       "name": "tslib",
       "version": "2.8.1",
       "license": "0BSD",
+      "devOnly": false
+    },
+    {
+      "name": "types-ramda",
+      "version": "0.31.0",
+      "license": "MIT",
       "devOnly": false
     },
     {

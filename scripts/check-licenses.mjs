@@ -37,6 +37,8 @@ const LICENSE_EXCEPTIONS = {
     "MPL-2.0 — dev-only native binary for lightningcss",
   "lru-cache":
     "BlueOak-1.0.0 — modern permissive MIT-equivalent license; dev-only (toolchain)",
+  "@stdlib/math-base-special-erfinv":
+    "Apache-2.0 AND BSL-1.0 — dual-licensed under two permissive licenses (openskill.js transitive dep); Boost BSL is MIT-equivalent",
 }
 
 const lockPath = join("node_modules", ".package-lock.json")

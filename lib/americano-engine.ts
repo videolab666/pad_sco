@@ -210,3 +210,54 @@ export function americanoDimensions(playerCount: number, format: string): {
   const rounds = format === "mexicano" ? courts * 2 : playerCount - 1
   return { courts, rounds }
 }
+
+// ─── Mexicano: динамический паринг (§11) ────────────────────────────────────
+
+/**
+ * Mexicano pairing (§11): пары следующего раунда генерируются на основе
+ * ТЕКУЩЕЙ таблицы результатов. Snake-seeding: сильнейший + слабейший
+ * в одну команду, для баланса матчей.
+ *
+ * Алгоритм:
+ *   1. Отсортировать по очкам (убывание)
+ *   2. Разбить на команды snake-ом: [1,N], [2,N-1], [3,N-2], ...
+ *   3. Составить матчи из соседних команд
+ *
+ * Пример для 8 игроков после 2 раундов:
+ *   Standings: A(32) B(28) C(25) D(22) E(18) F(15) G(12) H(8)
+ *   Teams:     [A,H] [B,G] [C,F] [D,E]
+ *   Match 1:   [A,H] vs [B,G]   ← топ-половина
+ *   Match 2:   [C,F] vs [D,E]   ← нижняя-средняя
+ */
+export function generateMexicanoPairings(
+  standings: ParticipantScore[],
+  courtCount: number,
+  roundNumber: number,
+): RoundPairing[] {
+  if (standings.length < 4) return []
+
+  // Сортировка по текущим очкам (убывание)
+  const sorted = [...standings].sort((a, b) =>
+    b.totalPoints - a.totalPoints || b.gamesWon - a.gamesWon || b.pointsDiff - a.pointsDiff
+  )
+
+  // Snake-seeding: [1,N], [2,N-1], [3,N-2]...
+  const teams: Array<[number, number]> = [] // [seatA, seatB]
+  const n = sorted.length
+  for (let i = 0; i < n / 2; i++) {
+    teams.push([sorted[i].seat, sorted[n - 1 - i].seat])
+  }
+
+  // Составляем матчи: team[0] vs team[1], team[2] vs team[3]...
+  const pairings: RoundPairing[] = []
+  for (let c = 0; c < Math.min(courtCount, Math.floor(teams.length / 2)); c++) {
+    pairings.push({
+      round: roundNumber,
+      court: c,
+      teamASeats: teams[c * 2],
+      teamBSeats: teams[c * 2 + 1],
+    })
+  }
+
+  return pairings
+}

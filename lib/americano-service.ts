@@ -7,9 +7,11 @@ import {
   americanoDimensions,
   applyMatchResult,
   computeLeaderboard,
+  generateMexicanoPairings,
   generateWhistSchedule,
   validateAmericanoConfig,
   type ParticipantScore,
+  type RoundPairing,
 } from "./americano-engine"
 
 // ─── Типы ───────────────────────────────────────────────────────────────────
@@ -212,31 +214,63 @@ export async function startAmericanoEvent(id: string): Promise<AmericanoEvent> {
   if (!event) throw new AmericanoValidationError(["Событие не найдено"])
   if (event.status !== "creating") throw new AmericanoValidationError(["Событие уже запущено"])
 
-  // Генерируем расписание
-  const schedule = generateWhistSchedule(event.playerCount)
-  if (schedule.length === 0) throw new AmericanoValidationError(["Не удалось сгенерировать расписание"])
+  if (event.format === "mexicano") {
+    // §11: Mexicano — ЛЕНИВАЯ генерация: только первый раунд,
+    // остальные создаются после завершения предыдущего.
+    const scores: ParticipantScore[] = event.participants.map(p => ({
+      playerId: p.playerId,
+      seat: p.seat ?? 0,
+      totalPoints: p.totalPoints,
+      gamesPlayed: p.gamesPlayed,
+      gamesWon: p.gamesWon,
+      gamesLost: p.gamesLost,
+      pointsDiff: p.pointsDiff,
+    }))
+    const pairings = generateMexicanoPairings(scores, event.courtCount, 0)
 
-  // Создаём раунды и матчи
-  const roundNumbers = [...new Set(schedule.map(s => s.round))].sort((a, b) => a - b)
+    // Создаём ВСЕ раунды (пустые), но матчи только в первом
+    for (let rn = 0; rn < event.totalRounds; rn++) {
+      const { data: round } = await supabase
+        .from("americano_rounds")
+        .insert({ event_id: id, round_number: rn, status: rn === 0 ? "playing" : "pending" })
+        .select("*")
+        .single()
 
-  for (const rn of roundNumbers) {
-    const { data: round } = await supabase
-      .from("americano_rounds")
-      .insert({ event_id: id, round_number: rn, status: rn === 0 ? "playing" : "pending" })
-      .select("*")
-      .single()
+      if (round && rn === 0) {
+        for (const m of pairings) {
+          await supabase.from("americano_matches").insert({
+            round_id: round.id,
+            event_id: id,
+            court_number: m.court,
+            team_a_seats: m.teamASeats,
+            team_b_seats: m.teamBSeats,
+          })
+        }
+      }
+    }
+  } else {
+    // Americano: генерируем ВСЕ раунды upfront (Whist-расписание)
+    const schedule = generateWhistSchedule(event.playerCount)
+    if (schedule.length === 0) throw new AmericanoValidationError(["Не удалось сгенерировать расписание"])
 
-    if (!round) continue
-
-    const roundMatches = schedule.filter(s => s.round === rn)
-    for (const m of roundMatches) {
-      await supabase.from("americano_matches").insert({
-        round_id: round.id,
-        event_id: id,
-        court_number: m.court,
-        team_a_seats: m.teamASeats,
-        team_b_seats: m.teamBSeats,
-      })
+    const roundNumbers = [...new Set(schedule.map(s => s.round))].sort((a, b) => a - b)
+    for (const rn of roundNumbers) {
+      const { data: round } = await supabase
+        .from("americano_rounds")
+        .insert({ event_id: id, round_number: rn, status: rn === 0 ? "playing" : "pending" })
+        .select("*")
+        .single()
+      if (!round) continue
+      const roundMatches = schedule.filter(s => s.round === rn)
+      for (const m of roundMatches) {
+        await supabase.from("americano_matches").insert({
+          round_id: round.id,
+          event_id: id,
+          court_number: m.court,
+          team_a_seats: m.teamASeats,
+          team_b_seats: m.teamBSeats,
+        })
+      }
     }
   }
 
@@ -246,8 +280,8 @@ export async function startAmericanoEvent(id: string): Promise<AmericanoEvent> {
     .update({ status: "active", current_round: 0, started_at: new Date().toISOString() })
     .eq("id", id)
 
-  logEvent("info", `americano: событие ${id.slice(0, 8)} запущено (${roundNumbers.length} раундов, ${schedule.length} матчей)`, "americano")
-  return (await getAmericanoEvent(id))!
+  logEvent("info", `americano: событие ${id.slice(0, 8)} запущено (${event.format})`, "americano")
+  return (await getAmericanoEvent(id)) as AmericanoEvent
 }
 
 // ─── Раунды и матчи ─────────────────────────────────────────────────────────
@@ -389,6 +423,31 @@ export async function submitMatchResult(input: {
         .from("americano_events")
         .update({ current_round: nextRound[0].round_number })
         .eq("id", match.event_id)
+
+      // §11: Mexicano — генерируем матчи следующего раунда по текущей таблице
+      const updatedEvent = await getAmericanoEvent(match.event_id)
+      if (updatedEvent && updatedEvent.format === "mexicano") {
+        const scores: ParticipantScore[] = updatedEvent.participants.map(p => ({
+          playerId: p.playerId,
+          seat: p.seat ?? 0,
+          totalPoints: p.totalPoints,
+          gamesPlayed: p.gamesPlayed,
+          gamesWon: p.gamesWon,
+          gamesLost: p.gamesLost,
+          pointsDiff: p.pointsDiff,
+        }))
+        const nextPairings = generateMexicanoPairings(scores, updatedEvent.courtCount, nextRound[0].round_number)
+        for (const m of nextPairings) {
+          await supabase.from("americano_matches").insert({
+            round_id: nextRound[0].id,
+            event_id: match.event_id,
+            court_number: m.court,
+            team_a_seats: m.teamASeats,
+            team_b_seats: m.teamBSeats,
+          })
+        }
+        logEvent("info", `mexicano: раунд ${nextRound[0].round_number + 1} сгенерирован (${nextPairings.length} матчей)`, "americano")
+      }
     } else {
       // Все раунды завершены
       await supabase

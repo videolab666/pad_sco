@@ -5,6 +5,7 @@ import {
   americanoDimensions,
   applyMatchResult,
   computeLeaderboard,
+  generateMexicanoPairings,
   generateWhistSchedule,
   validateAmericanoConfig,
   type ParticipantScore,
@@ -131,6 +132,34 @@ describe("americanoDimensions", () => {
     const d = americanoDimensions(8, "mexicano")
     expect(d.courts).toBe(2)
     expect(d.rounds).toBe(4) // courts × 2
+  })
+})
+
+describe("generateMexicanoPairings (§11: динамический паринг)", () => {
+  const standings = (points: number[]): ParticipantScore[] =>
+    points.map((p, i) => ({
+      playerId: `p${i}`, seat: i, totalPoints: p,
+      gamesPlayed: 1, gamesWon: 0, gamesLost: 1, pointsDiff: p - 10,
+    }))
+
+  it("8 игроков: 4 команды snake-ом → 2 матча на 2 кортах", () => {
+    // Standings: A(32) B(28) C(25) D(22) E(18) F(15) G(12) H(8)
+    const pairs = generateMexicanoPairings(standings([32, 28, 25, 22, 18, 15, 12, 8]), 2, 0)
+    expect(pairs.length).toBe(2) // 2 корта
+    expect(pairs[0].teamASeats).toEqual([0, 7]) // сильнейший + слабейший
+    expect(pairs[0].teamBSeats).toEqual([1, 6]) // 2-й + 7-й
+    expect(pairs[1].teamASeats).toEqual([2, 5]) // 3-й + 6-й
+    expect(pairs[1].teamBSeats).toEqual([3, 4]) // 4-й + 5-й
+  })
+
+  it("меньше 4 игроков → пусто", () => {
+    expect(generateMexicanoPairings(standings([10, 5]), 1, 0)).toEqual([])
+  })
+
+  it("сильнейший играет со слабейшим (баланс §11)", () => {
+    const pairs = generateMexicanoPairings(standings([40, 30, 20, 10]), 1, 0)
+    expect(pairs[0].teamASeats).toEqual([0, 3]) // #1 + #4
+    expect(pairs[0].teamBSeats).toEqual([1, 2]) // #2 + #3
   })
 })
 

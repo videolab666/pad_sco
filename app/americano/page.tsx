@@ -30,7 +30,7 @@ interface Participant {
   totalPoints: number; gamesPlayed: number; gamesWon: number; gamesLost: number; pointsDiff: number
 }
 interface AmericanoEvent {
-  id: string; name: string; format: string; status: string
+  id: string; name: string; format: "americano" | "mexicano"; status: string
   playerCount: number; courtCount: number; pointsPerRound: number
   totalRounds: number; currentRound: number
   participants: Participant[]
@@ -50,6 +50,7 @@ export default function AmericanoPage() {
   const [players, setPlayers] = useState<Player[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState("")
+  const [format, setFormat] = useState<"americano" | "mexicano">("americano")
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState("")
@@ -122,7 +123,7 @@ export default function AmericanoPage() {
       const res = await fetch("/api/americano", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerIds: [...selected], format: "americano" }),
+        body: JSON.stringify({ playerIds: [...selected], format }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -354,6 +355,32 @@ export default function AmericanoPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Переключатель формата */}
+          <div className="mb-3 flex gap-2">
+            <button
+              onClick={() => setFormat("americano")}
+              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+                format === "americano"
+                  ? "border-[#A4FB23] bg-[#A4FB23]/15 text-[#A4FB23]"
+                  : "border-white/10 text-white/60 hover:border-white/30"
+              }`}
+            >
+              Americano
+              <span className="block text-xs text-muted-foreground">фиксированные пары</span>
+            </button>
+            <button
+              onClick={() => setFormat("mexicano")}
+              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+                format === "mexicano"
+                  ? "border-[#A4FB23] bg-[#A4FB23]/15 text-[#A4FB23]"
+                  : "border-white/10 text-white/60 hover:border-white/30"
+              }`}
+            >
+              Mexicano
+              <span className="block text-xs text-muted-foreground">динамические пары</span>
+            </button>
+          </div>
+
           {/* Поиск */}
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

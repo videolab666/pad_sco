@@ -18,6 +18,7 @@
 import { NextResponse } from "next/server"
 import { isAuthorizedMatchCommandRequest } from "@/lib/api-auth"
 import { autoMarkVideoEvents } from "@/lib/video-registry"
+import { applyCompletionRatings } from "@/lib/rating-service"
 import { getMatchFromServer } from "@/lib/server-match-storage"
 import { logEvent } from "@/lib/error-logger"
 import { createServerSupabaseClient } from "@/lib/supabase"
@@ -124,6 +125,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       // видео-маркеров к активной записи (MATCH_POINT / SET_POINT / GAME_POINT).
       if (command === "point") {
         void autoMarkVideoEvents(updated)
+      }
+
+      // §31: при завершении матча — автоприменение OpenSkill рейтингов
+      if (updated?.isCompleted && updated?.winner && !match.isCompleted) {
+        void applyCompletionRatings(updated)
       }
 
       return NextResponse.json({

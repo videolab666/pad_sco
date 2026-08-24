@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { Loader2, RefreshCw } from "lucide-react"
+import { Award, Loader2, RefreshCw } from "lucide-react"
 
 interface CourtCard {
   courtId: string
@@ -168,6 +168,70 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* ─── Рейтинг клуба (§33) ───────────────────────────────────────── */}
+      <RatingSection />
     </main>
+  )
+}
+
+// ─── Секция рейтинга (§33: Club Leaderboard) ────────────────────────────────
+
+interface RatingEntry {
+  playerId: string
+  playerName: string
+  displayRating: string
+  matchesPlayed: number
+  wins: number
+  losses: number
+}
+
+function RatingSection() {
+  const [entries, setEntries] = useState<RatingEntry[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    void fetch("/api/ratings/leaderboard?limit=10")
+      .then((r) => r.json())
+      .then((d) => {
+        setEntries(d.leaderboard ?? [])
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [])
+
+  if (loading || entries.length === 0) return null
+
+  return (
+    <div className="mt-8">
+      <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-white/80">
+        <Award className="h-5 w-5 text-[#a4fb23]" />
+        Рейтинг клуба
+      </h2>
+      <div className="rounded-xl border border-white/10 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-white/5 text-xs text-white/50">
+              <th className="px-3 py-2 text-left">#</th>
+              <th className="px-3 py-2 text-left">Игрок</th>
+              <th className="px-2 py-2 text-center">Рейтинг</th>
+              <th className="px-2 py-2 text-center">Матчи</th>
+              <th className="px-2 py-2 text-center">В/П</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((e, i) => (
+              <tr key={e.playerId} className={`border-b border-white/5 ${i === 0 ? "bg-[#a4fb23]/10" : ""}`}>
+                <td className="px-3 py-2 font-mono text-white/40">{i + 1}</td>
+                <td className="px-3 py-2 font-medium text-white/90">{e.playerName}</td>
+                <td className="px-2 py-2 text-center font-bold text-[#a4fb23] font-mono">{e.displayRating}</td>
+                <td className="px-2 py-2 text-center text-white/50">{e.matchesPlayed}</td>
+                <td className="px-2 py-2 text-center text-white/50">{e.wins}/{e.losses}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }

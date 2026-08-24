@@ -206,6 +206,52 @@ export async function applyMatchRatings(input: {
 /**
  * Club Leaderboard (§33): топ игроков по консервативному рейтингу.
  */
+/**
+ * §31: Автоприменение рейтингов при завершении матча.
+ * Вызывается из командного роута когда матч стал isCompleted.
+ * Извлекает player_id из teamA/teamB и применяет OpenSkill.
+ */
+export async function applyCompletionRatings(match: Record<string, unknown>): Promise<void> {
+  try {
+    const supabase = createServerSupabaseClient()
+    if (!supabase) return
+
+    // Club ID
+    const { data: clubs } = await supabase.from("clubs").select("id").limit(1)
+    const clubId = clubs?.[0]?.id
+    if (!clubId) return
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = match as any
+    const teamAIds = (m?.teamA?.players ?? [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((p: any) => p?.id)
+      .filter((id: unknown): id is string => typeof id === "string" && id.length > 10)
+    const teamBIds = (m?.teamB?.players ?? [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((p: any) => p?.id)
+      .filter((id: unknown): id is string => typeof id === "string" && id.length > 10)
+
+    if (teamAIds.length === 0 || teamBIds.length === 0) return
+
+    const winner = m?.winner === "teamA" ? "teamA" : m?.winner === "teamB" ? "teamB" : null
+
+    await applyMatchRatings({
+      clubId,
+      matchId: m.id,
+      teamAPlayerIds: teamAIds,
+      teamBPlayerIds: teamBIds,
+      winner,
+      ratingType: m?.type === "quick-play" ? "americano" : "club",
+    })
+
+    logEvent("info", `rating: применены рейтинги после матча ${m.id?.slice(0, 8)} (${teamAIds.length}+${teamBIds.length} игроков)`, "applyCompletionRatings")
+  } catch (err) {
+    // Тихо: рейтинги — опциональная функция, не ломают матч
+    logEvent("warn", `applyCompletionRatings: ${(err as Error).message}`, "applyCompletionRatings")
+  }
+}
+
 export async function getLeaderboard(clubId: string, ratingType = "club", limit = 50): Promise<PlayerRatingRecord[]> {
   const supabase = createServerSupabaseClient()
 

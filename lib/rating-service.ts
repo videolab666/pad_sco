@@ -8,6 +8,7 @@
 
 import { createServerSupabaseClient } from "./supabase"
 import { logEvent } from "./error-logger"
+import { checkAndAwardAchievements } from "./achievements"
 
 // ─── Чистые хелперы ─────────────────────────────────────────────────────────
 
@@ -246,6 +247,11 @@ export async function applyCompletionRatings(match: Record<string, unknown>): Pr
     })
 
     logEvent("info", `rating: применены рейтинги после матча ${m.id?.slice(0, 8)} (${teamAIds.length}+${teamBIds.length} игроков)`, "applyCompletionRatings")
+
+    // §34: проверяем и выдаём достижения для всех игроков
+    for (const pid of [...teamAIds, ...teamBIds]) {
+      void checkAndAwardAchievements(pid, clubId)
+    }
   } catch (err) {
     // Тихо: рейтинги — опциональная функция, не ломают матч
     logEvent("warn", `applyCompletionRatings: ${(err as Error).message}`, "applyCompletionRatings")

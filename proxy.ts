@@ -2,9 +2,10 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 
 // Обновление Supabase Auth-сессии (стандартный паттерн @supabase/ssr):
-// middleware перечитывает/продлевает cookie сессии на каждом запросе страниц.
+// proxy (раньше — middleware) перечитывает/продлевает cookie сессии
+// на каждом запросе страниц. Next.js 16: конвенция middleware → proxy.
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL

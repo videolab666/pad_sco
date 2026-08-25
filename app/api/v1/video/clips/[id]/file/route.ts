@@ -28,7 +28,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   try {
-    const data = await readFile(join(process.cwd(), CLIPS_DIR, fileName))
+    // turbopackIgnore: имя файла приходит из БД (runtime), трассировать
+    // на этапе сборки нечего — без комментария NFT тянет весь проект.
+    const data = await readFile(join(/*turbopackIgnore: true*/ process.cwd(), CLIPS_DIR, fileName))
     return new NextResponse(new Uint8Array(data), {
       headers: {
         "Content-Type": isThumb ? "image/jpeg" : "video/mp4",

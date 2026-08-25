@@ -5,7 +5,7 @@
 // Дизайн: премиальный тёмный + градиенты + glass-morphism + анимации.
 // Разделы: Hero (аватар + рейтинг + W/L) → Статистика → История → Достижения.
 
-import { useCallback, useEffect, useState } from "react"
+import { Suspense, useCallback, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   Activity, Award, ChevronRight, Clock, Flame, Heart, Loader2,
@@ -36,7 +36,23 @@ interface Player { id: string; name: string }
 
 // ─── Страница ───────────────────────────────────────────────────────────────
 
+// useSearchParams требует Suspense-границы при статической генерации (Next.js),
+// поэтому контент вынесен в отдельный компонент под <Suspense>.
 export default function PlayerDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#0A0F0A] via-[#0D1A0D] to-[#0A0F0A]">
+          <Loader2 className="h-10 w-10 animate-spin text-[#A4FB23]" />
+        </div>
+      }
+    >
+      <PlayerDashboardContent />
+    </Suspense>
+  )
+}
+
+function PlayerDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [playerId, setPlayerId] = useState<string | null>(searchParams.get("player_id"))

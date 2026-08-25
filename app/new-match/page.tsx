@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Loader2, Plus, CircleDot, Download } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
@@ -122,7 +122,7 @@ const customStyles = `
   }
 `
 
-export default function NewMatchPage() {
+function NewMatchPageContent() {
   const { t } = useLanguage()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1306,5 +1306,20 @@ export default function NewMatchPage() {
         onImportPlayers={handleImportPlayers}
       />
     </div>
+  )
+}
+
+// useSearchParams требует Suspense-границы при статической генерации (Next.js).
+export default function NewMatchPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-gray-400" />
+        </div>
+      }
+    >
+      <NewMatchPageContent />
+    </Suspense>
   )
 }

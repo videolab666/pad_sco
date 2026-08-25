@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card"
 import { ScoreBoard } from "@/components/score-board"
 import { ScoreControls } from "@/components/score-controls"
 import { MatchSettings } from "@/components/match-settings"
+import { ShareCardButton } from "@/components/share-card-button"
 import { SupabaseStatus } from "@/components/supabase-status"
 import { OfflineNotice } from "@/components/offline-notice"
 import {
@@ -213,7 +214,7 @@ export default function MatchPage({ params }: MatchParams) {
       </div>
 
       {!(match?.created_via_court_link === true) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
           <Button variant="outline" onClick={handleShare} className="w-full">
             <Share2 className="mr-2 h-4 w-4" />
             {t.matchPage.share}
@@ -222,6 +223,7 @@ export default function MatchPage({ params }: MatchParams) {
             <ExternalLink className="mr-2 h-4 w-4" />
             {t.matchPage.viewScore}
           </Button>
+          <ShareCardButton matchId={matchId} className="w-full" />
         </div>
       )}
 

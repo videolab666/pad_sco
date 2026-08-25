@@ -41,4 +41,24 @@ next-env.d.ts
 
 # Playwright MCP browser-session artifacts
 /.playwright-mcp/
-/cur-vmix-default.pngpnpm-lock.yaml
+/cur-vmix-default.png
+
+# npm-совместимый проект: устаревший pnpm lockfile не коммитим
+pnpm-lock.yaml
+
+# agent state
+/.zcode/
+
+# reference material (competitor analysis, decompiled APKs, examples) — not project source
+/apk_examples1/
+/EXAMPLE_PADL_COM_UA/
+clutch_reverse_engineering_report*.md
+padel_club_platform_plan*.md
+
+# build artifacts
+*.apk
+
+# secrets / credentials — никогда в репозиторий
+пароль*.txt
+*password*.txt
+*пароль*.txt

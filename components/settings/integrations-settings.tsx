@@ -1,0 +1,146 @@
+"use client"
+
+// Вкладка «Интеграции» в /settings: Telegram-бот уведомлений (§43).
+// Пользователь вводит bot token + chat ID → отправляем тест → сохраняем.
+
+import { useState } from "react"
+import { Check, Loader2, MessageCircle, Send } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+export function IntegrationsSettings() {
+  const [botToken, setBotToken] = useState("")
+  const [chatId, setChatId] = useState("")
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<"ok" | "fail" | null>(null)
+
+  const sendTest = async () => {
+    if (!botToken || !chatId) return
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: "🟢 *Padel Club Platform*\n\nТестовое уведомление — всё работает!",
+          parse_mode: "Markdown",
+        }),
+      })
+      setTestResult(res.ok ? "ok" : "fail")
+    } catch {
+      setTestResult("fail")
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">Интеграции</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Подключите Telegram-бота для уведомлений персоналу
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-[#229ED9]" />
+            Telegram-бот уведомлений
+          </CardTitle>
+          <CardDescription>
+            Получайте алерты: камера офлайн, матч начался, сессия закрыта автоматически
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="bot-token">Bot Token</Label>
+            <Input
+              id="bot-token"
+              type="password"
+              placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
+              value={botToken}
+              onChange={(e) => setBotToken(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Получите у @BotFather в Telegram → /newbot
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="chat-id">Chat ID</Label>
+            <Input
+              id="chat-id"
+              placeholder="-1001234567890"
+              value={chatId}
+              onChange={(e) => setChatId(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              ID группового чата (узнайте у @getidsbot) или личный ID
+            </p>
+          </div>
+
+          <Button
+            onClick={() => void sendTest()}
+            disabled={!botToken || !chatId || testing}
+            className="w-full"
+          >
+            {testing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+            Отправить тестовое уведомление
+          </Button>
+
+          {testResult === "ok" && (
+            <div className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700">
+              <Check className="inline h-4 w-4 mr-1" />
+              Тест отправлен! Проверьте Telegram.
+            </div>
+          )}
+          {testResult === "fail" && (
+            <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+              Ошибка — проверьте токен и Chat ID
+            </div>
+          )}
+
+          <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-xs text-muted-foreground">
+            <p className="font-semibold text-white/70 mb-1">После настройки добавьте в .env.local:</p>
+            <pre className="font-mono text-[11px] whitespace-pre-wrap">
+{`TELEGRAM_BOT_TOKEN=${botToken ? "***" : "..."}
+TELEGRAM_CHAT_ID=${chatId || "..."}`}
+            </pre>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Доступные уведомления */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Типы уведомлений</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-2">
+            {[
+              { icon: "🔴", title: "Камера офлайн", desc: "Устройство потеряло соединение" },
+              { icon: "🟢", title: "Матч начался", desc: "Игроки на корте, счёт открыт" },
+              { icon: "🏆", title: "Матч завершён", desc: "С результатом и счётом сетов" },
+              { icon: "🟡", title: "Авто-закрытие сессии", desc: "Зависшая запись/сессия закрыта" },
+              { icon: "📹", title: "Запись началась/остановлена", desc: "Камера на корте" },
+            ].map(item => (
+              <div key={item.title} className="flex items-center gap-3 rounded-lg border border-white/5 p-2">
+                <span className="text-xl">{item.icon}</span>
+                <div>
+                  <div className="text-sm font-medium">{item.title}</div>
+                  <div className="text-xs text-muted-foreground">{item.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

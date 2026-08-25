@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { BalancedTeamsPanel } from "@/components/balanced-teams-panel"
 
 // ─── Типы ───────────────────────────────────────────────────────────────────
 
@@ -418,6 +419,13 @@ export default function AmericanoPage() {
               ))
             )}
           </div>
+
+          {/* Balanced Teams подсказка (§32) */}
+          <BalancedTeamsPanel
+            players={players
+              .filter(p => selected.has(p.id))
+              .map(p => ({ id: p.id, name: p.name }))}
+          />
 
           <Button
             className="w-full"

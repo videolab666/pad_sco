@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { Award, Loader2, RefreshCw } from "lucide-react"
+import { useBrand } from "@/components/brand-provider"
 
 interface CourtCard {
   courtId: string
@@ -46,6 +47,7 @@ const SESSION_LABELS: Record<string, string> = {
 }
 
 export default function DashboardPage() {
+  const { brand } = useBrand()
   const [courts, setCourts] = useState<CourtCard[]>([])
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
@@ -85,7 +87,7 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-[#0a0f0a] p-4 sm:p-8 text-white">
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-          КОРТЫ КЛУБА
+          {brand.clubName ? brand.clubName.toUpperCase() : "КОРТЫ КЛУБА"}
           <span className="ml-3 align-middle text-sm font-normal text-white/50">
             {live > 0 ? `${live} в игре` : "нет живых матчей"}
           </span>

@@ -17,6 +17,8 @@ import { AdsSettings } from "@/components/settings/ads-settings"
 import { CourtsSettings } from "@/components/settings/courts-settings"
 import { VideoSettings } from "@/components/settings/video-settings"
 import { IntegrationsSettings } from "@/components/settings/integrations-settings"
+import { BrandSettings } from "@/components/settings/brand-settings"
+import { BillingSettings } from "@/components/settings/billing-settings"
 
 export default function SettingsPage() {
   const [authState, setAuthState] = useState<"checking" | "login" | "ok">("checking")
@@ -128,6 +130,8 @@ export default function SettingsPage() {
           <TabsTrigger value="courts">Корты</TabsTrigger>
           <TabsTrigger value="video">Видео</TabsTrigger>
           <TabsTrigger value="integrations">Интеграции</TabsTrigger>
+          <TabsTrigger value="brand">Брендинг</TabsTrigger>
+          <TabsTrigger value="billing">Тариф</TabsTrigger>
         </TabsList>
         <TabsContent value="ads" className="mt-4">
           <AdsSettings />
@@ -140,6 +144,12 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="integrations" className="mt-4">
           <IntegrationsSettings />
+        </TabsContent>
+        <TabsContent value="brand" className="mt-4">
+          <BrandSettings />
+        </TabsContent>
+        <TabsContent value="billing" className="mt-4">
+          <BillingSettings />
         </TabsContent>
       </Tabs>
     </div>

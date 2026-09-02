@@ -8,6 +8,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { RefreshCw, Zap } from "lucide-react"
+import { useBrand } from "@/components/brand-provider"
 
 export function CourtIdleScreen({
   courtName,
@@ -19,6 +20,7 @@ export function CourtIdleScreen({
   session: { type: string; startedAt: string } | null
 }) {
   const router = useRouter()
+  const { brand } = useBrand()
 
   useEffect(() => {
     const timer = setInterval(() => router.refresh(), 10_000)
@@ -27,8 +29,8 @@ export function CourtIdleScreen({
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-5 bg-[#0a0f0a] p-8 text-white">
-      <div className="text-sm uppercase tracking-widest text-white/40">Court</div>
-      <h1 className="text-5xl font-black">{courtName}</h1>
+      <div className="text-sm uppercase tracking-widest text-white/40">{brand.clubName}</div>
+      <h1 className="text-5xl font-black" style={{ color: "var(--brand-accent, #fff)" }}>{courtName}</h1>
 
       {session ? (
         <p className="rounded-lg border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm text-sky-300">

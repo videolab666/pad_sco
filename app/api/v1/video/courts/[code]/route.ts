@@ -2,12 +2,15 @@
 //   live: источник online/recording + активная сессия → HLS-ссылка gateway
 //   recordings: последние сессии записи с маркерами и готовыми клипами
 //                (VOD полного матча — через playback API gateway).
+//   planAllowed: тариф клуба разрешает запись (§94) — панель «Записать матч»
+//   recordings[].downloadUrl — прокси-скачивание с Content-Disposition
 // CORS * — читают страница /c/{code}/video, PWA и публичные live-страницы.
 
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { ensureCourtSchema, getCourtByShortCode } from "@/lib/court-registry"
-import { buildClipFileUrl, buildFullMatchVodUrl, buildLiveHlsUrl } from "@/lib/video-public"
+import { buildClipFileUrl, buildPaddedMatchVodUrl, buildLiveHlsUrl } from "@/lib/video-public"
+import { getClubPlan, hasPlanFeature } from "@/lib/billing-plans"
 import { logEvent } from "@/lib/error-logger"
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
@@ -43,7 +46,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     // Последние записи корта с маркерами и клипами
     const recs = await supabase
       .from("recording_sessions")
-      .select("id, status, started_at, ended_at, source_id")
+      .select("id, status, started_at, ended_at, source_id, metadata")
       .eq("court_id", court.id)
       .in("status", ["recording", "finalizing", "uploading", "ready"])
       .order("started_at", { ascending: false })
@@ -94,9 +97,19 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         startedAt: rec.started_at,
         endedAt: rec.ended_at,
         durationSec: Math.round(durationSec),
-        vodUrl: streamKey && durationSec > 0
-          ? buildFullMatchVodUrl({ streamKey, startedAt: rec.started_at, durationSec })
-          : null,
+        vodUrl:
+          streamKey && durationSec > 0
+            ? buildPaddedMatchVodUrl({
+                streamKey,
+                startedAt: rec.started_at,
+                endedAt: rec.ended_at,
+                mediaStartedAt:
+                  typeof rec.metadata?.mediaStartedAt === "string" ? rec.metadata.mediaStartedAt : null,
+                mediaEndedAt:
+                  typeof rec.metadata?.mediaEndedAt === "string" ? rec.metadata.mediaEndedAt : null,
+              })
+            : null,
+        downloadUrl: rec.status === "ready" ? `/api/v1/video/recordings/${rec.id}/download` : null,
         markers: (markers.data ?? []).map((m: Record<string, unknown>) => ({
           id: m.id,
           type: m.marker_type,
@@ -118,8 +131,18 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       })
     }
 
+    // Тариф клуба: можно ли игрокам запускать запись (панель на /video)
+    let planAllowed = false
+    try {
+      const club = await supabase.from("clubs").select("metadata").eq("id", court.clubId).limit(1)
+      const metadata = (club.data?.[0]?.metadata as Record<string, unknown>) ?? null
+      planAllowed = hasPlanFeature(getClubPlan(metadata).tier, "video_recording")
+    } catch {
+      /* нет клуба/метаданных — панель не показываем */
+    }
+
     return NextResponse.json(
-      { court: { name: court.name, shortCode: court.shortCode }, live, recordings },
+      { court: { name: court.name, shortCode: court.shortCode }, live, planAllowed, recordings },
       {
         headers: {
           "Access-Control-Allow-Origin": "*",

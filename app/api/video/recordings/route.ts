@@ -1,12 +1,16 @@
 // GET  /api/video/recordings?active=true — сессии записи (staff)
+//      &reconcile=true — сверить БД ↔ MediaMTX и лечить расхождения
+//      (plan 2026-09-02: включить потерянные override, погасить брошенные).
 // POST /api/video/recordings — старт записи (§134): { streamKey | courtId,
-//      courtSessionId?, metadata? }. Источник должен быть online (heartbeat).
+//      courtSessionId?, retentionDays?, metadata? }. Источник должен быть
+//      online (heartbeat); запись на диске включает runtime-override MediaMTX.
 
 import { type NextRequest, NextResponse } from "next/server"
 import { isAuthorizedSettingsRequest } from "@/lib/settings-auth"
 import {
   VideoValidationError,
   listRecordings,
+  reconcileRecordings,
   startRecording,
 } from "@/lib/video-registry"
 
@@ -20,7 +24,12 @@ export async function GET(request: NextRequest) {
       active: url.searchParams.get("active") === "true",
       courtId: url.searchParams.get("court") ?? undefined,
     })
-    return NextResponse.json({ recordings }, { headers: { "Cache-Control": "no-store" } })
+    const reconcile =
+      url.searchParams.get("reconcile") === "true" ? await reconcileRecordings() : undefined
+    return NextResponse.json(
+      { recordings, ...(reconcile ? { reconcile } : {}) },
+      { headers: { "Cache-Control": "no-store" } },
+    )
   } catch (err) {
     return NextResponse.json({ error: "list_failed", message: (err as Error).message }, { status: 500 })
   }
@@ -41,6 +50,7 @@ export async function POST(request: NextRequest) {
       streamKey: typeof body.streamKey === "string" ? body.streamKey : undefined,
       courtId: typeof body.courtId === "string" ? body.courtId : undefined,
       courtSessionId: typeof body.courtSessionId === "string" ? body.courtSessionId : undefined,
+      retentionDays: typeof body.retentionDays === "number" ? body.retentionDays : undefined,
       metadata: (body.metadata as Record<string, unknown>) ?? undefined,
     })
     return NextResponse.json({ recording }, { status: 201 })

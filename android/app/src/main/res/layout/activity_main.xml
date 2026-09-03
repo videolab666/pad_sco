@@ -1,119 +1,415 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0A0F0A"
-    android:padding="16dp">
+    android:background="#000000">
+
+    <TextureView
+        android:id="@+id/camera_preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <com.padel.cameraagent.HorizonOverlayView
+        android:id="@+id/horizon_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no" />
+
+    <TextView
+        android:id="@+id/preview_placeholder"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="#990A0F0A"
+        android:padding="16dp"
+        android:text="@string/preview_waiting"
+        android:textColor="#CCCCCC"
+        android:textSize="16sp" />
 
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_gravity="top|start"
+        android:layout_margin="12dp"
+        android:background="#CC0A0F0A"
+        android:orientation="vertical"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp">
 
-        <!-- Заголовок -->
         <TextView
+            android:id="@+id/live_badge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🎥 Padel Camera Agent"
-            android:textSize="24sp"
-            android:textStyle="bold"
+            android:text="@string/status_ready"
             android:textColor="#A4FB23"
-            android:layout_marginBottom="16dp" />
+            android:textSize="14sp"
+            android:textStyle="bold" />
 
-        <!-- Camera Probe Results -->
         <TextView
-            android:id="@+id/probe_result"
-            android:layout_width="match_parent"
+            android:id="@+id/actual_values"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
-            android:textSize="12sp"
-            android:textColor="#88CC88"
-            android:background="#111811"
-            android:padding="12dp"
-            android:layout_marginBottom="16dp" />
-
-        <!-- Настройки -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Настройки"
-            android:textSize="18sp"
-            android:textStyle="bold"
+            android:text="@string/value_unknown"
             android:textColor="#FFFFFF"
-            android:layout_marginBottom="8dp" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Код корта (из /settings → Корты)"
-            android:layout_marginBottom="8dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/court_code"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="#FFFFFF"
-                android:inputType="text" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Gateway (IP медиасервера)"
-            android:layout_marginBottom="8dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/gateway_host"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="#FFFFFF"
-                android:inputType="textUri" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Платформа (URL приложения)"
-            android:layout_marginBottom="8dp">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/platform_url"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="#FFFFFF"
-                android:inputType="textUri" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Разрешение"
-            android:textColor="#AAAAAA"
-            android:layout_marginBottom="4dp" />
-
-        <Spinner
-            android:id="@+id/resolution"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginBottom="16dp" />
-
-        <!-- Кнопка старт/стоп -->
-        <Button
-            android:id="@+id/btn_start"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:text="Старт"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:backgroundTint="#A4FB23"
-            android:textColor="#000000" />
-
-        <TextView
-            android:id="@+id/status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Готов к запуску"
-            android:textSize="14sp"
-            android:textColor="#AAAAAA"
-            android:gravity="center"
-            android:layout_marginTop="8dp" />
-
+            android:textSize="12sp" />
     </LinearLayout>
-</ScrollView>
+
+    <ScrollView
+        android:id="@+id/control_panel"
+        android:layout_width="300dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:background="#ED0A0F0A"
+        android:fillViewport="true"
+        android:padding="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/manual_camera_title"
+                    android:textColor="#FFFFFF"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btn_all_auto"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:text="@string/all_auto"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/camera_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="#88CC88"
+                android:textSize="11sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/language_label"
+                    android:textColor="#BBBBBB"
+                    android:textSize="12sp" />
+
+                <Spinner
+                    android:id="@+id/language"
+                    android:layout_width="170dp"
+                    android:layout_height="40dp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginVertical="8dp"
+                android:background="#334C33" />
+
+                        <Spinner
+                            android:id="@+id/spinner_exposure_mode"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:backgroundTint="#33FFFFFF"
+                            android:popupBackground="#1A1A1A" />
+
+            <TextView
+                android:id="@+id/ev_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/value_unknown"
+                android:textColor="#DDDDDD" />
+
+            <SeekBar
+                android:id="@+id/seek_ev"
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:max="36"
+                android:progress="18"
+                android:progressTint="#A4FB23"
+                android:thumbTint="#A4FB23" />
+
+            <TextView
+                android:id="@+id/iso_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="ISO 400"
+                android:textColor="#DDDDDD" />
+
+            <SeekBar
+                android:id="@+id/seek_iso"
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:max="6300"
+                android:progress="300"
+                android:progressTint="#A4FB23"
+                android:thumbTint="#A4FB23" />
+
+            <TextView
+                android:id="@+id/shutter_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/shutter_default"
+                android:textColor="#DDDDDD" />
+
+            <SeekBar
+                android:id="@+id/seek_shutter"
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:max="12"
+                android:progress="5"
+                android:progressTint="#A4FB23"
+                android:thumbTint="#A4FB23" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switch_auto_focus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="@string/focus_auto"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/focus_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/focus_infinity"
+                android:textColor="#DDDDDD" />
+
+            <SeekBar
+                android:id="@+id/seek_focus"
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:max="1000"
+                android:progress="0"
+                android:progressTint="#A4FB23"
+                android:thumbTint="#A4FB23" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/switch_auto_wb"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="@string/wb_auto"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/wb_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/wb_default"
+                android:textColor="#DDDDDD" />
+
+            <SeekBar
+                android:id="@+id/seek_wb"
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:max="8000"
+                android:progress="3000"
+                android:progressTint="#A4FB23"
+                android:thumbTint="#A4FB23" />
+
+            <TextView
+                android:id="@+id/aperture_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/aperture_unknown"
+                android:textColor="#888888"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_image_settings"
+                android:layout_width="match_parent"
+                android:layout_height="42dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/image_settings_show"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:id="@+id/image_settings_panel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/saturation_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#DDDDDD" />
+
+                <SeekBar
+                    android:id="@+id/seek_saturation"
+                    android:layout_width="match_parent"
+                    android:layout_height="32dp"
+                    android:max="200"
+                    android:progress="100"
+                    android:progressTint="#A4FB23"
+                    android:thumbTint="#A4FB23" />
+
+                <TextView
+                    android:id="@+id/contrast_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#DDDDDD" />
+
+                <SeekBar
+                    android:id="@+id/seek_contrast"
+                    android:layout_width="match_parent"
+                    android:layout_height="32dp"
+                    android:max="150"
+                    android:progress="50"
+                    android:progressTint="#A4FB23"
+                    android:thumbTint="#A4FB23" />
+
+                <TextView
+                    android:id="@+id/gamma_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#DDDDDD" />
+
+                <SeekBar
+                    android:id="@+id/seek_gamma"
+                    android:layout_width="match_parent"
+                    android:layout_height="32dp"
+                    android:max="150"
+                    android:progress="50"
+                    android:progressTint="#A4FB23"
+                    android:thumbTint="#A4FB23" />
+
+                <Button
+                    android:id="@+id/btn_image_reset"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:text="@string/image_reset"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_stream_settings"
+                android:layout_width="match_parent"
+                android:layout_height="42dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/stream_settings_show"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:id="@+id/stream_settings_panel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/court_code_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/court_code"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:singleLine="true"
+                        android:textColor="#FFFFFF" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/gateway_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/gateway_host"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textUri"
+                        android:singleLine="true"
+                        android:textColor="#FFFFFF" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/platform_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/platform_url"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textUri"
+                        android:singleLine="true"
+                        android:textColor="#FFFFFF" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <Spinner
+                    android:id="@+id/resolution"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_start"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="#A4FB23"
+                android:text="@string/start"
+                android:textColor="#000000"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:paddingVertical="6dp"
+                android:text="@string/status_ready"
+                android:textColor="#AAAAAA"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <Button
+        android:id="@+id/btn_toggle_panel"
+        android:layout_width="42dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center_vertical|end"
+        android:layout_marginEnd="300dp"
+        android:alpha="0.82"
+        android:backgroundTint="#1A241A"
+        android:minWidth="0dp"
+        android:padding="0dp"
+        android:text="›"
+        android:textColor="#A4FB23"
+        android:textSize="28sp"
+        android:textStyle="bold" />
+</FrameLayout>

@@ -1,4 +1,4 @@
-# Padel Camera Agent — Android (plan-4 §129-203, Sprint A)
+# Padel Camera Agent — Android
 
 OnePlus/OPPO → Camera2 → SRT → MediaMTX venue gateway + heartbeat платформе.
 
@@ -18,12 +18,27 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 1. Установить APK на OnePlus
 2. Открыть приложение → разрешить камеру
-3. **Camera Probe покажет найденные линзы** (§166): ультраширик, разрешения, FPS
-4. Заполнить настройки:
+3. Приложение выберет проверенную ультраширокую камеру ID 2.
+4. При необходимости открыть `ПАРАМЕТРЫ ПОТОКА` и заполнить:
    - **Код корта** — короткий код из `/settings → Корты` (кнопка `/c/XXXXXXX`)
    - **Gateway** — IP машины/VPS с MediaMTX (порт 8890)
    - **Платформа** — URL приложения (для heartbeat)
 5. **Старт**
+
+## Экран оператора
+
+- Видоискатель показывает тот же кадр 16:9, который отправляется в SRT.
+- Стрелка справа прячет всю панель и оставляет полноэкранное превью; выбор
+  сохраняется после перезапуска.
+- Сетка третей и электронный горизонт видны только на телефоне и не попадают
+  в трансляцию.
+- Экспозиция, фокус и баланс белого переключаются Auto/Manual независимо.
+- В Manual доступны ISO, выдержка, дистанция фокуса и WB 2000–10000 K.
+- При переходе WB Auto → Manual текущие Camera2 RGGB gains фиксируются как
+  нейтральная точка этой камеры, поэтому цвет не скачет.
+- Диафрагма OnePlus 9 Pro ID 2 фиксированная: f/2.2.
+- Все значения камеры и режим панели сохраняются сразу. На выделенном телефоне
+  Magisk policy запускает Activity и camera foreground service после загрузки.
 
 ## Проверка (на gateway-машине)
 
@@ -41,13 +56,14 @@ curl http://localhost:3000/api/video/sources
 ## Архитектура
 
 ```text
-MainActivity (UI: probe + настройки)
+MainActivity (видоискатель + ручные настройки + горизонт)
     ↓ startForegroundService
 CameraService (foreground, camera type)
     ├── CameraProbe → выбор ультраширика (§166)
-    ├── SrtCamera2 (RootEncoder): Camera2 + SRT стриминг
+    ├── RootEncoder SrtStream: один владелец Camera2, preview + SRT
+    ├── CameraManualController: CaptureRequest/CaptureResult + persistence
     └── HeartbeatClient: POST /api/v1/video/heartbeat каждые 10с
-BootReceiver → автозапуск после reboot (§185)
+Magisk Padel Dedicated Camera Policy → безопасный автозапуск после reboot
 ```
 
 ## §166: главный риск Sprint A

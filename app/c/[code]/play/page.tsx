@@ -13,13 +13,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Loader2, Shuffle, Zap } from "lucide-react"
+import { ArrowLeft, Loader2, Shuffle, Video, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { getPlayers } from "@/lib/player-storage"
 import { createMatch } from "@/lib/match-storage"
+import { useMeProfile } from "@/components/auth/player-auth-panel"
 
 interface CourtInfo {
   id: string
@@ -46,6 +48,18 @@ export default function QuickPlayPage() {
   const [slots, setSlots] = useState<Slot[]>([emptySlot(1), emptySlot(2), emptySlot(3), emptySlot(4)])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const [recordMatch, setRecordMatch] = useState(false)
+  // Залогиненный игрок (plan 2026-09-02 Task 5): первый слот — его профиль,
+  // participant уходит с playerId → запись попадёт в «Мои видео»
+  const { profile } = useMeProfile()
+
+  useEffect(() => {
+    if (profile.player) {
+      setSlots((prev) =>
+        prev.map((s, i) => (i === 0 && !s.value ? { ...s, value: profile.player!.name } : s)),
+      )
+    }
+  }, [profile.player])
 
   useEffect(() => {
     void (async () => {
@@ -94,7 +108,12 @@ export default function QuickPlayPage() {
     setError("")
     try {
       // 1. Court Session (§5): участники — 4 имени с playerId при наличии.
+      //    Залогиненный (Task 5) — первым с гарантированным playerId.
+      const mePlayer = profile.player
       const participants = filled.map((name, i) => {
+        if (i === 0 && mePlayer && name.toLowerCase() === mePlayer.name.toLowerCase()) {
+          return { playerId: mePlayer.id, name: mePlayer.name }
+        }
         const pool = players.find((p) => p.name.toLowerCase() === name.toLowerCase())
         return pool ? { playerId: pool.id, name: pool.name } : { name }
       })
@@ -109,6 +128,17 @@ export default function QuickPlayPage() {
         return
       }
       const sessionId: string = sessionData.session.id
+
+      // QR-gated recording (plan 2026-09-02): игрок попросил видео — включаем
+      // запись сразу (без ожидания, пока откроется /c/{code}/video). Сбой не
+      // блокирует игру: запись можно стартовать и на странице видео.
+      if (recordMatch) {
+        void fetch(`/api/v1/courts/${code}/recording`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ courtSessionId: sessionId }),
+        }).catch(() => {})
+      }
 
       // 2. Матч — та же форма, что создаёт /new-match.
       const numericId = () =>
@@ -224,6 +254,14 @@ export default function QuickPlayPage() {
               />
             </div>
           ))}
+
+          <label className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm">
+            <Checkbox checked={recordMatch} onCheckedChange={(v) => setRecordMatch(v === true)} />
+            <span className="flex items-center gap-1.5">
+              <Video className="h-4 w-4 text-muted-foreground" />
+              Записать матч на видео — VOD и скачивание после игры
+            </span>
+          </label>
 
           <div className="flex items-center justify-between">
             <Button variant="outline" size="sm" onClick={shuffle} disabled={filled.length < 2}>

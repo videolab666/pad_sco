@@ -1,0 +1,28 @@
+# Caddy — HTTPS-фронт для venue gateway (plan 2026-09-02, Task 8).
+#
+# Единственная точка наружу: 443. Terminates TLS (Let's Encrypt), за ним:
+#   /get/*  → playback API (VOD/скачивание, :9996)
+#   /*      → HLS (:8888)
+#
+# Control API (:9997), metrics (:9998), RTSP и SRT наружу НЕ выходят:
+# SRT-приём камер — отдельный UDP-порт 8890 (iptables), управление записью
+# платформа делает изнутри (MEDIAMTX_CONTROL_URL=http://127.0.0.1:9997).
+#
+# Замените video.example.club на свой домен; Caddy сам выпустит сертификат
+# (нужны DNS A-запись → публичный IP VPS и открытые 80/443).
+
+video.example.club {
+	encode off
+
+	# Playback API (VOD полного матча, скачивание) — путь /get?path=...
+	# mediamtx слушает на 127.0.0.1 хоста → из контейнера Caddy через
+	# host.docker.internal (extra_hosts в docker-compose)
+	handle /get* {
+		reverse_proxy host.docker.internal:9996
+	}
+
+	# LL-HLS: плейлисты и сегменты /{streamKey}/...
+	handle {
+		reverse_proxy host.docker.internal:8888
+	}
+}

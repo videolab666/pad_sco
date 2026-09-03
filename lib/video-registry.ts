@@ -8,6 +8,7 @@
 import { createServerSupabaseClient } from "./supabase"
 import { logEvent } from "./error-logger"
 import { isGamePoint, isSetPoint, isMatchPoint } from "./scoring-logic"
+import { disableRecording, enableRecording, listRecordingPaths } from "./mediamtx-client"
 
 // ─── Чистые хелперы ─────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ export function markerDefaults(type: string): { importance: number; preRollMs: n
   }
 }
 
-/** §133: машина состояний сессии записи. */
+/** §133: машина состояний сессии записи (expired — очистка по ретенции). */
 export const RECORDING_STATUSES = [
   "idle",
   "arming",
@@ -63,6 +64,7 @@ export const RECORDING_STATUSES = [
   "finalizing",
   "uploading",
   "ready",
+  "expired",
   "failed",
 ] as const
 export type RecordingStatus = (typeof RECORDING_STATUSES)[number]
@@ -73,7 +75,8 @@ const RECORDING_TRANSITIONS: Record<RecordingStatus, RecordingStatus[]> = {
   recording: ["finalizing", "failed"],
   finalizing: ["uploading", "ready", "failed"],
   uploading: ["ready", "failed"],
-  ready: [],
+  ready: ["expired"],
+  expired: [],
   failed: ["arming"],
 }
 
@@ -81,6 +84,9 @@ export function canTransitionRecording(from: string, to: string): boolean {
   const allowed = RECORDING_TRANSITIONS[from as RecordingStatus]
   return Array.isArray(allowed) && allowed.includes(to as RecordingStatus)
 }
+
+/** Статусы, при которых запись «живая» (guard дублей + сверка с gateway). */
+export const ACTIVE_RECORDING_STATUSES = ["arming", "recording", "finalizing", "uploading"] as const
 
 /** §152: здоровье камеры, которое присылает агент. */
 export const VIDEO_SOURCE_STATUSES = ["offline", "online", "recording"] as const
@@ -224,11 +230,19 @@ function rowToRecording(row: any): RecordingSessionRecord {
   }
 }
 
-/** Старт записи (§134): источник по streamKey или courtId. */
+/**
+ * Старт записи (§134): источник по streamKey или courtId.
+ *
+ * QR-gated recording (plan 2026-09-02): строка создаётся в "arming", затем
+ * платформа включает запись на gateway (runtime path-override в MediaMTX);
+ * "recording" фиксируем только после подтверждения gateway. Без streamKey
+ * (стафф-вызов без источника) — только метаданные, без эффекта на диске.
+ */
 export async function startRecording(input: {
   streamKey?: string
   courtId?: string
   courtSessionId?: string
+  retentionDays?: number
   metadata?: Record<string, unknown>
 }): Promise<RecordingSessionRecord> {
   const supabase = createServerSupabaseClient()
@@ -247,28 +261,83 @@ export async function startRecording(input: {
     sourceId = record.id
     courtId = courtId ?? record.courtId
     storageKey = `./recordings/${input.streamKey}/`
+
+    // Guard дублей: на источнике уже есть живая запись
+    const dup = await supabase
+      .from("recording_sessions")
+      .select("id")
+      .eq("source_id", sourceId)
+      .in("status", [...ACTIVE_RECORDING_STATUSES])
+      .limit(1)
+    if (dup.data && dup.data.length > 0) {
+      throw new VideoValidationError([`На источнике ${input.streamKey} уже идёт запись`])
+    }
   }
 
+  const metadata = {
+    ...(input.metadata ?? {}),
+    streamKey: input.streamKey ?? null,
+    retentionDays: input.retentionDays ?? 7,
+  }
   const { data, error } = await supabase
     .from("recording_sessions")
     .insert({
       club_id: clubId,
       court_id: courtId,
-      court_session_id: input.courtSessionId ?? null,
+      // uuid-колонка строгая: пустая строка ≠ null (ловушка сервер-резолва)
+      court_session_id: input.courtSessionId || null,
       source_id: sourceId,
-      status: "recording",
+      status: "arming",
       storage: "venue-gateway",
       storage_key: storageKey,
-      metadata: input.metadata ?? {},
+      metadata,
+      // started_at — часами ПРИЛОЖЕНИЯ, не DB-default NOW(): иначе при сдвиге
+      // часов БД окно VOD (start + duration) уезжает от фактических сегментов
+      // (поймано в живом e2e: skew 13с → playback 404)
+      started_at: new Date().toISOString(),
     })
     .select("*")
     .single()
   if (error || !data) throw new Error(`startRecording: ${error?.message}`)
 
+  if (!input.streamKey) return rowToRecording(data)
+
+  let gatewayTime: string | null = null
+  try {
+    const effect = await enableRecording(input.streamKey, { retentionDays: input.retentionDays ?? 7 })
+    gatewayTime = effect.gatewayTime
+  } catch (err) {
+    const message = (err as Error).message
+    await supabase
+      .from("recording_sessions")
+      .update({
+        status: "failed",
+        ended_at: new Date().toISOString(),
+        metadata: { ...metadata, gatewayError: message },
+      })
+      .eq("id", data.id)
+    logEvent("warn", `startRecording: gateway не включил ${input.streamKey}: ${message}`, "video-registry")
+    throw new VideoValidationError([`Gateway не включил запись: ${message}`])
+  }
+
+  // mediaStartedAt — часы gateway (заголовок Date ответа): единый домен
+  // времени с именами fMP4-сегментов; окно VOD строится от него (без
+  // поправок на сдвиг часов БД/приложения)
+  const { data: armed, error: armError } = await supabase
+    .from("recording_sessions")
+    .update({
+      status: "recording",
+      ...(gatewayTime ? { metadata: { ...metadata, mediaStartedAt: gatewayTime } } : {}),
+    })
+    .eq("id", data.id)
+    .select("*")
+    .single()
+  if (armError || !armed) throw new Error(`startRecording/arming: ${armError?.message}`)
+
   if (sourceId) {
     await supabase.from("video_sources").update({ status: "recording" }).eq("id", sourceId)
   }
-  return rowToRecording(data)
+  return rowToRecording(armed)
 }
 
 /** Финализация (§133/§135): готово или ошибка; ended_at + статус источника. */
@@ -298,13 +367,141 @@ export async function updateRecording(
   if (Object.keys(row).length === 0) return rowToRecording(current.data)
 
   const { data, error } = await supabase.from("recording_sessions").update(row).eq("id", id).select("*").single()
-  if (error) throw new Error(`updateRecording: ${error?.message}`)
+  if (error || !data) throw new Error(`updateRecording: ${error?.message}`)
   const rec = rowToRecording(data)
+
+  // QR-gate (plan 2026-09-02): уход из "recording" гасит запись на gateway.
+  // Best-effort: сбой не блокирует финализацию — расхождение подлечит
+  // reconcileRecordings(). gatewayTime (часы gateway) уходит в
+  // metadata.mediaEndedAt — как mediaStartedAt при старте.
+  const prevStatus = current.data.status as RecordingStatus
+  if (
+    prevStatus === "recording" &&
+    (rec.status === "finalizing" || rec.status === "ready" || rec.status === "failed")
+  ) {
+    const streamKey = typeof rec.metadata?.streamKey === "string" ? rec.metadata.streamKey : null
+    if (streamKey) {
+      try {
+        const effect = await disableRecording(streamKey)
+        if (effect.gatewayTime) {
+          const { error: metaError } = await supabase
+            .from("recording_sessions")
+            .update({ metadata: { ...rec.metadata, mediaEndedAt: effect.gatewayTime } })
+            .eq("id", id)
+          if (metaError) logEvent("warn", `mediaEndedAt: ${metaError.message}`, "video-registry")
+        }
+      } catch (err) {
+        logEvent(
+          "warn",
+          `updateRecording: gateway не выключил ${streamKey}: ${(err as Error).message}`,
+          "video-registry",
+        )
+      }
+    }
+  }
 
   if ((rec.status === "ready" || rec.status === "failed") && rec.sourceId) {
     await supabase.from("video_sources").update({ status: "online" }).eq("id", rec.sourceId)
   }
   return rec
+}
+
+/**
+ * Остановка записи игроком/системой: recording → finalizing → ready
+ * (§133), идемпотентна для уже завершённых сессий.
+ */
+export async function stopRecording(id: string): Promise<RecordingSessionRecord> {
+  const supabase = createServerSupabaseClient()
+  const { data: current } = await supabase.from("recording_sessions").select("status").eq("id", id).single()
+  if (!current) throw new VideoNotFoundError(id)
+  const status = current.status as RecordingStatus
+
+  if (status === "recording") {
+    await updateRecording(id, { status: "finalizing" })
+    return updateRecording(id, { status: "ready" })
+  }
+  if (status === "finalizing" || status === "uploading") {
+    return updateRecording(id, { status: "ready" })
+  }
+  const { data: row } = await supabase.from("recording_sessions").select("*").eq("id", id).single()
+  if (!row) throw new VideoNotFoundError(id)
+  return rowToRecording(row)
+}
+
+// ─── Сверка БД ↔ gateway (plan 2026-09-02, Task 2) ─────────────────────────
+
+/**
+ * Чистый диф сверки: какие override надо включить (БД говорит «пишем», а
+ * gateway не пишет) и какие выключить (gateway пишет, а активной записи нет).
+ */
+export function computeReconciliation(
+  activeStreamKeys: string[],
+  gatewayRecordingPaths: string[],
+): { toEnable: string[]; toDisable: string[] } {
+  const active = new Set(activeStreamKeys)
+  const gateway = new Set(gatewayRecordingPaths)
+  return {
+    toEnable: [...active].filter((k) => !gateway.has(k)),
+    toDisable: [...gateway].filter((k) => !active.has(k)),
+  }
+}
+
+/**
+ * Лечение расхождений (после падения платформы между start/stop): сверяет
+ * активные recording_sessions с override-путями MediaMTX и приводит gateway
+ * к состоянию БД. Ошибки отдельных путей логируются, не рвут сверку.
+ */
+export async function reconcileRecordings(): Promise<{ enabled: string[]; disabled: string[] }> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from("recording_sessions")
+    .select("metadata")
+    .eq("status", "recording")
+    .limit(200)
+  if (error) throw new Error(`reconcileRecordings: ${error?.message}`)
+
+  const active = (data ?? [])
+    .map((row: Record<string, unknown>) => {
+      const meta = (row.metadata as Record<string, unknown>) ?? {}
+      return {
+        key: typeof meta.streamKey === "string" ? meta.streamKey : null,
+        days: typeof meta.retentionDays === "number" ? meta.retentionDays : 7,
+      }
+    })
+    .filter((entry): entry is { key: string; days: number } => entry.key !== null)
+  const gateway = await listRecordingPaths()
+  const { toEnable, toDisable } = computeReconciliation(
+    active.map((entry) => entry.key),
+    gateway,
+  )
+
+  const enabled: string[] = []
+  const disabled: string[] = []
+  for (const key of toEnable) {
+    const days = active.find((entry) => entry.key === key)?.days ?? 7
+    try {
+      await enableRecording(key, { retentionDays: days })
+      enabled.push(key)
+    } catch (err) {
+      logEvent("warn", `reconcileRecordings: не включил ${key}: ${(err as Error).message}`, "video-registry")
+    }
+  }
+  for (const key of toDisable) {
+    try {
+      await disableRecording(key)
+      disabled.push(key)
+    } catch (err) {
+      logEvent("warn", `reconcileRecordings: не выключил ${key}: ${(err as Error).message}`, "video-registry")
+    }
+  }
+  if (enabled.length + disabled.length > 0) {
+    logEvent(
+      "info",
+      `reconcileRecordings: включено ${enabled.length}, выключено ${disabled.length} (сверка БД ↔ gateway)`,
+      "video-registry",
+    )
+  }
+  return { enabled, disabled }
 }
 
 export async function listRecordings(filter: { active?: boolean; courtId?: string; limit?: number } = {}): Promise<RecordingSessionRecord[]> {
@@ -318,6 +515,76 @@ export async function listRecordings(filter: { active?: boolean; courtId?: strin
   if (filter.courtId) query = query.eq("court_id", filter.courtId)
   const { data, error } = await query
   if (error) throw new Error(`listRecordings: ${error?.message}`)
+  return (data ?? []).map(rowToRecording)
+}
+
+/** Источник по stream_key (для гейтов «камера online» в игроковом API). */
+export async function getSourceByKey(streamKey: string): Promise<VideoSourceRecord | null> {
+  const supabase = createServerSupabaseClient()
+  const { data } = await supabase.from("video_sources").select("*").eq("stream_key", streamKey).limit(1)
+  return data && data.length > 0 ? rowToSource(data[0]) : null
+}
+
+/** Живая запись источника (идемпотентность старта/стопа по QR). */
+export async function getActiveRecordingByStreamKey(streamKey: string): Promise<RecordingSessionRecord | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from("recording_sessions")
+    .select("*")
+    .eq("metadata->>streamKey", streamKey)
+    .in("status", [...ACTIVE_RECORDING_STATUSES])
+    .order("started_at", { ascending: false })
+    .limit(1)
+  if (error) throw new Error(`getActiveRecordingByStreamKey: ${error?.message}`)
+  return data && data.length > 0 ? rowToRecording(data[0]) : null
+}
+
+/**
+ * Остановить все живые записи court-сессии (автостоп по завершении матча,
+ * plan 2026-09-02 Task 3). Best-effort: ошибки отдельных записей логируются.
+ */
+export async function stopRecordingsForSession(courtSessionId: string): Promise<number> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from("recording_sessions")
+    .select("id")
+    .eq("court_session_id", courtSessionId)
+    .in("status", [...ACTIVE_RECORDING_STATUSES])
+  if (error) throw new Error(`stopRecordingsForSession: ${error?.message}`)
+
+  let stopped = 0
+  for (const row of data ?? []) {
+    try {
+      await stopRecording(row.id as string)
+      stopped++
+    } catch (err) {
+      logEvent("warn", `stopRecordingsForSession: ${row.id}: ${(err as Error).message}`, "video-registry")
+    }
+  }
+  return stopped
+}
+
+/** Запись по id (роут скачивания/VOD). */
+export async function getRecording(id: string): Promise<RecordingSessionRecord | null> {
+  const supabase = createServerSupabaseClient()
+  const { data } = await supabase.from("recording_sessions").select("*").eq("id", id).limit(1)
+  return data && data.length > 0 ? rowToRecording(data[0]) : null
+}
+
+/** Готовые записи корта (список «посмотреть/скачать» на QR-странице). */
+export async function listReadyRecordingsByCourt(
+  courtId: string,
+  limit = 5,
+): Promise<RecordingSessionRecord[]> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from("recording_sessions")
+    .select("*")
+    .eq("court_id", courtId)
+    .eq("status", "ready")
+    .order("started_at", { ascending: false })
+    .limit(Math.min(limit, 20))
+  if (error) throw new Error(`listReadyRecordingsByCourt: ${error?.message}`)
   return (data ?? []).map(rowToRecording)
 }
 

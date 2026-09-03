@@ -1,5 +1,9 @@
 # Padel Venue Gateway (Docker) — для VPS или любой машины с Docker.
 # На Windows-машине без Docker используйте нативный mediamtx.exe (README §A).
+#
+# Storage VPS (DeluxHost STORAGE-3 и т.п.): системный диск NVMe маленький,
+# большой — HDD-том. Записи монтируются в /mnt/storage/recordings (HDD),
+# всё остальное живёт на контейнерном слое (NVMe). Cameras → SRT :8890/udp.
 
 services:
   mediamtx:
@@ -7,13 +11,34 @@ services:
     container_name: padel-venue-gateway
     restart: unless-stopped
     ports:
-      - "8554:8554"        # RTSP (приём/чтение)
-      - "8888:8888"        # HLS
-      - "8889:8889"        # WebRTC (TCP)
-      - "8889:8889/udp"    # WebRTC (ICE/UDP)
-      - "8890:8890/udp"    # SRT — приём с камер
-      - "9996:9996"        # Playback (VOD)
-      - "9997:9997"        # API
+      - "127.0.0.1:8554:8554"   # RTSP — только локально (тесты)
+      - "127.0.0.1:8888:8888"   # HLS — наружу идёт через Caddy (443)
+      - "127.0.0.1:8889:8889"   # WebRTC (TCP) — локально; наружу не нужен
+      - "127.0.0.1:9996:9996"   # Playback (VOD) — через Caddy
+      - "127.0.0.1:9997:9997"   # Control API — только платформа (localhost)
+      - "8890:8890/udp"         # SRT — приём с камер (публичный UDP)
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
-      - ./recordings:/mediamtx/recordings   # сегменты записи (§192)
+      # Записи на HDD-томе (plan 2026-09-02: QR-gated, ретенция тарифа).
+      # На машине без отдельного HDD замените на ./recordings
+      - /mnt/storage/padel/recordings:/mediamtx/recordings
+
+  # HTTPS-фронт: единственный публичный TCP-порт кроме SRT (см. Caddyfile).
+  # На dev-машине не нужен — закомментируйте.
+  caddy:
+    image: caddy:2
+    container_name: padel-venue-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Caddy в контейнере → mediamtx на хосте
+
+volumes:
+  caddy_data:
+  caddy_config:

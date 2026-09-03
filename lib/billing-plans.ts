@@ -67,7 +67,9 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     maxCourts: 10,
     maxPlayers: 500,
     features: Object.values(FEATURE_LIST).filter(f => f.plans.includes("club")),
-    limits: { videoRetentionDays: 30, storageGb: 50, apiCallsPerMonth: 50_000 },
+    // Хранилище: матч 1.5ч@8Мбит/с ≈ 5.4ГБ; 10 кортов × ~1.3 записанных
+    // матча/день × 30 дней ≈ 2 ТБ (plan 2026-09-02, пересчёт с реальных цифр)
+    limits: { videoRetentionDays: 30, storageGb: 2000, apiCallsPerMonth: 50_000 },
   },
   pro: {
     tier: "pro",
@@ -77,7 +79,9 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     maxCourts: 50,
     maxPlayers: 5000,
     features: Object.values(FEATURE_LIST).filter(f => f.plans.includes("pro")),
-    limits: { videoRetentionDays: 90, storageGb: 500, apiCallsPerMonth: 500_000 },
+    // 90 дней — только избранный контент (финалы/hyperlights); полные матчи
+    // 30 дней как CLUB: 90d × 50 кортов = ~30 ТБ — неэкономично (§148)
+    limits: { videoRetentionDays: 30, storageGb: 5000, apiCallsPerMonth: 500_000 },
   },
 }
 

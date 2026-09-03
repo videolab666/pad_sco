@@ -352,9 +352,25 @@ export async function updateSessionStatus(id: string, status: string): Promise<C
   const supabase = createServerSupabaseClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row: Record<string, any> = { status }
-  if (finalStatuses().includes(status as SessionStatus)) row.ended_at = new Date().toISOString()
+  const nowFinal = finalStatuses().includes(status as SessionStatus)
+  if (nowFinal) row.ended_at = new Date().toISOString()
   const { data, error } = await supabase.from("court_sessions").update(row).eq("id", id).select("*").single()
   if (error || !data) throw new Error(`updateSessionStatus: ${error?.message}`)
+
+  // Автостоп записей сессии (plan 2026-09-02, Task 3): матч завершён —
+  // гасим запись на gateway. Best-effort: сбой не ломает завершение матча.
+  // Dynamic import — court-session используется шире, чем видео-контур.
+  if (nowFinal) {
+    try {
+      const { stopRecordingsForSession } = await import("./video-registry")
+      const stopped = await stopRecordingsForSession(id)
+      if (stopped > 0) {
+        logEvent("info", `court-session: сессия ${id} завершена, остановлено записей: ${stopped}`, "court-session")
+      }
+    } catch (err) {
+      logEvent("warn", `court-session: автостоп записей ${id}: ${(err as Error).message}`, "court-session")
+    }
+  }
   return rowToSession(data)
 }
 

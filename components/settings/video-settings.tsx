@@ -9,7 +9,7 @@
 //
 // Наш дизайн-язык: #0A0F0A фон, #A4FB23 акцент, Card-based layout.
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import {
   Activity, Calendar as CalendarIcon, Camera, ChevronLeft, ChevronRight,
@@ -19,6 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { CameraRemoteSettings } from "@/components/settings/camera-remote-settings"
 
 // ─── Типы (соответствуют API) ──────────────────────────────────────────────
 
@@ -98,8 +99,11 @@ export function VideoSettings() {
 
   const monthKey = `${calYear}-${String(calMonth).padStart(2, "0")}`
 
+  const hasData = useRef(false)
   const load = useCallback(async () => {
-    setLoading(true)
+    // stale-while-revalidate: мигаем лоадером только на самом первом заходе,
+    // периодический рефреш (15с) не должен прыгать карточками (баг-репорт)
+    setLoading(!hasData.current)
     setError("")
     try {
       const [srcRes, recRes, courtsRes, calRes] = await Promise.all([
@@ -114,6 +118,7 @@ export function VideoSettings() {
       const courtsData = await courtsRes.json()
       const calData = await calRes.json()
       setSources(srcData.sources ?? [])
+      hasData.current = true
       setRecordings(recData.recordings ?? [])
       setCourts(courtsData.courts ?? [])
       setCalendarDays(calData.days ?? {})
@@ -354,6 +359,9 @@ export function VideoSettings() {
           </div>
         )}
       </section>
+
+      {/* ─── УДАЛЁННЫЕ НАСТРОЙКИ КАМЕР (plan 2026-09-02) ────────────── */}
+      <CameraRemoteSettings />
 
       {/* ─── КАЛЕНДАРЬ ЗАПИСЕЙ ───────────────────────────────────────── */}
       <section>

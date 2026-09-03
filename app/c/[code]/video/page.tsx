@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import Hls from "hls.js"
-import { ArrowLeft, Film, Radio, Zap } from "lucide-react"
+import { ArrowLeft, Download, Film, Radio, Square, Zap } from "lucide-react"
 
 interface Marker {
   id: string
@@ -32,6 +32,7 @@ interface Recording {
   endedAt: string | null
   durationSec: number
   vodUrl: string | null
+  downloadUrl?: string | null
   markers: Marker[]
   clips: Clip[]
   reels: { id: string; durationMs: number; fileUrl: string; thumbUrl: string }[]
@@ -39,6 +40,7 @@ interface Recording {
 interface VideoOverview {
   court: { name: string; shortCode: string }
   live: { streamKey: string; status: string; hlsUrl: string } | null
+  planAllowed?: boolean
   recordings: Recording[]
 }
 
@@ -60,6 +62,8 @@ export default function CourtVideoPage() {
   const [data, setData] = useState<VideoOverview | null>(null)
   const [error, setError] = useState("")
   const [liveOk, setLiveOk] = useState<boolean | null>(null)
+  const [recBusy, setRecBusy] = useState(false)
+  const [recError, setRecError] = useState("")
   const liveVideoRef = useRef<HTMLVideoElement>(null)
 
   const load = useCallback(async () => {
@@ -78,6 +82,29 @@ export default function CourtVideoPage() {
     const t = setInterval(() => void load(), 15_000)
     return () => clearInterval(t)
   }, [load])
+
+  // QR-gated recording (plan 2026-09-02): старт/стоп записи матча
+  const isRecording = data?.recordings.some((r) => r.status === "recording") ?? false
+  const toggleRecording = async () => {
+    setRecBusy(true)
+    setRecError("")
+    try {
+      const res = await fetch(`/api/v1/courts/${code}/recording`, {
+        method: isRecording ? "DELETE" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setRecError(body?.message ?? "Не получилось")
+      }
+    } catch {
+      setRecError("Нет связи с сервером")
+    } finally {
+      setRecBusy(false)
+      void load()
+    }
+  }
 
   // LL-HLS через hls.js (Safari играет HLS нативно)
   useEffect(() => {
@@ -136,6 +163,44 @@ export default function CourtVideoPage() {
         </section>
       )}
 
+      {/* Управление записью матча (QR-gate, plan 2026-09-02) */}
+      {data?.planAllowed && data.live && (
+        <section className="mb-6 rounded-xl border border-white/10 bg-[#0d130d] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm text-white/70">
+              {isRecording ? (
+                <>
+                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
+                  Матч пишется — остановится сам в конце игры (или по кнопке).
+                </>
+              ) : (
+                "Записать текущий матч: VOD и скачивание появятся после стопа."
+              )}
+            </div>
+            <button
+              onClick={() => void toggleRecording()}
+              disabled={recBusy}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                isRecording
+                  ? "bg-red-500/15 text-red-300 hover:bg-red-500/25"
+                  : "bg-[#a4fb23]/20 text-[#a4fb23] hover:bg-[#a4fb23]/30"
+              }`}
+            >
+              {isRecording ? (
+                <span className="flex items-center gap-1.5">
+                  <Square className="h-3.5 w-3.5" /> Стоп
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-current" /> Записать матч
+                </span>
+              )}
+            </button>
+          </div>
+          {recError && <div className="mt-2 text-xs text-red-400">{recError}</div>}
+        </section>
+      )}
+
       {/* Записи */}
       {data?.recordings.map((rec) => (
         <section key={rec.id} className="mb-6 rounded-xl border border-white/10 bg-[#0d130d] p-4">
@@ -146,8 +211,17 @@ export default function CourtVideoPage() {
                 {new Date(rec.startedAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
-            <span className="font-mono text-xs text-white/40">
+            <span className="flex items-center gap-3 font-mono text-xs text-white/40">
               {fmt(rec.durationSec * 1000)} · {rec.status}
+              {rec.downloadUrl && (
+                <a
+                  href={rec.downloadUrl}
+                  className="flex items-center gap-1 rounded-md bg-white/5 px-2.5 py-1 font-sans font-semibold text-white/70 transition-colors hover:bg-white/10"
+                  title="Скачать файл — останется у вас навсегда"
+                >
+                  <Download className="h-3.5 w-3.5" /> Скачать
+                </a>
+              )}
             </span>
           </div>
 

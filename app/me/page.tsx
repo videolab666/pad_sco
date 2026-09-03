@@ -11,6 +11,8 @@ import {
   Activity, Award, ChevronRight, Clock, Flame, Heart, Loader2,
   Medal, Percent, Search, Shield, Swords, Trophy, Users,
 } from "lucide-react"
+import { PlayerAuthPanel, useMeProfile } from "@/components/auth/player-auth-panel"
+import { MyRecordings } from "@/components/me/my-recordings"
 
 // ─── Типы ───────────────────────────────────────────────────────────────────
 
@@ -61,6 +63,12 @@ function PlayerDashboardContent() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [error, setError] = useState("")
+  const { profile } = useMeProfile()
+
+  // Залогинен → сразу свой профиль (URL-параметр больше не нужен, Task 4)
+  useEffect(() => {
+    if (profile.player && !playerId) setPlayerId(profile.player.id)
+  }, [profile.player, playerId])
 
   // Загрузка списка игроков (для выбора)
   const loadPlayers = useCallback(async () => {
@@ -102,15 +110,22 @@ function PlayerDashboardContent() {
       p.name.toLowerCase().includes(search.toLowerCase())
     )
     return (
-      <PlayerSelect
-        players={filtered}
-        search={search}
-        setSearch={setSearch}
-        onSelect={(id) => {
-          setPlayerId(id)
-          router.replace(`/me?player_id=${id}`, { scroll: false })
-        }}
-      />
+      <div className="min-h-screen bg-gradient-to-br from-[#0A0F0A] via-[#0D1A0D] to-[#0A0F0A] text-white">
+        <div className="mx-auto max-w-md px-4 py-8">
+          <div className="mb-4">
+            <PlayerAuthPanel />
+          </div>
+          <PlayerSelect
+            players={filtered}
+            search={search}
+            setSearch={setSearch}
+            onSelect={(id) => {
+              setPlayerId(id)
+              router.replace(`/me?player_id=${id}`, { scroll: false })
+            }}
+          />
+        </div>
+      </div>
     )
   }
 
@@ -184,8 +199,16 @@ function PlayerDashboardContent() {
           <div className="mt-6">
             <WinLossBar wins={stats.wins} losses={stats.losses} />
           </div>
+
+          {/* Auth-панель: залогинен → свои записи, гость → вход (plan 2026-09-02) */}
+          <div className="mt-6">
+            <PlayerAuthPanel />
+          </div>
         </div>
       </header>
+
+      {/* ─── МОИ ВИДЕО (plan 2026-09-02, Task 6) ─────────────────────────── */}
+      <MyRecordings visible={!!profile.player} />
 
       {/* ─── STAT CARDS ─────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-2xl px-6">

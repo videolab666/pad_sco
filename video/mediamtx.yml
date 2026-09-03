@@ -41,16 +41,22 @@ playback: true
 playbackAddress: :9996
 
 # ── Запись (§192: сегментированная локальная запись) ─────────────────────
+# QR-gated recording (plan 2026-09-02): на диск пишем ТОЛЬКО по решению
+# платформы — она создаёт runtime-override пути через Control API (:9997)
+# с record: true на точном имени court-{code}-main (exact-match приоритетнее
+# regex ниже). Регекс-путь — только приём/live-HLS, без записи.
 pathDefaults:
-  record: false            # по умолчанию НЕ пишем — только court-* (paths)
+  record: false            # по умолчанию НЕ пишем нигде
   recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S_%f
   recordFormat: fmp4
   recordSegmentDuration: 30s   # короткие сегменты = устойчивость + pre-roll (§193)
-  recordDeleteAfter: 7d        # retention v1 (§148: 7/30/90 — по тарифу)
+  recordDeleteAfter: 7d        # fallback-ретенция override-путей (задаётся платформой)
 
 # ── Пути потоков ──────────────────────────────────────────────────────────
 paths:
   # court-{номер|slug}-{роль}: court-3-main, court-centre-tactical…
+  # Публикация/live-HLS доступны всегда; запись выключена, пока платформа
+  # не включит её runtime-override'ом (lib/mediamtx-client.ts).
   "~^court-":
-    record: true
+    record: false
   all_others: {}

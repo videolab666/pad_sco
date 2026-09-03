@@ -2,9 +2,11 @@
 
 import { describe, expect, it } from "vitest"
 import {
+  ACTIVE_RECORDING_STATUSES,
   MARKER_IMPORTANCE,
   buildStreamKey,
   canTransitionRecording,
+  computeReconciliation,
   isValidHeartbeat,
   markerDefaults,
 } from "../lib/video-registry"
@@ -60,6 +62,7 @@ describe("машина состояний записи (§133)", () => {
     expect(canTransitionRecording("finalizing", "ready")).toBe(true)
     expect(canTransitionRecording("uploading", "ready")).toBe(true)
     expect(canTransitionRecording("failed", "arming")).toBe(true) // повторная попытка
+    expect(canTransitionRecording("ready", "expired")).toBe(true) // ретенция (plan 2026-09-02)
   })
 
   it("недопустимые переходы", () => {
@@ -67,6 +70,7 @@ describe("машина состояний записи (§133)", () => {
     expect(canTransitionRecording("idle", "recording")).toBe(false)
     expect(canTransitionRecording("ready", "recording")).toBe(false) // терминальный
     expect(canTransitionRecording("ready", "arming")).toBe(false)
+    expect(canTransitionRecording("expired", "ready")).toBe(false) // удалённое не воскресает
   })
 })
 
@@ -81,5 +85,37 @@ describe("isValidHeartbeat (§152)", () => {
     expect(isValidHeartbeat({ streamKey: "court-ab-main" }).length).toBeGreaterThan(0)
     expect(isValidHeartbeat({ streamKey: "court-7dkrYGs-video" }).length).toBeGreaterThan(0)
     expect(isValidHeartbeat({ streamKey: "court-7dkrYGs-main", status: "hot" }).length).toBeGreaterThan(0)
+  })
+})
+
+describe("ACTIVE_RECORDING_STATUSES (guard дублей, plan 2026-09-02)", () => {
+  it("живые статусы записи", () => {
+    expect([...ACTIVE_RECORDING_STATUSES]).toEqual(["arming", "recording", "finalizing", "uploading"])
+  })
+})
+
+describe("computeReconciliation (сверка БД ↔ gateway, plan 2026-09-02)", () => {
+  it("всё сходится — пустой диф", () => {
+    expect(computeReconciliation(["court-aaa-main"], ["court-aaa-main"])).toEqual({
+      toEnable: [],
+      toDisable: [],
+    })
+  })
+
+  it("БД пишет, gateway нет → включить", () => {
+    expect(computeReconciliation(["court-aaa-main", "court-bbb-main"], ["court-bbb-main"]).toEnable).toEqual([
+      "court-aaa-main",
+    ])
+  })
+
+  it("gateway пишет, БД нет → выключить (брошенный override)", () => {
+    expect(computeReconciliation(["court-aaa-main"], ["court-aaa-main", "court-ccc-main"]).toDisable).toEqual([
+      "court-ccc-main",
+    ])
+  })
+
+  it("дубликаты входа не дают дублей в дифе", () => {
+    const diff = computeReconciliation(["court-aaa-main", "court-aaa-main"], [])
+    expect(diff.toEnable).toEqual(["court-aaa-main"])
   })
 })

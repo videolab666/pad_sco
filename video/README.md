@@ -100,3 +100,71 @@ OnePlus/OPPO Camera Agent (Sprint A) ──SRT──► MediaMTX (этот gatew
 
 Бизнес-логика (Recording Session, markers, клипы) живёт в платформе и
 подписывается на события матча; gateway — «глупый» транспорт (§128).
+
+## D. QR-gated recording + ретенция (plan 2026-09-02)
+
+Запись на диск стартует **только по решению платформы** (план
+`docs/plans/2026-09-02-qr-gated-recording-retention-downloads.md`):
+камера стримит всегда (live + heartbeat), но MediaMTX пишет только пока
+активна `recording_session`. Платформа включает/выключает запись через
+Control API (`lib/mediamtx-client.ts`, эндпоинты
+`/v3/config/paths/{add|patch|delete|get}/{name}` — проверено на v1.20.0:
+override применяется к активному стриму, pathDefaults наследуются).
+
+Флоу игрока: QR `/c/{code}` → «Быстрая игра» (чекбокс «записать») или
+кнопка на `/c/{code}/video` → `POST /api/v1/courts/{code}/recording`.
+Автостоп — при завершении court-сессии. Скачивание —
+`GET /api/v1/video/recordings/{id}/download` (прокси playback API,
+`Content-Disposition: attachment`).
+
+### Retention-воркер (cron на gateway-машине)
+
+```bash
+# раз в час: expired по ретенции тарифа, watchdog зависших (>3ч),
+# orphan-override'ы в MediaMTX, клипы старше 90д, статистика диска
+node scripts/retention-worker.mjs --once
+# 0 * * * *  cd /opt/padel && node scripts/retention-worker.mjs --once
+```
+
+Файлы сегментов удаляет сам MediaMTX (`recordDeleteAfter` на override =
+ретенции тарифа: Club 30д); воркер метит БД (`ready → expired`) и гасит
+зависшее. Тариф клуба — `clubs.metadata.plan` (миграция
+`20260902000000_add_clubs_metadata.sql`; v1 — руками, `club`/`pro`).
+
+## E. Деплой на Storage VPS (DeluxHost STORAGE-3: 2 vCore / 4 ГБ / 2 ТБ HDD)
+
+Железо: HDD справляется — вход 3 корта = 3 МБ/с последовательной записи,
+fMP4-сегменты по 30 с; VOD-чтение ~1 МБ/с на зрителя. Порядок:
+
+```bash
+# 1) Домен: A-запись video.<club> → публичный IP VPS
+# 2) На VPS (Ubuntu/Debian):
+apt update && apt install -y docker.io docker-compose-plugin caddy || true
+mkdir -p /opt/padel && cd /opt/padel
+#    скопировать video/{mediamtx.yml,docker-compose.yml,Caddyfile} сюда
+#    в Caddyfile заменить video.example.club на свой домен
+
+# 3) HDD-том смонтирован (например, /mnt/storage) → каталог записей:
+mkdir -p /mnt/storage/padel/recordings
+
+# 4) Поднять gateway + Caddy (Let's Encrypt сам):
+docker compose up -d
+
+# 5) Firewall: наружу только 80/443 (TCP) и 8890/udp (SRT с камер);
+#    всё остальное mediamtx слушает на 127.0.0.1 (см. docker-compose)
+ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 8890/udp && ufw enable
+
+# 6) Retention-воркер в cron (машина с доступом к Supabase и 9997):
+#    0 * * * *  cd /opt/padel && node scripts/retention-worker.mjs --once
+```
+
+Env платформы для этого gateway:
+
+```
+GATEWAY_PUBLIC_URL=https://video.<club>     # HLS-ссылки для зрителей
+PLAYBACK_PUBLIC_URL=https://video.<club>    # VOD через Caddy (443)
+MEDIAMTX_CONTROL_URL=http://<vps-internal>:9997   # если платформа не на VPS
+```
+
+Камеры (Camera Agent): `gatewayHost = video.<club>` (или IP VPS), SRT-порт 8890.
+Проверка: `curl https://video.<club>/court-XXX-main/index.m3u8` при живой камере.

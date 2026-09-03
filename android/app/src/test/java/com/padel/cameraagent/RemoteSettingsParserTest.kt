@@ -82,4 +82,20 @@ class RemoteSettingsParserTest {
         assertEquals(ManualCameraSettings.defaults().iso, decoded.iso)
         assertEquals(ExposureMode.AUTO, decoded.exposureMode)
     }
+
+    @Test
+    fun cameraIdInStreamOverrideParses() {
+        val config = RemoteSettingsParser.parse(
+            JSONObject("""{ "version": 11, "stream": { "cameraId": "5" } }"""),
+        )
+        assertEquals("5", config!!.stream?.cameraId)
+
+        val auto = RemoteSettingsParser.parse(
+            JSONObject("""{ "version": 12, "stream": { "cameraId": "auto" } }"""),
+        )
+        assertEquals("auto", auto!!.stream?.cameraId)
+
+        val absent = RemoteSettingsParser.parse(JSONObject("""{ "version": 13, "stream": {} }"""))
+        assertNull(absent!!.stream?.cameraId)
+    }
 }

@@ -41,6 +41,9 @@
     <string name="gateway_hint">Gateway</string>
     <string name="platform_hint">Platform</string>
     <string name="language_label">Language</string>
+    <string name="camera_selector_label">Camera (restart on change)</string>
+    <string name="camera_option_auto">auto — auto-select (ultrawide)</string>
+    <string name="camera_saved_restart_hint">Camera saved — applies on stream start</string>
     <string name="language_system">System</string>
     <string name="language_english">English</string>
     <string name="language_russian">Русский</string>

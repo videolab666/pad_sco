@@ -8,6 +8,7 @@ import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.params.ColorSpaceTransform
 import android.hardware.camera2.params.RggbChannelVector
 import android.os.SystemClock
+import android.util.Log
 import android.util.Range
 import com.pedro.encoder.input.sources.video.Camera2Source
 import java.util.concurrent.atomic.AtomicLong
@@ -29,6 +30,8 @@ data class CameraOperatorState(
     val settings: ManualCameraSettings,
     val capabilities: CameraCapabilitiesSnapshot?,
     val actual: ActualCameraValues,
+    /** Реально открытый id камеры (может отличаться от settings.cameraId). */
+    val cameraId: String? = null,
 )
 
 class CameraManualController(
@@ -102,6 +105,12 @@ class CameraManualController(
         return source.setCustomRequest { builder ->
             builder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
             builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, Range(fps, fps))
+            // Zoom: на логической камере <1 включает ультраширик через сток-пайплайн.
+            // Выставляем всегда (в т.ч. 1f) — HAL требует значение в допустимом диапазоне.
+            capabilities.zoomRatioRange?.let { range ->
+                val zoom = current.zoomRatio.coerceIn(range.start, range.endInclusive)
+                builder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoom)
+            }
             // Анти-бэндинг из настроек (удалённо; дефолт 50Гц — прежнее поведение)
             builder.set(
                 CaptureRequest.CONTROL_AE_ANTIBANDING_MODE,
@@ -180,11 +189,76 @@ class CameraManualController(
                     RggbChannelVector(gains.red, gains.greenEven, gains.greenOdd, gains.blue),
                 )
             }
+
+            applyProcessingProfile(builder, current.processingProfile)
+        }
+    }
+
+    /**
+     * Профили обработки (ру-дифф со стоком 2026-09-03): сток в видео держит
+     * qcamera3.exposure_metering_mode=1 (наш дефолт 0 — матричный замер
+     * выжигает света) и при записи com.oplus.aps.feature.type=3. Vendor-ключи
+     * не входят в публичный API: ставим через reflection конструктора
+     * CaptureRequest.Key; HAL может отвергнуть (IllegalArgumentException) —
+     * тогда молча откатываемся на предыдущий уровень профиля.
+     */
+    private fun applyProcessingProfile(builder: CaptureRequest.Builder, profile: ProcessingProfile) {
+        if (profile == ProcessingProfile.STANDARD) return
+
+        var appliedMetering = false
+        meteringModeKey?.let { key ->
+            try {
+                builder.set(key, METERING_STOCK)
+                appliedMetering = true
+            } catch (error: IllegalArgumentException) {
+                Log.w("CameraManualController", "vendor metering не принят HAL: ${error.message}")
+            }
+        }
+        if (!appliedMetering) return // без metering профили смысла не имеют
+
+        if (profile == ProcessingProfile.OPLUS) {
+            apsFeatureTypeKey?.let { key ->
+                try {
+                    builder.set(key, APS_FEATURE_VIDEO)
+                } catch (error: IllegalArgumentException) {
+                    Log.w("CameraManualController", "Oplus APS-профиль не принят HAL: ${error.message}")
+                }
+            }
         }
     }
 
     companion object {
         private const val RESULT_UPDATE_INTERVAL_MS = 500L
+
+        /** Стоковое значение замера Qualcomm (ру-дамп): 1 = как родная камера. */
+        private const val METERING_STOCK = 1
+
+        /** Oplus APS feature type при записи видео (находка пользователя). */
+        private const val APS_FEATURE_VIDEO = 3
+
+        private const val VENDOR_METERING_KEY = "org.codeaurora.qcamera3.exposure_metering.exposure_metering_mode"
+        private const val VENDOR_APS_KEY = "com.oplus.aps.feature.type"
+
+        /** CaptureRequest.Key(String, Class) скрыт от API — берём reflection'ом. */
+        private val keyConstructor by lazy {
+            try {
+                CaptureRequest.Key::class.java
+                    .getConstructor(String::class.java, Class::class.java)
+                    .apply { isAccessible = true }
+            } catch (error: Exception) {
+                null
+            }
+        }
+
+        private val meteringModeKey: CaptureRequest.Key<Int>? by lazy { vendorIntKey(VENDOR_METERING_KEY) }
+        private val apsFeatureTypeKey: CaptureRequest.Key<Int>? by lazy { vendorIntKey(VENDOR_APS_KEY) }
+
+        private fun vendorIntKey(name: String): CaptureRequest.Key<Int>? = try {
+            @Suppress("UNCHECKED_CAST")
+            keyConstructor?.newInstance(name, Int::class.javaPrimitiveType) as? CaptureRequest.Key<Int>
+        } catch (error: Exception) {
+            null
+        }
 
         fun readCapabilities(characteristics: CameraCharacteristics): CameraCapabilitiesSnapshot {
             val capabilities = characteristics.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
@@ -197,6 +271,8 @@ class CameraManualController(
             val exposureCompensationStep = characteristics.get(
                 CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP,
             )
+            @Suppress("DEPRECATION")
+            val zoomRange = characteristics.get(CameraCharacteristics.CONTROL_ZOOM_RATIO_RANGE)
             return CameraCapabilitiesSnapshot(
                 isoRange = (iso?.lower ?: 100)..(iso?.upper ?: 100),
                 exposureTimeRangeNs = (exposure?.lower ?: 1_000_000L)..(exposure?.upper ?: 1_000_000L),
@@ -214,6 +290,7 @@ class CameraManualController(
                 exposureCompensationRange = (exposureCompensation?.lower ?: 0)..
                     (exposureCompensation?.upper ?: 0),
                 exposureCompensationStepEv = exposureCompensationStep?.toFloat() ?: 0f,
+                zoomRatioRange = zoomRange?.let { it.lower..it.upper },
             )
         }
     }

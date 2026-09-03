@@ -25,6 +25,34 @@ class CameraSettingsCodecTest {
     }
 
     @Test
+    fun cameraIdProfileAndZoomRoundTripAndFallBack() {
+        val expected = ManualCameraSettings(
+            cameraId = "5",
+            processingProfile = ProcessingProfile.OPLUS,
+            zoomRatio = 0.66f,
+            iso = 400,
+            exposureTimeNs = 10_000_000L,
+            autoFocus = true,
+            focusDistanceDiopters = 0f,
+            autoWhiteBalance = true,
+            whiteBalanceKelvin = 5_000,
+        )
+        assertEquals(expected, CameraSettingsCodec.decode(CameraSettingsCodec.encode(expected)))
+
+        // неизвестный профиль / пустой id / битый zoom → дефолты (auto, standard, 1×)
+        val decoded = CameraSettingsCodec.decode(
+            mapOf(
+                CameraSettingsCodec.KEY_CAMERA_ID to "",
+                CameraSettingsCodec.KEY_PROC_PROFILE to "cinema",
+                CameraSettingsCodec.KEY_ZOOM_RATIO to -2f,
+            ),
+        )
+        assertEquals("auto", decoded.cameraId)
+        assertEquals(ProcessingProfile.STANDARD, decoded.processingProfile)
+        assertEquals(1f, decoded.zoomRatio)
+    }
+
+    @Test
     fun missingOrInvalidValuesFallBackToSafeAutomaticDefaults() {
         val decoded = CameraSettingsCodec.decode(
             mapOf(

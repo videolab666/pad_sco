@@ -83,3 +83,22 @@ Magisk Padel Dedicated Camera Policy → безопасный автозапус
 | Material Components | Apache-2.0 | UI |
 
 Все permissive — лицензионный гейт §205 пройден.
+
+## Композитная сборка RootEncoder (image-quality 2026-09-03)
+
+Сборка использует **локальную правленую копию** RootEncoder 2.7.5 из
+`C:/android-build/RootEncoder-2.7.5` (подмена Maven-артефакта в
+`settings.gradle.kts` → `includeBuild`). Копия несёт патчи, без которых
+приложение теряет ключевые фиксы:
+
+| Патч | Файл | Зачем |
+|---|---|---|
+| `COLOR_RANGE_FULL` + BT.709 | `encoder/.../VideoEncoder.java` | VUI под фактический full-range контент GL-цепочки (limited-флаг давил тени/клипал света) |
+| `setCameraId()` до старта | `encoder/.../sources/video/Camera2Source.kt` | целевая камера открывается сразу, optimal-размер буфера считается под неё (фикс «растянутого стрима») |
+| snapshot `oldSps` в `requestKeyframe` | `encoder/.../VideoEncoder.java` | NPE-гонка при рестриме |
+| AGP 8.10.1 / Kotlin 2.2.10 / без `:app` | `settings.gradle.kts`, `gradle/libs.versions.toml`, модули | совместимость с каноническим стеком (Gradle 8.12, JDK 17) |
+
+**Воспроизводимость:** каталог либы вне git — при переносе сборочной машины
+скопировать правленый `RootEncoder-2.7.5` (бэкап: `C:/android-build/`) или
+повторить патчи по таблице выше. Версия-каталог либы: `local.properties`
+(`sdk.dir`) уже в каталоге.

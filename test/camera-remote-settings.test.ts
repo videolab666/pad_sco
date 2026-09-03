@@ -59,6 +59,31 @@ describe("sanitizeStreamPatch", () => {
   it("нечётное/битое разрешение и плохой код отбрасываются", () => {
     expect(sanitizeStreamPatch({ resolution: "1281x720", courtCode: "ок" })).toEqual({})
   })
+
+  it("камера: auto и точный id проходят, мусор отбрасывается", () => {
+    expect(sanitizeStreamPatch({ cameraId: "auto" })).toEqual({ cameraId: "auto" })
+    expect(sanitizeStreamPatch({ cameraId: "5" })).toEqual({ cameraId: "5" })
+    expect(sanitizeStreamPatch({ cameraId: "12" })).toEqual({ cameraId: "12" })
+    expect(sanitizeStreamPatch({ cameraId: "front" })).toEqual({})
+    expect(sanitizeStreamPatch({ cameraId: "abc5" })).toEqual({})
+    expect(sanitizeStreamPatch({ cameraId: 5 })).toEqual({})
+  })
+})
+
+describe("camera_zoom_ratio / camera_proc_profile (image-quality 2026-09-03)", () => {
+  it("zoom проходит в диапазоне и клампится на границах", () => {
+    expect(sanitizeCameraPatch({ camera_zoom_ratio: 0.66 })).toEqual({ camera_zoom_ratio: 0.66 })
+    expect(sanitizeCameraPatch({ camera_zoom_ratio: 2.5 }).camera_zoom_ratio).toBe(2.5)
+    expect(sanitizeCameraPatch({ camera_zoom_ratio: 0.1 }).camera_zoom_ratio).toBe(0.5)
+    expect(sanitizeCameraPatch({ camera_zoom_ratio: 99 }).camera_zoom_ratio).toBe(10)
+  })
+
+  it("профиль обработки: standard/highlight/oplus, мусор отбрасывается", () => {
+    expect(sanitizeCameraPatch({ camera_proc_profile: "oplus" })).toEqual({ camera_proc_profile: "oplus" })
+    expect(sanitizeCameraPatch({ camera_proc_profile: "highlight" }).camera_proc_profile).toBe("highlight")
+    expect(sanitizeCameraPatch({ camera_proc_profile: "cinema" })).toEqual({})
+    expect(sanitizeCameraPatch({ camera_proc_profile: 3 })).toEqual({})
+  })
 })
 
 describe("mergeDesired (частичный PUT)", () => {

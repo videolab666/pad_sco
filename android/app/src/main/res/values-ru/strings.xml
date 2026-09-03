@@ -41,6 +41,9 @@
     <string name="gateway_hint">Gateway</string>
     <string name="platform_hint">Платформа</string>
     <string name="language_label">Язык</string>
+    <string name="camera_selector_label">Камера (смена — рестарт стрима)</string>
+    <string name="camera_option_auto">auto — авто-выбор (ультраширик)</string>
+    <string name="camera_saved_restart_hint">Камера сохранена — применится при старте трансляции</string>
     <string name="language_system">Системный</string>
     <string name="language_english">English</string>
     <string name="language_russian">Русский</string>

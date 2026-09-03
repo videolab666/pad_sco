@@ -13,6 +13,8 @@ export interface DesiredCameraPatch {
 export interface DesiredStreamPatch {
   resolution?: string
   courtCode?: string
+  /** Точный id камеры устройства ("auto" | "0".."N") — смена рестартит стрим. */
+  cameraId?: string
 }
 
 export interface DesiredSettings {
@@ -22,6 +24,10 @@ export interface DesiredSettings {
 
 const EXPOSURE_MODES = new Set(["auto", "manualShutter", "manualIso", "manual"])
 const ANTIBANDING_MODES = new Set(["off", "50hz", "60hz", "auto"])
+const PROC_PROFILES = new Set(["standard", "highlight", "oplus"])
+
+/** id камеры: "auto" или точный id устройства (1–2 цифры). */
+const CAMERA_ID_RE = /^(auto|[0-9]{1,2})$/
 
 /** Whitelist + типы + клампинг camera-ключей (зеркало CameraSettingsCodec). */
 const CAMERA_RULES: Record<string, {
@@ -49,6 +55,8 @@ const CAMERA_RULES: Record<string, {
   camera_gamma: { type: "float", min: 0.5, max: 2 },
   camera_meter_interval_sec: { type: "int", min: 1, max: 60 },
   camera_iso_ramp_ev_per_sec: { type: "float", min: 0.1, max: 2 },
+  camera_zoom_ratio: { type: "float", min: 0.5, max: 10 },
+  camera_proc_profile: { type: "string", allowed: PROC_PROFILES },
 }
 
 const RESOLUTION_RE = /^(\d{3,5})x(\d{3,5})$/
@@ -97,6 +105,9 @@ export function sanitizeStreamPatch(input: unknown): DesiredStreamPatch {
   }
   if (typeof raw.courtCode === "string" && COURT_CODE_RE.test(raw.courtCode)) {
     out.courtCode = raw.courtCode
+  }
+  if (typeof raw.cameraId === "string" && CAMERA_ID_RE.test(raw.cameraId)) {
+    out.cameraId = raw.cameraId
   }
   return out
 }

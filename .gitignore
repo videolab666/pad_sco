@@ -64,3 +64,8 @@ padel_club_platform_plan*.md
 *пароль*.txt
 MAGISK_MODULES_APK_FOR_ONEPLUS/
 video/*.log
+
+# image-quality диагностика 2026-09-03: только скрипты разбора дампов в git,
+# бинарные артефакты (кадры/дампы/скрины) остаются локально
+video/image-tuning/*
+!video/image-tuning/*.mjs

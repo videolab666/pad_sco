@@ -36,7 +36,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!row) return NextResponse.json({ error: "source_not_found" }, { status: 404 })
 
     const device = (row.health as Record<string, unknown>)?.deviceSettings as
-      | { version?: number; localSeq?: number; caps?: Record<string, unknown> }
+      | { version?: number; localSeq?: number; caps?: Record<string, unknown>; cameras?: unknown[] }
       | undefined
 
     return NextResponse.json(
@@ -50,6 +50,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         device: device ?? null,
         sceneFlicker: (row.health as Record<string, unknown>)?.sceneFlicker ?? null,
         caps: device?.caps ?? null,
+        cameras: Array.isArray(device?.cameras) ? device.cameras : [],
+        activeCameraId: (row.health as Record<string, unknown>)?.cameraId ?? null,
         pending: row.settings_version > (device?.version ?? 0),
       },
       { headers: { "Cache-Control": "no-store" } },

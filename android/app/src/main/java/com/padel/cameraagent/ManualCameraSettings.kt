@@ -13,9 +13,16 @@ data class CameraCapabilitiesSnapshot(
     val supportsManualPostProcessing: Boolean,
     val exposureCompensationRange: IntRange = 0..0,
     val exposureCompensationStepEv: Float = 0f,
+    /** null — CONTROL_ZOOM_RATIO не поддерживается (клампим в 1f). */
+    val zoomRatioRange: ClosedFloatingPointRange<Float>? = null,
 ) {
     val isApertureAdjustable: Boolean
         get() = apertures.distinct().size > 1
+
+    fun clampZoom(requested: Float): Float {
+        val range = zoomRatioRange ?: return 1f
+        return requested.coerceIn(range.start, range.endInclusive)
+    }
 }
 
 data class ImageAdjustments(
@@ -32,6 +39,9 @@ data class ImageAdjustments(
         contrast = contrast.coerceIn(0.5f, 2f),
         gamma = gamma.coerceIn(0.5f, 2f),
     )
+
+    /** Все три значения нейтральны → GL-фильтры не нужны (чистый путь). */
+    fun isNeutral() = saturation == 0f && contrast == 1f && gamma == 1f
 }
 
 
@@ -62,6 +72,40 @@ enum class AntibandingMode {
             HZ50 -> "50hz"
             HZ60 -> "60hz"
             AUTO -> "auto"
+        }
+}
+
+/**
+ * Профиль обработки картинки (image-quality plan 2026-09-03, по рут-дампам
+ * стока OnePlus 9 Pro): сток в видео держит qcamera3 exposure_metering_mode=1
+ * и (по находке пользователя при записи) com.oplus.aps.feature.type=3 —
+ * наш дефолт 0/0 даёт пересвет. Профили применяются на живом запросе.
+ */
+enum class ProcessingProfile {
+    /** Дефолт Camera2 TEMPLATE_RECORD — как было. */
+    STANDARD,
+
+    /** Замер экспозиции как в стоке (metering=1) — света не выжигаются. */
+    HIGHLIGHT,
+
+    /** Сток-рецепт целиком: metering=1 + Oplus APS-профиль. Эксперимент:
+     *  vendor-ключи ставятся с проверкой и автооткатом на HIGHLIGHT. */
+    OPLUS;
+
+    companion object {
+        fun fromKey(raw: String?): ProcessingProfile? = when (raw) {
+            "standard" -> STANDARD
+            "highlight" -> HIGHLIGHT
+            "oplus" -> OPLUS
+            else -> null
+        }
+    }
+
+    val key: String
+        get() = when (this) {
+            STANDARD -> "standard"
+            HIGHLIGHT -> "highlight"
+            OPLUS -> "oplus"
         }
 }
 
@@ -101,6 +145,15 @@ enum class ExposureMode {
 }
 
 data class ManualCameraSettings(
+    /** Id камеры для стрима: "auto" (лучший UW) или точный id устройства ("5"…). */
+    val cameraId: String = "auto",
+    /** Профиль обработки картинки (vendor metering / APS). */
+    val processingProfile: ProcessingProfile = ProcessingProfile.STANDARD,
+    /**
+     * Zoom (CONTROL_ZOOM_RATIO). На логической камере 0.66 = ультраширик
+     * (кадр как в стоке), 1.0 = основной сенсор. Применяется на живом запросе.
+     */
+    val zoomRatio: Float = 1f,
     val exposureMode: ExposureMode = ExposureMode.AUTO,
     val exposureCompensationSteps: Int = 0,
     val iso: Int,
@@ -151,6 +204,7 @@ data class ManualCameraSettings(
         val frameDurationNs = 1_000_000_000L / fps.coerceAtLeast(1)
         val maximumStreamingExposure = min(capabilities.exposureTimeRangeNs.last, frameDurationNs)
         return copy(
+            zoomRatio = if (zoomRatio.isFinite()) capabilities.clampZoom(zoomRatio) else 1f,
             exposureCompensationSteps = exposureCompensationSteps.coerceIn(
                 capabilities.exposureCompensationRange,
             ),

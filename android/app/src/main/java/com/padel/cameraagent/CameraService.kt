@@ -23,7 +23,6 @@ import com.pedro.encoder.input.sources.audio.NoAudioSource
 import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.encoder.input.gl.render.filters.ContrastFilterRender
 import com.pedro.encoder.input.gl.render.filters.GammaFilterRender
-import com.pedro.encoder.input.gl.render.filters.SaturationFilterRender
 import com.pedro.encoder.utils.CodecUtil
 import com.pedro.library.srt.SrtStream
 import org.json.JSONObject
@@ -68,6 +67,9 @@ class CameraService : Service(), ConnectChecker {
     private var config: StreamConfig? = null
     private var selectedCameraId: String? = null
     private var lastBitrate = 0L
+    /** Рестрим по удалённому конфигу идёт — новые конфиги игнорируем до конца. */
+    @Volatile
+    private var restarting = false
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
     private var warmupTexture: SurfaceTexture? = null
@@ -82,7 +84,7 @@ class CameraService : Service(), ConnectChecker {
     private var operatorStatus = ""
     private var activityPreviewAttached = false
     private lateinit var healthStore: StreamHealthStore
-    private var saturationFilter: SaturationFilterRender? = null
+    private var saturationFilter: ImageSaturationFilter? = null
     private var contrastFilter: ContrastFilterRender? = null
     private var gammaFilter: GammaFilterRender? = null
 
@@ -102,7 +104,7 @@ class CameraService : Service(), ConnectChecker {
             )
         }
         startForeground(NOTIFICATION_ID, buildNotification(getString(R.string.status_initializing)))
-        if (isRunning) {
+        if (isRunning || restarting) {
             publishOperatorState()
             return START_STICKY
         }
@@ -164,6 +166,11 @@ class CameraService : Service(), ConnectChecker {
             setOnlyVideo(true)
             setLogs(true)
         }
+        // VUI под фактический контент: GL-цепочка отдаёт full-range YUV, флаг
+        // должен совпадать (иначе плееры жмут тени/клипают света). Локальная
+        // либа: COLOR_RANGE_FULL + BT.709 (image-quality 2026-09-03).
+        // Только ДО prepareVideo (Encoder already prepared — иначе IllegalStateException).
+        srt.forceBt709Color(true)
         check(
             srt.prepareVideo(
                 width = config.width,
@@ -185,9 +192,15 @@ class CameraService : Service(), ConnectChecker {
 
         cameraSource = source
         stream = srt
-        selectedCameraId = checkNotNull(CameraProbe(applicationContext).selectBestCamera()) {
+        val startupSettings = CameraSettingsStore(getSharedPreferences(PREFS_NAME, MODE_PRIVATE)).load()
+        val probe = CameraProbe(applicationContext)
+        selectedCameraId = checkNotNull(probe.selectCamera(startupSettings.cameraId)) {
             "Не найдена задняя камера для трансляции"
         }
+        Log.i(TAG, "Камера стрима: id=$selectedCameraId (запрошено ${startupSettings.cameraId})")
+        // Целевая камера — ДО старта: optimal-размер буфера посчитается под неё
+        // (padel patch либы), иначе reOpenCamera унаследует чужой размер → растяжение.
+        source.setCameraId(selectedCameraId)
         manualController = CameraManualController(
             context = applicationContext,
             cameraId = selectedCameraId!!,
@@ -198,9 +211,6 @@ class CameraService : Service(), ConnectChecker {
             publishOperatorState()
         }.also { it.installCaptureCallback(source) }
         warmCameraBeforeSrt(srt, source, selectedCameraId!!, config)
-        check(manualController?.applyTo(source) == true) {
-            "Не удалось применить настройки Camera2"
-        }
         isRunning = true
         operatorStatus = getString(R.string.status_connecting)
         updateHealth("connecting")
@@ -208,6 +218,21 @@ class CameraService : Service(), ConnectChecker {
         Log.i(TAG, "SRT start endpoint=${config.srtEndpoint} camera=$selectedCameraId")
         srt.startStream(config.srtEndpoint)
         releaseWarmupPreview(srt)
+        // stopPreview() пересоздаёт capture-request из TEMPLATE_RECORD — кастомные
+        // ключи (zoom/экспозиция/анти-бэндинг) применяем ПОСЛЕ него, поверх живого
+        // запроса. Логическая камера конфигурирует сессию дольше физической — ретраи.
+        var applied = false
+        var applyAttempts = 0
+        while (!applied && applyAttempts < 15) {
+            applied = manualController?.applyTo(source) == true
+            if (!applied) {
+                applyAttempts++
+                Thread.sleep(200)
+            }
+        }
+        check(applied) {
+            "Не удалось применить настройки Camera2"
+        }
         updateHealth("connecting")
         publishOperatorState()
     }
@@ -245,8 +270,16 @@ class CameraService : Service(), ConnectChecker {
         }
     }
 
+    /** Локальная смена стрим-конфига (камера/разрешение) из UI: рестрим. */
+    fun requestStreamRestart() {
+        if (!isRunning || restarting) return
+        Log.i(TAG, "Локальный рестрим по запросу UI")
+        restartWithCurrentPrefs()
+    }
+
     fun updateManualSettings(requested: ManualCameraSettings): ManualCameraSettings {
         val controller = manualController
+        val before = controller?.settings?.imageAdjustments?.clamped()
         val applied = if (controller != null) {
             controller.update(cameraSource, requested)
         } else {
@@ -255,6 +288,11 @@ class CameraService : Service(), ConnectChecker {
             }
         }
         applyImageAdjustments(applied.imageAdjustments)
+        // Состав GL-цепочки фиксируется на старте стрима: переход
+        // нейтраль↔правки требует рестрима, иначе правка не применилась бы.
+        if (before != null && before.isNeutral() != applied.imageAdjustments.clamped().isNeutral()) {
+            requestStreamRestart()
+        }
         publishOperatorState()
         return applied
     }
@@ -286,11 +324,33 @@ class CameraService : Service(), ConnectChecker {
                         put("evMin", it.exposureCompensationRange.first)
                         put("evMax", it.exposureCompensationRange.last)
                         put("evStepEv", it.exposureCompensationStepEv)
+                        put("zoomMin", it.zoomRatioRange?.start ?: 1f)
+                        put("zoomMax", it.zoomRatioRange?.endInclusive ?: 1f)
                         put("manualSensor", it.supportsManualSensor)
                         put("manualPostProcessing", it.supportsManualPostProcessing)
                     },
                 )
             }
+            // Каталог камер устройства: панель на сайте строит выбор объектива
+            // по фактическому списку (id + фокусное + физические подкамеры).
+            put(
+                "cameras",
+                org.json.JSONArray().apply {
+                    CameraProbe(applicationContext).probe().forEach { info ->
+                        put(
+                            org.json.JSONObject().apply {
+                                put("id", info.cameraId)
+                                put("facing", info.facing)
+                                put("focal35mm", info.focal35mm ?: JSONObject.NULL)
+                                put("logical", info.isLogical)
+                                if (info.physicalIds.isNotEmpty()) put("physicalIds", org.json.JSONArray(info.physicalIds))
+                                put("pixelArray", info.pixelArray)
+                                put("aperture", info.aperture ?: JSONObject.NULL)
+                            },
+                        )
+                    }
+                },
+            )
         }
     }
 
@@ -314,6 +374,35 @@ class CameraService : Service(), ConnectChecker {
         prefs.edit().putLong(KEY_SETTINGS_VERSION, config.version).apply()
 
         var streamRestartNeeded = false
+
+        // Сначала camera-ветка: decode-дефолты для отсутствующих ключей не
+        // должны сбрасывать стрим-уровневые настройки — camera_id берём из
+        // prefs, если карта его не принесла (PUT с camera-секцией без id).
+        config.cameraValues?.let { values ->
+            val decoded = if (values.containsKey(CameraSettingsCodec.KEY_CAMERA_ID)) {
+                CameraSettingsCodec.decode(values)
+            } else {
+                CameraSettingsCodec.decode(values).copy(
+                    cameraId = prefs.getString(CameraSettingsCodec.KEY_CAMERA_ID, "auto") ?: "auto",
+                )
+            }
+            val controller = manualController
+            val before = controller?.settings?.imageAdjustments?.clamped()
+            if (controller != null) {
+                controller.update(cameraSource, decoded, fromRemote = true)
+                applyImageAdjustments(controller.settings.imageAdjustments)
+            } else {
+                CameraSettingsStore(prefs).save(decoded, local = false)
+            }
+            publishOperatorState()
+            // Состав GL-цепочки фиксируется на старте стрима — как и локально,
+            // переход нейтраль↔правки требует рестрима.
+            val after = controller?.settings?.imageAdjustments?.clamped()
+            if (before != null && after != null && before.isNeutral() != after.isNeutral()) {
+                streamRestartNeeded = true
+            }
+        }
+
         config.stream?.let { stream ->
             val prefsEditor = prefs.edit()
             stream.resolution?.let { resolution ->
@@ -328,27 +417,85 @@ class CameraService : Service(), ConnectChecker {
                     streamRestartNeeded = true
                 }
             }
+            stream.cameraId?.let { cameraId ->
+                if (cameraId != prefs.getString(CameraSettingsCodec.KEY_CAMERA_ID, "auto")) {
+                    prefsEditor.putString(CameraSettingsCodec.KEY_CAMERA_ID, cameraId)
+                    streamRestartNeeded = true
+                }
+            }
             prefsEditor.apply()
         }
 
-        config.cameraValues?.let { values ->
-            val decoded = CameraSettingsCodec.decode(values)
-            val controller = manualController
-            if (controller != null) {
-                controller.update(cameraSource, decoded, fromRemote = true)
-                applyImageAdjustments(controller.settings.imageAdjustments)
-            } else {
-                CameraSettingsStore(prefs).save(decoded, local = false)
-            }
-            publishOperatorState()
-        }
-
         updateNotification(getString(R.string.status_remote_applied, config.version))
-        if (streamRestartNeeded) {
-            Log.i(TAG, "Remote settings: стрим-конфиг изменился — перезапуск сервиса")
-            // Конфиг уже в prefs: сервис перечитает его в onStartCommand
-            stopSelf()
-            startForegroundService(android.content.Intent(this, CameraService::class.java))
+        if (streamRestartNeeded && !restarting) {
+            Log.i(TAG, "Remote settings: стрим-конфиг изменился — рестрим внутри сервиса")
+            restartWithCurrentPrefs()
+        }
+    }
+
+    /**
+     * Рестрим по изменившемуся prefs-конфигу (объектив/разрешение/корт) —
+     * ВНУТРИ живого сервиса. Пересоздание сервиса из фонового состояния
+     * запрещено Android 14+ (FGS type camera SecurityException, дамп
+     * 2026-09-03), а живой camera-FGS переоткрывает камеру легально.
+     */
+    private fun restartWithCurrentPrefs() {
+        restarting = true
+        // Main thread обязателен: openCamera без явного Handler требует Looper
+        // (ру-лог 2026-09-03: «No handler given, and current thread has no looper»).
+        mainHandler.post {
+            try {
+                releaseStreamResources()
+            } catch (error: Exception) {
+                Log.w(TAG, "рестрим release: ${error.message}")
+            }
+            isRunning = false
+            operatorStatus = getString(R.string.status_initializing)
+            publishOperatorState()
+
+            val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            val nextConfig = try {
+                StreamConfig.create(
+                    courtCode = prefs.getString(KEY_COURT_CODE, BuildConfig.DEFAULT_COURT) ?: BuildConfig.DEFAULT_COURT,
+                    gatewayHost = prefs.getString(KEY_GATEWAY, BuildConfig.DEFAULT_GATEWAY) ?: BuildConfig.DEFAULT_GATEWAY,
+                    platformUrl = prefs.getString(KEY_PLATFORM, BuildConfig.DEFAULT_PLATFORM) ?: BuildConfig.DEFAULT_PLATFORM,
+                    resolution = prefs.getString(KEY_RESOLUTION, "1920x1080") ?: "1920x1080",
+                    srtPort = BuildConfig.DEFAULT_SRT_PORT,
+                )
+            } catch (error: IllegalArgumentException) {
+                Log.e(TAG, "Рестрим: некорректная конфигурация: ${error.message}")
+                updateNotification(getString(R.string.status_settings_error, error.message ?: "—"))
+                restarting = false
+                stopSelf()
+                return@post
+            }
+            config = nextConfig
+
+            // Корт в конфиге мог смениться — heartbeat обязан бить новым stream_key.
+            heartbeat?.stop()
+            heartbeat = HeartbeatClient(
+                platformUrl = nextConfig.platformUrl,
+                streamKey = nextConfig.streamKey,
+                deviceSettings = ::buildDeviceSettingsSnapshot,
+                onServerPayload = ::applyRemoteConfig,
+            ).also {
+                it.setStatus("online")
+                it.updateHealth { put("connection", "restarting") }
+                it.start()
+            }
+
+            try {
+                startSrtStream(nextConfig)
+                restarting = false
+            } catch (error: Exception) {
+                Log.e(TAG, "Рестрим SRT не удался", error)
+                operatorStatus = getString(R.string.status_camera_error, error.message ?: "—")
+                updateHealth("failed", error.message)
+                updateNotification(getString(R.string.status_camera_error, error.message ?: "—"))
+                publishOperatorState()
+                restarting = false
+                stopSelf()
+            }
         }
     }
 
@@ -359,6 +506,7 @@ class CameraService : Service(), ConnectChecker {
             ?: CameraSettingsStore(getSharedPreferences(PREFS_NAME, MODE_PRIVATE)).load(),
         capabilities = manualController?.capabilities,
         actual = actualCameraValues,
+        cameraId = cameraSource?.getCurrentCameraId() ?: selectedCameraId,
     )
 
     private fun publishOperatorState() {
@@ -502,24 +650,48 @@ class CameraService : Service(), ConnectChecker {
         }
     }
 
+    /**
+     * GL-фильтры картинки — ТОЛЬКО при не-нейтральных значениях.
+     *
+     * Критично (image-quality 2026-09-03): SaturationFilterRender RootEncoder'а
+     * со значением <= 0 (наш нейтральный дефолт 0!) держит exponents нулевым,
+     * а его шейдер ДОБАВЛЯЕТ к выводу второй член pow(x,0)=1/max(...)≈+лума —
+     * изображение сильно пересвечивается. Без фильтров стрим идёт чистым
+     * путём камера→кодер (эталонное изображение). Переход нейтраль↔правки
+     * требует рестрима (restartWithCurrentPrefs).
+     */
+    /**
+     * GL-фильтры картинки. Нейтральные значения → чистый путь (ни одного
+     * GL-прохода). Как только любая правка не нейтральна — ставим ВСЕ ТРИ:
+     * все безопасны (насыщенность — своя mix(luma,color,k); контраст/гамма —
+     * честные формулы), и тогда последующие правки любых параметров
+     * применяются на живом запросе без рестрима. Рестрим нужен только
+     * на переходе нейтраль↔правки.
+     */
     private fun installImageFilters(srt: SrtStream, settings: ManualCameraSettings) {
-        saturationFilter = SaturationFilterRender().also(srt.getGlInterface()::addFilter)
+        val adj = settings.imageAdjustments.clamped()
+        if (adj.isNeutral()) {
+            Log.i(TAG, "Коррекции картинки нейтральны — GL-фильтры не ставлю (чистый путь)")
+            return
+        }
+        saturationFilter = ImageSaturationFilter().also(srt.getGlInterface()::addFilter)
         contrastFilter = ContrastFilterRender().also(srt.getGlInterface()::addFilter)
         gammaFilter = GammaFilterRender().also(srt.getGlInterface()::addFilter)
-        applyImageAdjustments(settings.imageAdjustments)
+        Log.i(TAG, "GL-фильтры: saturation=${adj.saturation}, contrast=${adj.contrast}, gamma=${adj.gamma}")
+        applyImageAdjustments(adj)
     }
 
     private fun applyImageAdjustments(requested: ImageAdjustments) {
         val values = requested.clamped()
-        saturationFilter?.setSaturation(values.saturation)
+        // Наш слайдер -1..1 → множитель 0..2 (1 = нейтрально)
+        saturationFilter?.setSaturation(1f + values.saturation)
         contrastFilter?.setContrast(values.contrast)
         gammaFilter?.setGamma(values.gamma)
     }
 
-    override fun onDestroy() {
-        destroying = true
+    /** Teardown стрима/камеры без остановки сервиса (рестрим) или вместе с ним. */
+    private fun releaseStreamResources() {
         isRunning = false
-        operatorStatus = getString(R.string.status_stopped)
         activityPreviewAttached = false
         cameraSource?.setCustomOnCaptureCompletedCallback(null)
         try {
@@ -538,6 +710,12 @@ class CameraService : Service(), ConnectChecker {
         warmupSurface = null
         warmupTexture?.release()
         warmupTexture = null
+    }
+
+    override fun onDestroy() {
+        destroying = true
+        operatorStatus = getString(R.string.status_stopped)
+        releaseStreamResources()
         heartbeat?.stop()
         heartbeat = null
         if (wifiLock?.isHeld == true) wifiLock?.release()

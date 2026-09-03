@@ -23,8 +23,14 @@ object CameraSettingsCodec {
     const val KEY_GAMMA = "camera_gamma"
     const val KEY_METER_INTERVAL_SEC = "camera_meter_interval_sec"
     const val KEY_ISO_RAMP_EV_PER_SEC = "camera_iso_ramp_ev_per_sec"
+    const val KEY_CAMERA_ID = "camera_id"
+    const val KEY_PROC_PROFILE = "camera_proc_profile"
+    const val KEY_ZOOM_RATIO = "camera_zoom_ratio"
 
     fun encode(settings: ManualCameraSettings): Map<String, Any> = mapOf(
+        KEY_CAMERA_ID to settings.cameraId,
+        KEY_PROC_PROFILE to settings.processingProfile.key,
+        KEY_ZOOM_RATIO to settings.zoomRatio,
         KEY_EXPOSURE_MODE to settings.exposureMode.key,
         KEY_ANTIBANDING to settings.antibanding.key,
         KEY_EXPOSURE_COMPENSATION to settings.exposureCompensationSteps,
@@ -49,6 +55,10 @@ object CameraSettingsCodec {
     fun decode(values: Map<String, Any?>): ManualCameraSettings {
         val defaults = ManualCameraSettings.defaults()
         return ManualCameraSettings(
+            cameraId = (values[KEY_CAMERA_ID] as? String)?.takeIf { it.isNotBlank() } ?: defaults.cameraId,
+            processingProfile = (values[KEY_PROC_PROFILE] as? String)
+                ?.let(ProcessingProfile::fromKey) ?: defaults.processingProfile,
+            zoomRatio = values.finiteFloat(KEY_ZOOM_RATIO)?.takeIf { it > 0f } ?: defaults.zoomRatio,
             exposureMode = decodeExposureMode(values),
             antibanding = (values[KEY_ANTIBANDING] as? String)?.let(AntibandingMode::fromKey) ?: defaults.antibanding,
             exposureCompensationSteps = (values[KEY_EXPOSURE_COMPENSATION] as? Number)?.toInt()

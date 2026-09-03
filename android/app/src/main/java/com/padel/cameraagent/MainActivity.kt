@@ -40,6 +40,9 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+/** Пункт спиннера выбора камеры: id + человекочитаемая подпись. */
+data class CameraOption(val id: String, val label: String)
+
 class MainActivity : AppCompatActivity(), CameraService.Listener, SensorEventListener {
     companion object {
         private const val PERMISSION_REQUEST = 100
@@ -58,6 +61,7 @@ class MainActivity : AppCompatActivity(), CameraService.Listener, SensorEventLis
     private lateinit var gatewayInput: EditText
     private lateinit var platformInput: EditText
     private lateinit var resolutionInput: Spinner
+    private lateinit var cameraSelector: Spinner
     private lateinit var languageInput: Spinner
     private lateinit var startButton: Button
     private lateinit var statusText: TextView
@@ -222,6 +226,7 @@ class MainActivity : AppCompatActivity(), CameraService.Listener, SensorEventLis
         gatewayInput = findViewById(R.id.gateway_host)
         platformInput = findViewById(R.id.platform_url)
         resolutionInput = findViewById(R.id.resolution)
+        cameraSelector = findViewById(R.id.camera_selector)
         languageInput = findViewById(R.id.language)
         startButton = findViewById(R.id.btn_start)
         statusText = findViewById(R.id.status)
@@ -263,6 +268,42 @@ class MainActivity : AppCompatActivity(), CameraService.Listener, SensorEventLis
         resolutionInput.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, resolutions)
         val selectedResolution = prefs.getString(CameraService.KEY_RESOLUTION, resolutions.first())
         resolutionInput.setSelection(resolutions.indexOf(selectedResolution).coerceAtLeast(0))
+
+        // Каталог камер устройства: id + тип + фокусное (image-quality 2026-09-03).
+        // Выбор пишет prefs camera_id; если сервис работает — рестрим вживую.
+        val cameraOptions = listOf(CameraOption("auto", getString(R.string.camera_option_auto))) +
+            CameraProbe(this).probe().map { CameraOption(it.cameraId, it.label) }
+        cameraSelector.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            cameraOptions.map { it.label },
+        )
+        val selectedCamera = prefs.getString(CameraSettingsCodec.KEY_CAMERA_ID, "auto") ?: "auto"
+        cameraSelector.setSelection(
+            cameraOptions.indexOfFirst { it.id == selectedCamera }.takeIf { it >= 0 } ?: 0,
+        )
+        cameraSelector.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            private var initial = true
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (initial) {
+                    initial = false
+                    return
+                }
+                val option = cameraOptions.getOrNull(position) ?: return
+                if (option.id == prefs.getString(CameraSettingsCodec.KEY_CAMERA_ID, "auto")) return
+                prefs.edit().putString(CameraSettingsCodec.KEY_CAMERA_ID, option.id).apply()
+                // Локальная правка: seq++ (сервер adopt'ит camera_id как desired)
+                currentSettings = currentSettings.copy(cameraId = option.id)
+                settingsStore.save(currentSettings, local = true)
+                val service = cameraService
+                if (service != null) {
+                    service.requestStreamRestart()
+                } else {
+                    Toast.makeText(this@MainActivity, R.string.camera_saved_restart_hint, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
         val languages = listOf(
             getString(R.string.language_system),
             getString(R.string.language_english),
@@ -421,7 +462,9 @@ class MainActivity : AppCompatActivity(), CameraService.Listener, SensorEventLis
         currentSettings = state.settings
         currentCapabilities = state.capabilities ?: currentCapabilities
         renderRequestedSettings(currentSettings, currentCapabilities)
-        statusText.text = state.streamStatus
+        statusText.text = state.cameraId?.let { id ->
+            "${state.streamStatus} · камера $id"
+        } ?: state.streamStatus
         liveBadge.text = state.streamStatus.uppercase(Locale.ROOT)
         startButton.setText(if (state.serviceRunning) R.string.stop else R.string.start)
         previewPlaceholder.visibility = if (state.serviceRunning) View.GONE else View.VISIBLE
@@ -588,7 +631,10 @@ class MainActivity : AppCompatActivity(), CameraService.Listener, SensorEventLis
     }
 
     private fun runProbe() {
-        val cameraId = CameraProbe(this).selectBestCamera() ?: return
+        // Характеристики берём от камеры, которую РЕАЛЬНО выберет сервис
+        // (settings.cameraId), а не от «лучшего UW» — иначе панель врёт
+        // (баг: показывали id 2, пока стрим шёл с id 5).
+        val cameraId = CameraProbe(this).selectCamera(currentSettings.cameraId) ?: return
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
         currentCapabilities = CameraManualController.readCapabilities(manager.getCameraCharacteristics(cameraId))
         currentSettings = currentSettings.clampedTo(currentCapabilities!!, fps = 30)

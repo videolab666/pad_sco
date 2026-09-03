@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
         version: Number(deviceSettings.version ?? 0),
         localSeq: Number(deviceSettings.localSeq ?? 0),
         caps: (deviceSettings.caps as Record<string, unknown>) ?? undefined,
+        // Каталог камер устройства (image-quality 2026-09-03): панель строит
+        // выбор объектива по фактическому списку (id/фокусное/physical ids).
+        cameras: Array.isArray(deviceSettings.cameras) ? deviceSettings.cameras : undefined,
       }
     }
 

@@ -17,6 +17,8 @@ import org.json.JSONObject
 data class RemoteStreamOverride(
     val resolution: String?,
     val courtCode: String?,
+    /** Точный id камеры ("auto" | "0".."N"): null — не менять. */
+    val cameraId: String?,
 )
 
 data class RemoteConfig(
@@ -38,6 +40,7 @@ object RemoteSettingsParser {
                 RemoteStreamOverride(
                     resolution = stream.optStringOrNull("resolution")?.takeIf { it.isNotBlank() },
                     courtCode = stream.optStringOrNull("courtCode")?.takeIf { it.isNotBlank() },
+                    cameraId = stream.optStringOrNull("cameraId")?.takeIf { it.isNotBlank() },
                 )
             },
         )

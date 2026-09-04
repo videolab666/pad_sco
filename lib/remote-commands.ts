@@ -70,6 +70,7 @@ export const REMOTE_COMMANDS = [
   "set-set-scores",
   "reopen-set",
   "end-match",
+  "finish",
   "unlock-match",
   "set-players",
   "set-rules",
@@ -229,6 +230,20 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
         throw new RemoteCommandError("not_completed", "The match is not completed — nothing to unlock")
       }
       return unlockMatchForPlay(match)
+    }
+
+    // Фикс 2026-09-04 («Завершить» не сохранялся на сервере): обычное
+    // завершение без причины/победителя — раньше UI писал снапшот напрямую
+    // из браузера, но RLS (Шаг 3) закрыл anon-UPDATE на matches. Теперь
+    // завершение — команда конвейера: сервер пишет сам (service-ключ).
+    case "finish": {
+      if (match.isCompleted) {
+        throw new RemoteCommandError("match_completed", "The match is already completed")
+      }
+      const next = JSON.parse(JSON.stringify(match))
+      next.isCompleted = true
+      next.winner = args?.winner === undefined ? null : assertTeam(args?.winner, "args.winner")
+      return next
     }
 
     case "set-players": {

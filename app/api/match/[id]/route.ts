@@ -4,8 +4,8 @@ import { logEvent } from "@/lib/error-logger"
 import { buildCourtVmixPayload } from "@/lib/match-view"
 import { parseScoreboardSettings } from "@/lib/scoreboard-settings"
 import { createServerSupabaseClient } from "@/lib/supabase"
-import { matchToRow } from "@/lib/match-supabase"
-import { isAuthorizedApiRequest } from "@/lib/api-auth"
+import { matchToRow, matchFromRow } from "@/lib/match-supabase"
+import { isAuthorizedMatchCommandRequest } from "@/lib/api-auth"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -85,9 +85,12 @@ const toMatchRow = (match: any): Record<string, any> => matchToRow(match)
  */
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Whole-snapshot writes mutate matches — require the API key (this route
-    // used to be a public write hole; nothing in the app calls it).
-    if (!isAuthorizedApiRequest(request)) {
+    // Whole-snapshot writes mutate matches. Шаг 3: прямой anon-UPDATE на
+    // matches закрыт RLS, поэтому снапшот-пуши sync-engine (drainMatch) идут
+    // сюда — этот роут пишет service-ключом. Auth как у командного
+    // конвейера: браузер того же сайта (Origin) или X-API-Key (машины) —
+    // уровень доверия идентичен POST /api/match/[id]/command (§99).
+    if (!isAuthorizedMatchCommandRequest(request)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -119,7 +122,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (!existing.error && existing.data) {
       const current = await supabase.from("matches").select("*").eq("id", matchId).maybeSingle()
       return NextResponse.json(
-        { status: "ok", idempotent: true, revision: existing.data.result_revision, match: current.data ?? null },
+        // camelCase-снапшот: ответ уходит в sync-engine/UI, а не в PostgREST.
+        { status: "ok", idempotent: true, revision: existing.data.result_revision, match: current.data ? matchFromRow(current.data) : null },
         { status: 200 },
       )
     }
@@ -150,7 +154,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         kind: operation.kind || "snapshot",
         client_id: operation.clientId || null,
       })
-      return NextResponse.json({ status: "ok", revision: resultRevision, match: updated.data[0] }, { status: 200 })
+      return NextResponse.json({ status: "ok", revision: resultRevision, match: matchFromRow(updated.data[0]) }, { status: 200 })
     }
 
     // 0 rows updated — inspect the current row to classify the outcome.
@@ -176,14 +180,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         client_id: operation.clientId || null,
       })
       return NextResponse.json(
-        { status: "ok", revision: resultRevision, match: adopt.data?.[0] ?? current.data },
+        { status: "ok", revision: resultRevision, match: adopt.data?.[0] ? matchFromRow(adopt.data[0]) : current.data ? matchFromRow(current.data) : null },
         { status: 200 },
       )
     }
 
     // Genuine conflict — return the authoritative snapshot, never overwrite it.
     return NextResponse.json(
-      { status: "conflict", reason: `server_ahead (server=${serverRevision})`, revision: serverRevision, match: current.data },
+      { status: "conflict", reason: `server_ahead (server=${serverRevision})`, revision: serverRevision, match: matchFromRow(current.data) },
       { status: 409 },
     )
   } catch (error) {

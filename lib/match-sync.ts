@@ -43,16 +43,22 @@ const retryTimers = new Map<string, ReturnType<typeof setTimeout>>()
 // ─── Test seam ─────────────────────────────────────────────────────────────────
 // These indirections let the integration test inject a fake Supabase backend.
 // They are inert in production (default to the real implementations).
+// Инжект createClient переключает drain и на ЛЕГАСИ-транспорт (прямой
+// supabase-клиент): регрессионные сценарии эмулируют PostgREST, а не HTTP.
 let _createClient: typeof createClientSupabaseClient = createClientSupabaseClient
 let _isAvailable: () => Promise<boolean> = isSupabaseAvailable
 let _checkTables: () => Promise<any> = checkTablesExist
+let _useClientTransport = false
 
 export function __setSyncTestHooks(hooks: {
   createClient?: typeof createClientSupabaseClient
   isAvailable?: () => Promise<boolean>
   checkTables?: () => Promise<any>
 }): void {
-  if (hooks.createClient) _createClient = hooks.createClient
+  if (hooks.createClient) {
+    _createClient = hooks.createClient
+    _useClientTransport = true
+  }
   if (hooks.isAvailable) _isAvailable = hooks.isAvailable
   if (hooks.checkTables) _checkTables = hooks.checkTables
 }
@@ -108,6 +114,37 @@ export function subscribeSyncState(matchId: string, cb: (state: SyncState) => vo
 /** Current observable sync state for a match. */
 export function getMatchSyncState(matchId: string): SyncState {
   return toSyncState(loadSyncRecord(matchId))
+}
+
+/**
+ * Фикс замороженных «Завершить» (баг-репорт 2026-09-04): команды очков
+ * поднимают revision на сервере, но sync-запись об этом не знала — каждый
+ * следующий снапшот («Завершить») шёл со старым baseRevision, получал
+ * 0 строк → конфликт server_ahead → drain заблокирован навсегда.
+ *
+ * Вызывается при успешном ACK команды (или 409-конфликте с серверным
+ * снапшотом): подтягивает baseline-ревизию и снимает конфликт — серверная
+ * правда уже включает команду, поверх неё следующий снапшот ляжет чисто.
+ */
+export function noteCommandApplied(matchId: string, revision: number | null | undefined, serverMatch?: any): void {
+  if (typeof window === "undefined" || typeof revision !== "number" || !Number.isFinite(revision)) return
+  try {
+    const record = loadSyncRecord(matchId)
+    if (record.queue.length > 0) return // локальная очередь ждёт отправки — не трогаем базу
+    if (revision < record.lastSyncedRevision) return // устаревший ack
+    record.lastSyncedRevision = revision
+    record.revision = revision
+    if (serverMatch?.id) record.snapshot = serverMatch
+    if (record.syncStatus === "conflict") {
+      record.syncStatus = "idle"
+      record.conflictReason = null
+      record.conflictSnapshot = null
+    }
+    saveSyncRecord(record)
+    notifyState(matchId)
+  } catch (error) {
+    logEvent("warn", `noteCommandApplied: ${(error as Error).message}`, "match-sync", error)
+  }
 }
 
 /**
@@ -215,7 +252,26 @@ export async function drainMatch(matchId: string): Promise<void> {
     return
   }
   // Do not drain over an unresolved conflict — wait for a decision.
-  if (record.syncStatus === "conflict") return
+  // ИСКЛЮЧЕНИЕ (фикс 2026-09-04): server_ahead-конфликт с очередью только из
+  // снапшотов — рутина командного конвейера (команды подняли ревизию на
+  // сервере, наш снапшот надстроен поверх той же правды). Авто-ребаза на
+  // серверную ревизию и повторная отправка — иначе «Завершить» висит вечно.
+  if (record.syncStatus === "conflict") {
+    const rebaseable =
+      record.conflictReason?.startsWith("server_ahead") &&
+      record.queue.length > 0 &&
+      record.queue.every((o) => o.kind === "snapshot") &&
+      typeof record.conflictSnapshot?.revision === "number"
+    if (!rebaseable) return
+    const serverRevision = record.conflictSnapshot.revision as number
+    record.lastSyncedRevision = serverRevision
+    record.revision = Math.max(record.revision, serverRevision + 1)
+    record.syncStatus = "pending"
+    record.conflictReason = null
+    record.conflictSnapshot = null
+    saveSyncRecord(record)
+    notifyState(matchId)
+  }
 
   // Offline: keep the queue, mark offline, retry on recovery.
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -254,7 +310,15 @@ export async function drainMatch(matchId: string): Promise<void> {
     const baseRevision = record.lastSyncedRevision
     const targetRevision = record.revision
 
-    const result = await applyRevisioned(effective.payload, baseRevision, targetRevision)
+    // Шаг 3: прод-транспорт — HTTP PUT (service-роль сервера): прямой
+    // anon-UPDATE на matches мёртв под RLS (тихий no-op). Легаси-клиент
+    // остаётся только для инжектированных регрессионных тестов.
+    const result = _useClientTransport
+      ? await applyRevisionedViaClient(effective.payload, baseRevision, targetRevision)
+      : await applyRevisionedViaApi(effective.payload, baseRevision, targetRevision, {
+          operationId: effective.operationId,
+          kind: effective.kind,
+        })
 
     if (result.status === "ok") {
       markOperationsSynced(matchId, allIds, result.revision, result.snapshot)
@@ -294,8 +358,70 @@ type ApplyResult =
   | { status: "error"; error: string; permanent: boolean }
 
 /**
+ * Прод-транспорт (Шаг 3, фикс 2026-09-04): снапшот уходит на сервер HTTP PUT
+ * /api/match/[id], который пишет service-ключом. Прямой anon-UPDATE на
+ * matches после снятия pre-step3 политик — тихий no-op (RLS пропускает 0
+ * строк без ошибки), из-за чего «Завершить»/правила/правки счёта со страницы
+ * матча «успешно» не доезжали до базы, а главная продолжала показывать матч.
+ *
+ * Роут даёт то же, что и старый клиентский путь: идемпотентность по
+ * operationId, revision-guard, 409 + авторитетный снапшот при конфликте.
+ */
+async function applyRevisionedViaApi(
+  snapshot: any,
+  baseRevision: number,
+  targetRevision: number,
+  op: { operationId: string; kind?: string },
+): Promise<ApplyResult> {
+  try {
+    const res = await fetch(`/api/match/${snapshot.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        operation: {
+          operationId: op.operationId,
+          baseRevision,
+          kind: op.kind ?? "snapshot",
+          clientId: "sync-drain",
+        },
+        match: snapshot,
+      }),
+    })
+
+    if (res.status === 401 || res.status === 403) {
+      // Auth-поломка (Origin-детект за прокси, ротация ключа) — не ретраить вслепую.
+      return { status: "error", error: `http_${res.status}`, permanent: true }
+    }
+
+    const data = await res.json().catch(() => ({}))
+
+    if (res.ok) {
+      const revision = typeof data.revision === "number" ? data.revision : targetRevision
+      return { status: "ok", revision, snapshot: data.match ?? snapshot }
+    }
+
+    if (res.status === 409) {
+      const serverMatch = data.match ?? null
+      if (data?.reason === "match_deleted" || !serverMatch) {
+        return { status: "conflict", reason: "match_deleted", serverSnapshot: null }
+      }
+      const reason = typeof data.reason === "string" ? data.reason : `server_ahead (server=${serverMatch.revision})`
+      return { status: "conflict", reason, serverSnapshot: serverMatch }
+    }
+
+    return { status: "error", error: `http_${res.status}`, permanent: false }
+  } catch {
+    return { status: "error", error: "network", permanent: false }
+  }
+}
+
+/**
  * Writes a snapshot to the server using optimistic concurrency:
  * `UPDATE ... WHERE id = ? AND revision = baseRevision`.
+ *
+ * ЛЕГАСИ-транспорт — используется только регрессионными тестами через
+ * __setSyncTestHooks (фейковый PostgREST-клиент); в продакшене выключен
+ * (см. applyRevisionedViaApi выше).
  *
  *  - 1 row updated  → success.
  *  - 0 rows updated → fetch the row and decide: idempotent re-apply, legacy
@@ -303,7 +429,7 @@ type ApplyResult =
  *  - missing column → the database has not been migrated; fall back to a plain
  *                     last-writer-wins update so the app keeps working.
  */
-async function applyRevisioned(
+async function applyRevisionedViaClient(
   snapshot: any,
   baseRevision: number,
   targetRevision: number,

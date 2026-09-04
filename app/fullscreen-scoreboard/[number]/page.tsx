@@ -44,6 +44,14 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
   const containerRef = useRef(null);
   // guard against double-tap double-counting a point (debounce window)
   const scoringRef = useRef(false);
+  // Самый свежий матч — синхронно, без ожидания ре-рендера. При быстрых
+  // кликах два подряд onClick видят один и тот же стейт `match` (React ещё
+  // не отрендерил первый setMatch) — второй клик обязан брать базу из ref,
+  // иначе оптимистика перезаписывает первое очко вторым (фикс 2026-09-04).
+  const latestMatchRef = useRef<any>(null);
+  useEffect(() => {
+    latestMatchRef.current = match;
+  }, [match]);
   const courtNumber = Number.parseInt(resolvedParams.number);
   // §247: в режиме matchId гард «матч на этом корте» заменяется на совпадение ID.
   const isOnThisCourt = (m: any) => (matchId ? m?.id === matchId : isMatchOnCourt(m, courtNumber));
@@ -106,28 +114,38 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
 
   // Handler to increment score for Team A or B
   const handleIncrementScore = async (team: 'teamA' | 'teamB') => {
-    if (!match || match.isCompleted || !isOnThisCourt(match)) return;
+    // База — ref (синхронно свежая), а не опоздавший стейт; без этого
+    // быстрый второй клик применяет очко к той же базе и первый клик
+    // теряется локально (фикс 2026-09-04).
+    const base = latestMatchRef.current ?? match;
+    if (!base || base.isCompleted || !isOnThisCourt(base)) return;
     // Защита от двойного тапа — иначе одно очко засчитывается дважды.
     if (scoringRef.current) return;
     scoringRef.current = true;
     setTimeout(() => { scoringRef.current = false }, 150);
     // Save current match state to history for undo
-    setMatchHistory(prev => [...prev, JSON.parse(JSON.stringify(match))]);
+    setMatchHistory(prev => [...prev, JSON.parse(JSON.stringify(base))]);
     // Deep copy to avoid mutating state directly
-    const updatedMatch = JSON.parse(JSON.stringify(match));
+    const updatedMatch = JSON.parse(JSON.stringify(base));
     // Use shared scoring logic
     const resultMatch = applyScoreIncrement(updatedMatch, team);
+    // Оптимистичная ревизия +1 (фикс отката счёта 2026-09-04): без бампа
+    // задержавшийся realtime-эхо (rev N+1, только первое очко) проходит
+    // ревизионный гард подписки и затирает локальный счёт со вторым очком.
+    resultMatch.revision = (typeof updatedMatch.revision === "number" ? updatedMatch.revision : 0) + 1;
+    latestMatchRef.current = resultMatch;
     setMatch(resultMatch);
     try {
       if (typeof window !== "undefined") {
         const { updateMatch } = await import("@/lib/match-storage");
         // Шаг 3 (§99): снапшот — локально; на сервер уходит команда point
-        // (журнал/тайминги на сервере ставит applyPointWithExtras в роуте).
+        // (журнал/тайминги на сервере ставит движок в роуте команды).
         await updateMatch(resultMatch, { localOnly: true });
-        void sendMatchCommand(match.id, "point", { team }, { clientId: "fullscreen" }).then((res) => {
+        void sendMatchCommand(base.id, "point", { team }, { clientId: "fullscreen" }).then((res) => {
           if (res.status === "conflict" && res.match) {
+            latestMatchRef.current = res.match;
             setMatch(res.match);
-            void updateMatch(res.match);
+            void updateMatch(res.match, { localOnly: true });
           }
         });
       }
@@ -136,13 +154,19 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
         console.error("Failed to update match after increment score:", e);
       }
     }
-    logEvent("info", `Score incremented for ${team}`, "fullscreen-scoreboard", { matchId: match.id });
+    logEvent("info", `Score incremented for ${team}`, "fullscreen-scoreboard", { matchId: base.id });
   };
 
   // Undo last score change
   const handleUndoScoreChange = async () => {
     if (!matchHistory.length || !isOnThisCourt(match)) return;
     const prevMatch = matchHistory[matchHistory.length - 1];
+    // Оптимистичная ревизия поверх текущей (фикс 2026-09-04): undo-снапшот
+    // старше эхо-ревизии — без бампа realtime-эхо отменённого очка тут же
+    // возвращает счёт назад.
+    const liveRev = typeof latestMatchRef.current?.revision === "number" ? latestMatchRef.current.revision : 0;
+    prevMatch.revision = liveRev + 1;
+    latestMatchRef.current = prevMatch;
     setMatch(prevMatch);
     setMatchHistory(history => history.slice(0, -1));
     try {
@@ -152,8 +176,9 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
         // при неудаче (нет журнала/оффлайн-очередь) — fallback-снапшот.
         const res = await sendMatchCommand(match.id, "undo-point", {}, { clientId: "fullscreen" });
         if (res.status === "conflict" && res.match) {
+          latestMatchRef.current = res.match;
           setMatch(res.match);
-          await updateMatch(res.match);
+          await updateMatch(res.match, { localOnly: true });
         } else if (res.status === "failed") {
           await updateMatch(prevMatch);
         } else {
@@ -170,17 +195,29 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
 
   // Handler to finish the match
   const handleFinishMatch = async () => {
-    if (!match || match.isCompleted || !isOnThisCourt(match)) return;
-    const updatedMatch = { ...match, isCompleted: true, winner: null };
+    const base = latestMatchRef.current ?? match;
+    if (!base || base.isCompleted || !isOnThisCourt(base)) return;
+    const updatedMatch = { ...base, isCompleted: true, winner: null };
+    // Оптимистичная ревизия +1 — realtime-эхо не должно «оживлять» матч.
+    updatedMatch.revision = (typeof base.revision === "number" ? base.revision : 0) + 1;
+    latestMatchRef.current = updatedMatch;
     setMatch(updatedMatch);
     setIsCompletedMatch(true);
 
-    // Try to update backend (Supabase/localStorage)
+    // Фикс 2026-09-04: завершение — КОМАНДА конвейера (RLS Шага 3 закрыл
+    // прямой anon-UPDATE на matches — снапшот-пуш молча не сохранялся).
+    // Локально — как раньше; на сервер — sendMatchCommand('finish').
     try {
-      // Use updateMatch if available
       if (typeof window !== "undefined") {
         const { updateMatch } = await import("@/lib/match-storage");
-        await updateMatch(updatedMatch);
+        await updateMatch(updatedMatch, { localOnly: true });
+        void sendMatchCommand(base.id, "finish", {}, { clientId: "fullscreen" }).then((res) => {
+          if (res.status === "conflict" && res.match) {
+            latestMatchRef.current = res.match;
+            setMatch(res.match);
+            void updateMatch(res.match, { localOnly: true });
+          }
+        });
       }
     } catch (e) {
       // Ignore backend errors but log for debug

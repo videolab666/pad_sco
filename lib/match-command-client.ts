@@ -8,13 +8,32 @@
 //   2) localStorage-обновление БЕЗ снапшот-пуша (updateMatch(m, {localOnly}));
 //   3) sendMatchCommand('point', {team}) — fire-and-forget;
 //   4) при 409-конфликте серверный снапшот авторитетен — колбэк onConflict.
+//
+// Фикс 2026-09-04 («Завершить» не доезжал до сервера): успешный ACK команды
+// и 409-снапшот докладывают ревизию в sync-запись (noteCommandApplied) —
+// иначе baseline отстаёт после каждой команды и снапшоты вечно фризятся
+// в server_ahead-конфликте.
+//
+// Фикс 2026-09-04 №2 (потерянные очки при быстрых кликах): две команды
+// впритык гонятся на сервере — обе читают снапшот с одной ревизией,
+// выигрывает одна, вторая получает 409, и её очко ТЕРЯЛОСЬ (UI откатывался
+// на серверный снапшот). Команда при 409 не применена вовсе, поэтому
+// безопасно повторить её с ТЕМ ЖЕ operationId: роут применяет её поверх
+// свежего серверного состояния (идемпотентность operationId страхует от
+// двойного применения, если первый заход всё же успел записаться).
 
 import { v4 as uuidv4 } from "uuid"
+import { noteCommandApplied } from "./match-sync"
 
 export type SendCommandResult =
   | { status: "ok"; revision: number }
   | { status: "conflict"; match: any }
   | { status: "failed"; error: string }
+
+/** Попыток на команду: 1 основная + 2 повтора при 409 (гонка параллельных писателей). */
+const MAX_CONFLICT_ATTEMPTS = 3
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * Отправка одной команды матча. operationId уникален на вызов — повтор
@@ -27,22 +46,35 @@ export async function sendMatchCommand(
   options: { operationId?: string; clientId?: string } = {},
 ): Promise<SendCommandResult> {
   const operationId = options.operationId ?? uuidv4()
-  try {
-    const res = await fetch(`/api/match/${matchId}/command`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ command, args, operationId, clientId: options.clientId ?? "ui" }),
-    })
-    if (res.status === 409) {
-      const data = await res.json().catch(() => ({}))
-      return { status: "conflict", match: data.match ?? null }
+  for (let attempt = 1; ; attempt++) {
+    let result: SendCommandResult
+    try {
+      const res = await fetch(`/api/match/${matchId}/command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command, args, operationId, clientId: options.clientId ?? "ui" }),
+      })
+      if (res.status === 409) {
+        const data = await res.json().catch(() => ({}))
+        const serverMatch = data.match ?? null
+        noteCommandApplied(matchId, serverMatch?.revision, serverMatch)
+        result = { status: "conflict", match: serverMatch }
+      } else if (!res.ok) {
+        return { status: "failed", error: `http_${res.status}` }
+      } else {
+        const data = await res.json().catch(() => ({}))
+        const revision = typeof data.revision === "number" ? data.revision : 0
+        noteCommandApplied(matchId, revision)
+        return { status: "ok", revision }
+      }
+    } catch {
+      return { status: "failed", error: "network" }
     }
-    if (!res.ok) {
-      return { status: "failed", error: `http_${res.status}` }
-    }
-    const data = await res.json().catch(() => ({}))
-    return { status: "ok", revision: typeof data.revision === "number" ? data.revision : 0 }
-  } catch {
-    return { status: "failed", error: "network" }
+
+    // 409: команда не применена (проиграла гонку) — повторяем с тем же
+    // operationId поверх свежего серверного состояния. Пауза растёт, чтобы
+    // разнести конкурирующие запросы.
+    if (attempt >= MAX_CONFLICT_ATTEMPTS) return result
+    await sleep(80 * attempt)
   }
 }

@@ -37,7 +37,10 @@ export default async function CourtByCodePage({ params }: { params: Promise<{ co
     legacyNumber: court.legacyNumber,
   }).catch(() => null)
 
-  if (match?.id) {
+  // Только АКТИВНЫЙ матч: getMatchFromServerByCourt через fallback возвращает
+  // и последний завершённый — после «Завершить» корт обязан уходить в idle
+  // (баг-репорт 2026-09-04: завершённый матч оставался на корте).
+  if (match?.id && match.isCompleted !== true) {
     if (court.legacyNumber !== null) {
       return <FullscreenScoreboard params={Promise.resolve({ number: String(court.legacyNumber) })} />
     }

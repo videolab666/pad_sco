@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Loader2, RefreshCw, ExternalLink } from "lucide-react"
 import { getOccupiedCourts, MAX_COURTS } from "@/lib/court-utils"
+import { subscribeToMatchesListUpdates } from "@/lib/match-storage"
 import { VmixButton } from "@/components/vmix-button"
 import { FullscreenButton } from "@/components/fullscreen-button"
 import { logEvent } from "@/lib/error-logger"
@@ -16,21 +17,26 @@ export function CourtsList() {
   const [occupiedCourts, setOccupiedCourts] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  // Дебаунс-таймер превращён в trailing-throttle: таймер НЕ сбрасывается
+  // новым событием — пачка realtime-событий (очко, завершение, несколько
+  // PUT) схлопывается в один перезапрос максимум раз в 500 мс.
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Загрузка списка занятых кортов
-  const loadOccupiedCourts = async () => {
+  // Загрузка списка занятых кортов. silent=true — фоновой перезагрузкой без
+  // спиннера на весь блок (иначе каждое realtime-событие мигает UI).
+  const loadOccupiedCourts = useCallback(async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const courts = await getOccupiedCourts()
       setOccupiedCourts(courts)
-      logEvent("info", "Список занятых кортов загружен", "courts-list", { courts })
+      logEvent("info", "Список занятых кортов загружен", "courts-list", { courts, silent })
     } catch (error) {
       console.error("Ошибка при загрузке занятых кортов:", error)
       logEvent("error", "Ошибка при загрузке занятых кортов", "courts-list", error)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [])
 
   // Обновление списка кортов
   const handleRefresh = async () => {
@@ -42,10 +48,41 @@ export function CourtsList() {
     }
   }
 
-  // Загрузка при монтировании компонента
+  const scheduleReload = useCallback(() => {
+    if (refreshTimerRef.current) return // перезапрос уже запланирован
+    refreshTimerRef.current = setTimeout(() => {
+      refreshTimerRef.current = null
+      void loadOccupiedCourts(true)
+    }, 500)
+  }, [loadOccupiedCourts])
+
+  // Загрузка при монтировании + живое обновление (фикс 2026-09-04): корт
+  // «висел занятым» до F5 — завершение доезжало до сервера ПОСЛЕ возврата
+  // на главную (drain асинхронный), а список грузился один раз на маунте.
+  // Теперь: realtime на таблицу matches + перезагрузка на фокус/видимость
+  // (возврат со страницы матча или из другой вкладки).
   useEffect(() => {
     loadOccupiedCourts()
-  }, [])
+
+    const unsubscribe = subscribeToMatchesListUpdates(() => {
+      // Список матчей из колбэка не используем — занятость кортов считается
+      // отдельным запросом (is_completed + court_number/court_id).
+      scheduleReload()
+    })
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") scheduleReload()
+    }
+    window.addEventListener("focus", scheduleReload)
+    document.addEventListener("visibilitychange", onVisible)
+
+    return () => {
+      unsubscribe()
+      window.removeEventListener("focus", scheduleReload)
+      document.removeEventListener("visibilitychange", onVisible)
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
+    }
+  }, [loadOccupiedCourts, scheduleReload])
 
   // Проверка, занят ли корт
   const isCourtOccupied = (courtNumber: number) => {
@@ -139,7 +176,10 @@ export function CourtsList() {
                             onClick={async () => {
                               // Импортировать здесь, чтобы избежать циклических зависимостей
                               const mod = await import("@/lib/court-utils")
-                              await mod.freeUpCourt(courtNumber)
+                              const ok = await mod.freeUpCourt(courtNumber)
+                              if (!ok) {
+                                alert("Не удалось завершить матч — активный матч на корте не найден. Обновите страницу.")
+                              }
                               handleRefresh()
                             }}
                           >

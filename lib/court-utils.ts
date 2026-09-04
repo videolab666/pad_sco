@@ -476,50 +476,64 @@ export const assignMatchToCourt = async (matchId: any, courtNumber: any) => {
 }
 
 // Освобождение корта
+//
+// Фикс 2026-09-04 (тихий no-op под RLS): прямой anon-PATCH по matches после
+// снятия pre-step3 write-политик (миграция 20260818030000) НЕ пишет ничего —
+// PostgREST возвращает 200 с 0 строк и без ошибки, «Завершить» «успешно» не
+// делал ничего. Теперь всё пишет серверный роут service-ключом:
+// завершает ВСЕ активные матчи корта по любой привязке (court_number —
+// легаси-числовые корты; court_id — именные/QR-корты, у них court_number
+// равен null; баг 2026-08-16: матч с court_id-привязкой висел на корте).
+// court_id в строке НЕ трогаем — история помнит корт, а /c/{code} больше не
+// показывает завершённые (фильтр isCompleted).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const freeUpCourt = async (courtNumber: any) => {
   try {
     logEvent("info", tSync("logMessages.freeingCourt", { court: courtNumber }), "freeUpCourt")
 
-    // Получаем матч на этом корте
-    const match = await getMatchByCourtNumber(courtNumber)
-    if (!match) {
-      logEvent("warn", tSync("logMessages.matchOnCourtNotFound"), "freeUpCourt", { courtNumber })
+    const courtNum = Number.parseInt(String(courtNumber), 10)
+    if (Number.isNaN(courtNum)) {
+      logEvent("warn", `Некорректный номер корта: ${courtNumber}`, "freeUpCourt", { courtNumber })
       return false
     }
 
-    // Обновляем матч, убирая номер корта
-    const supabase = createClientSupabaseClient()
-    if (!supabase) {
-      logEvent("error", tSync("logMessages.failedCreateClient"), "freeUpCourt")
-      return false
-    }
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
 
     try {
-      // Используем AbortController для таймаута
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 секунд таймаут
-
-      const { error } = await supabase
-        .from("matches")
-        .update({ court_number: null, is_completed: true })
-        .eq("id", match.id)
-        .abortSignal(controller.signal)
+      const res = await fetch("/api/courts/free", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courtNumber: courtNum }),
+        signal: controller.signal,
+      })
 
       clearTimeout(timeoutId)
 
-      if (error) {
-        logEvent("error", tSync("logMessages.errorFreeingCourt", { error: error.message }), "freeUpCourt", {
-          error,
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        logEvent("error", `free-court API http_${res.status}: ${body?.message ?? body?.error ?? ""}`, "freeUpCourt", {
           courtNumber,
-          matchId: match.id,
         })
         return false
       }
 
-      logEvent("info", tSync("logMessages.courtFreed", { court: courtNumber }), "freeUpCourt")
+      const data = (await res.json().catch(() => ({}))) as { completed?: number; total?: number }
+      if (typeof data.completed !== "number" || data.completed < 1) {
+        // 0 завершённых: активных матчей нет (уже освобождён?) либо все
+        // строки проиграли revision-guard — второй клик добьёт остаток.
+        logEvent("warn", tSync("logMessages.matchOnCourtNotFound"), "freeUpCourt", { courtNumber, ...data })
+        return false
+      }
+
+      logEvent(
+        "info",
+        `Корт ${courtNumber} освобождён: завершено матчей — ${data.completed} из ${data.total ?? data.completed}`,
+        "freeUpCourt",
+      )
       return true
     } catch (err) {
+      clearTimeout(timeoutId)
       const fetchError = err as Error
       if (fetchError.name === "AbortError") {
         logEvent("error", tSync("logMessages.timeoutFreeingCourt"), "freeUpCourt")
@@ -527,7 +541,6 @@ export const freeUpCourt = async (courtNumber: any) => {
         logEvent("error", tSync("logMessages.supabaseQueryError", { error: fetchError.message }), "freeUpCourt", {
           error: fetchError,
           courtNumber,
-          matchId: match.id,
         })
       }
       return false

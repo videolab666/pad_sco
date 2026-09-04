@@ -334,3 +334,36 @@ describe("applyRemoteBatch", () => {
     expect(base.score.currentSet.currentGame).toEqual({ teamA: 0, teamB: 0 })
   })
 })
+
+describe("finish (фикс 2026-09-04: завершение через конвейер)", () => {
+  it("помечает матч завершённым без победителя", async () => {
+    const { applyRemoteCommand } = await import("../lib/remote-commands")
+    const m = applyRemoteCommand(freshMatch(), "finish")
+    expect(m.isCompleted).toBe(true)
+    expect(m.winner).toBeNull()
+    expect(m.id).toBe(freshMatch().id) // снапшот-структура сохранена
+  })
+
+  it("принимает явного победителя (валидация команды)", async () => {
+    const { applyRemoteCommand } = await import("../lib/remote-commands")
+    const m = applyRemoteCommand(freshMatch(), "finish", { winner: "teamA" })
+    expect(m.isCompleted).toBe(true)
+    expect(m.winner).toBe("teamA")
+  })
+
+  it("дважды завершать нельзя и мусорный winner отвергается", async () => {
+    const { applyRemoteCommand } = await import("../lib/remote-commands")
+    const done = applyRemoteCommand(freshMatch(), "finish")
+    const e1 = err(() => applyRemoteCommand(done, "finish"))
+    expect(e1.code).toBe("match_completed")
+    const e2 = err(() => applyRemoteCommand(freshMatch(), "finish", { winner: "teamZ" }))
+    expect(e2.code).toBe("invalid_args")
+  })
+
+  it("не мутирует входный снапшот", async () => {
+    const { applyRemoteCommand } = await import("../lib/remote-commands")
+    const base = freshMatch()
+    applyRemoteCommand(base, "finish")
+    expect(base.isCompleted).toBe(false)
+  })
+})

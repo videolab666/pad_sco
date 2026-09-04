@@ -231,6 +231,11 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     // applies handicap to the next game, consumes Power Play and stages
     // a pending tiebreak choice when needed.
     const resultMatch = applyPointWithExtras(updatedMatch, team)
+    // Оптимистичная ревизия = база + 1 (фикс отката счёта 2026-09-04): без
+    // бампа задержавшийся realtime-эхо этой же команды (rev N+1) проходит
+    // гард «incoming <= local» (N+1 > N) и затирает локальный счёт, где уже
+    // есть СЛЕДУЮЩЕЕ очко от быстрого клика — счёт «прыгал назад».
+    resultMatch.revision = (typeof updatedMatch.revision === "number" ? updatedMatch.revision : 0) + 1
 
     // If the engine completed the match, show confirmation dialog
     if (resultMatch.isCompleted && !activeMatchState.isCompleted) {
@@ -258,14 +263,16 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
 
   /**
    * 409-реконсиляция (§99): сервер опередил нашу оптимистику — его снапшот
-   * авторитетен. Переписываем локальное состояние и выравниваем sync-очередь
-   * обычным снапшот-пушем (редкий путь: параллельный писатель).
+   * авторитетен. Переписываем локальное состояние (localOnly: снапшот-пуш
+   * мёртв под RLS Шага 3 и только забивает sync-очередь). Редкий путь:
+   * sendMatchCommand сам ретраит 409 — сюда попадаем только при упорном
+   * параллельном писателе.
    */
   const reconcileOnConflict = (res: SendCommandResult) => {
     if (res.status === "conflict" && res.match) {
       latestMatchRef.current = res.match
       setLocalMatchState(res.match)
-      void updateMatch(res.match)
+      void updateMatch(res.match, { localOnly: true })
     }
   }
 
@@ -328,6 +335,9 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     if (scoreDecreased) {
       // Journal the manual correction so replay-undo stays in sync.
       const journaled = appendStateOverrideEvent(updatedMatch, "score-decrease", scoreStateOf(activeMatchState))
+      // Оптимистичная ревизия +1 — тот же фикс отката счёта, что и в
+      // handleScoreClick: realtime-эхо не должно затирать коррекцию.
+      journaled.revision = (typeof activeMatchState.revision === "number" ? activeMatchState.revision : 0) + 1
       latestMatchRef.current = journaled
       setLocalMatchState(journaled)
 
@@ -364,7 +374,10 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
   // revision, which the optimistic-state guard would reject as stale) and
   // refresh the optimistic layer so the scoreboard updates immediately.
   const applyUndoneMatch = (undone: any, viaCommand = false) => {
-    const liveRev = typeof match?.revision === "number" ? match.revision : 0
+    // База — самый свежий оптимистичный стейт (ref), а не опоздавший prop:
+    // иначе бамп считается от устаревшей ревизии и realtime-эхо затирает undo.
+    const base = latestMatchRef.current ?? match
+    const liveRev = typeof base?.revision === "number" ? base.revision : 0
     undone.revision = liveRev + 1
     latestMatchRef.current = undone
     setLocalMatchState(undone)
@@ -397,7 +410,11 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
       finalMatch.isCompleted = true
       finalMatch.winner = pendingMatchUpdate.winner
 
-      updateMatch(appendStateOverrideEvent(finalMatch, "complete-match", scoreStateOf(match)))
+      // Фикс 2026-09-04: снапшот-пуш больше не сохраняет матч на сервере
+      // (RLS Шага 3 закрыл anon-UPDATE на matches) — локально как раньше,
+      // а на сервер завершение уходит КОМАНДОЙ конвейера.
+      updateMatch(appendStateOverrideEvent(finalMatch, "complete-match", scoreStateOf(match)), { localOnly: true })
+      void sendMatchCommand(finalMatch.id, "finish", {}, { clientId: "score-board" }).then(reconcileOnConflict)
 
       // Task 16: fire-and-forget auto-post when configured. The orchestrator
       // returns a new snapshot with the result-poster event appended; we
@@ -405,7 +422,7 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
       // payload (outcome=dead-letter) — we never throw at the operator.
       postResultIfConfigured(finalMatch)
         .then((withAudit) => {
-          if (withAudit !== finalMatch) updateMatch(withAudit)
+          if (withAudit !== finalMatch) updateMatch(withAudit, { localOnly: true })
         })
         .catch(() => {
           /* network errors are already captured in postWithRetry — ignore */
@@ -423,9 +440,17 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     // snapshot carries the events that produced it, so the journal stays
     // replayable).
     if (previousMatchState) {
-      updateMatch(
-        appendStateOverrideEvent(previousMatchState, "cancel-completion", scoreStateOf(match)),
-      )
+      // Финальное очко уже завершило матч НА СЕРВЕРЕ (point-команда ушла до
+      // диалога) — отмена обязана вернуть его в игру КОМАНДОЙ unlock-match,
+      // иначе снапшот-пуш (мёртв под RLS) ничего не меняет и realtime-эхо
+      // тут же «завершает» матч обратно (фикс 2026-09-04).
+      const restored = appendStateOverrideEvent(previousMatchState, "cancel-completion", scoreStateOf(match))
+      const baseRev = typeof latestMatchRef.current?.revision === "number" ? latestMatchRef.current.revision : 0
+      restored.revision = baseRev + 1
+      latestMatchRef.current = restored
+      setLocalMatchState(restored)
+      updateMatch(restored, { localOnly: true })
+      void sendMatchCommand(restored.id, "unlock-match", {}, { clientId: "score-board" }).then(reconcileOnConflict)
     }
 
     // Reset the pending state

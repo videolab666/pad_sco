@@ -1021,6 +1021,18 @@ export const deleteMatch = async (idOrCode: string) => {
 
 // Подписка на обновления матча в реальном времени
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// Уникальный суффикс канала (фикс 2026-09-04): supabase-js дедуплицирует
+// каналы по topic и возвращает УЖЕ подписанный канал второму подписчику —
+// `.on()` после `subscribe()` бросает «cannot add postgres_changes
+// callbacks … after subscribe()», и realtime у второго подписчика мёртв
+// (CourtsList + MatchList на главной делили «matches-list»). Каналы
+// мультиплексируются по одному websocket — уникальные имена бесплатны.
+let realtimeChannelSeq = 0
+function uniqueChannelName(base: string): string {
+  realtimeChannelSeq += 1
+  return `${base}-${realtimeChannelSeq}`
+}
+
 export const subscribeToMatchUpdates = (idOrCode: string, callback: any) => {
   if (typeof window === "undefined") return () => { }
 
@@ -1062,7 +1074,7 @@ export const subscribeToMatchUpdates = (idOrCode: string, callback: any) => {
 
         // Подписываемся на изменения матча в Supabase
         const channel = supabase
-          .channel(`match-${matchId}`)
+          .channel(uniqueChannelName(`match-${matchId}`))
           .on(
             "postgres_changes",
             {
@@ -1191,7 +1203,7 @@ export const subscribeToMatchesListUpdates = (callback: any) => {
 
         // Подписываемся на изменения списка матчей в Supabase
         const subscription = supabase
-          .channel("matches-list")
+          .channel(uniqueChannelName("matches-list"))
           .on(
             "postgres_changes",
             {

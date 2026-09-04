@@ -560,6 +560,66 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
     let unsubscribe: any = null
     let checkInterval: NodeJS.Timeout | null = null
 
+    // Единый обработчик realtime-обновлений (фикс 2026-09-04 №3): раньше
+    // ветка «preserve local completed» принудительно возвращала
+    // isCompleted=true в ЛЮБОЙ входящий снапшот — включая НОВЕЙШИЙ
+    // серверный анлок («Разблокировать» на странице матча). Табло после
+    // завершения разблокировать было невозможно. Теперь решает
+    // ревизионный гард: снапшот СТАРЕЕ локального (эхо до finish) —
+    // игнор, completed сохраняется сам собой; НОВЕЕ — авторитет сервера,
+    // включая isCompleted=false после unlock-match.
+    const applyRealtimeUpdate = (updatedMatch: any) => {
+      if (!updatedMatch) {
+        // Если матч не найден, пробуем загрузить новый матч
+        loadMatch()
+        return
+      }
+
+      if (!isOnThisCourt(updatedMatch)) {
+        setMatch(null)
+        setIsCompletedMatch(false)
+        setError(
+          (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", matchId ? "" : courtNumber) ||
+            `No active matches on court ${courtNumber}`,
+        )
+        return
+      }
+
+      let hasPendingOperations = false
+      try {
+        const syncState = getMatchSyncState(updatedMatch.id)
+        hasPendingOperations = syncState && syncState.pendingCount > 0
+      } catch (e) {
+        console.error("Ошибка при получении состояния синхронизации:", e)
+      }
+
+      if (hasPendingOperations) return
+
+      // Синхронный стейл-гард по ref (не по state — setMatch-апдейтер
+      // выполняется асинхронно и не может вернуть решение наружу).
+      const local = latestMatchRef.current
+      if (
+        local &&
+        typeof local.revision === "number" &&
+        typeof updatedMatch.revision === "number" &&
+        updatedMatch.revision <= local.revision
+      ) {
+        return // устаревшее эхо: локальная оптимистика свежее
+      }
+
+      latestMatchRef.current = updatedMatch
+      setMatch(updatedMatch)
+      setIsCompletedMatch(updatedMatch.isCompleted === true)
+      setError("")
+
+      logEvent("debug", "Fullscreen Scoreboard: получено обновление матча", "fullscreen-scoreboard", {
+        matchId: updatedMatch.id,
+        scoreA: updatedMatch.score.teamA,
+        scoreB: updatedMatch.score.teamB,
+        isCompleted: updatedMatch.isCompleted,
+      })
+    }
+
     const setupSubscription = async () => {
       // Загружаем матч
       const matchData = await loadMatch()
@@ -572,69 +632,7 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
       // завершиться, `pendingCount` падает до 0, и щит против эха ломается —
       // устаревший снапшот с сервера затирает локальный оптимистичный счёт
       // ("откат" счёта при slow 3G). Импорт `getMatchSyncState` поднят на верх.
-      unsubscribe = subscribeToMatchUpdates(matchData.id, (updatedMatch: any) => {
-        if (!updatedMatch) {
-          // Если матч не найден, пробуем загрузить новый матч
-          loadMatch()
-          return
-        }
-
-        if (!isOnThisCourt(updatedMatch)) {
-          setMatch(null)
-          setIsCompletedMatch(false)
-          setError(
-            (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", matchId ? "" : courtNumber) ||
-            `No active matches on court ${courtNumber}`,
-          )
-          return
-        }
-
-        let hasPendingOperations = false
-        try {
-          const syncState = getMatchSyncState(matchData.id)
-          hasPendingOperations = syncState && syncState.pendingCount > 0
-        } catch (e) {
-          console.error("Ошибка при получении состояния синхронизации:", e)
-        }
-
-        if (hasPendingOperations) return
-
-        setMatch((prev: any) => {
-          if (
-            prev &&
-            typeof prev.revision === "number" &&
-            typeof updatedMatch.revision === "number" &&
-            updatedMatch.revision <= prev.revision
-          ) {
-            return prev
-          }
-          return updatedMatch
-        })
-        setError("")
-
-        // Preserve local completed state if we've already finished the match
-        if (isCompletedMatch && updatedMatch.isCompleted !== true) {
-          // Prevent rollback of completion status
-          setIsCompletedMatch(true)
-          // Optionally, merge isCompleted into match object for UI
-          setMatch((prev: any) => (prev ? { ...prev, isCompleted: true } : updatedMatch))
-          logEvent(
-            "warn",
-            "Realtime update tried to reset isCompleted to false, preserving local completed state",
-            "fullscreen-scoreboard",
-            { matchId: updatedMatch.id },
-          )
-        } else {
-          setIsCompletedMatch(updatedMatch.isCompleted === true)
-        }
-
-        logEvent("debug", "Fullscreen Scoreboard: получено обновление матча", "fullscreen-scoreboard", {
-          matchId: updatedMatch.id,
-          scoreA: updatedMatch.score.teamA,
-          scoreB: updatedMatch.score.teamB,
-          isCompleted: updatedMatch.isCompleted,
-        })
-      })
+      unsubscribe = subscribeToMatchUpdates(matchData.id, applyRealtimeUpdate)
     }
 
     // Запускаем первоначальную загрузку и подписку
@@ -661,44 +659,8 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
           setIsCompletedMatch(newMatchData.isCompleted === true)
           setError("")
 
-          // Настраиваем новую подписку — синхронный колбэк (см. пояснение выше).
-          unsubscribe = subscribeToMatchUpdates(newMatchData.id, (updatedMatch: any) => {
-            if (!updatedMatch) return
-
-            if (!isOnThisCourt(updatedMatch)) {
-              setMatch(null)
-              setIsCompletedMatch(false)
-              setError(
-                (translations[language] as any).scoreboard.noActiveMatches?.replace("{number}", matchId ? "" : courtNumber) ||
-                `No active matches on court ${courtNumber}`,
-              )
-              return
-            }
-
-            let hasPendingOperations = false
-            try {
-              const syncState = getMatchSyncState(newMatchData.id)
-              hasPendingOperations = syncState && syncState.pendingCount > 0
-            } catch (e) {
-              console.error("Ошибка при получении состояния синхронизации:", e)
-            }
-
-            if (hasPendingOperations) return
-
-            setMatch((prev: any) => {
-              if (
-                prev &&
-                typeof prev.revision === "number" &&
-                typeof updatedMatch.revision === "number" &&
-                updatedMatch.revision <= prev.revision
-              ) {
-                return prev
-              }
-              return updatedMatch
-            })
-            setIsCompletedMatch(updatedMatch.isCompleted === true)
-            setError("")
-          })
+          // Настраиваем новую подписку — синхронный колбэк (см. выше).
+          unsubscribe = subscribeToMatchUpdates(newMatchData.id, applyRealtimeUpdate)
         }
       }
     }, 10000) // Проверяем каждые 10 секунд

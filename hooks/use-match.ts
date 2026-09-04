@@ -26,7 +26,7 @@ export interface UseMatchResult {
   /** A soft, transient message (e.g. the storage-quota fallback fired). */
   notice: string
   /** Optimistically applies and persists a match update. */
-  updateMatch: (updatedMatch: any) => Promise<void>
+  updateMatch: (updatedMatch: any, opts?: { localOnly?: boolean }) => Promise<void>
 }
 
 export function useMatch(matchId: string): UseMatchResult {
@@ -137,7 +137,7 @@ export function useMatch(matchId: string): UseMatchResult {
   }, [matchId, language])
 
   const updateMatch = useCallback(
-    async (updatedMatch: any) => {
+    async (updatedMatch: any, opts?: { localOnly?: boolean }) => {
       try {
         // Отключаем undo-историю для экономии места.
         updatedMatch.history = []
@@ -150,7 +150,11 @@ export function useMatch(matchId: string): UseMatchResult {
         updatedMatch.revision = prevRevision + 1
         // Оптимистичное обновление — предотвращает мерцание.
         setMatch(updatedMatch)
-        await persistMatch(updatedMatch)
+        // Фикс 2026-09-04: opts раньше МОЛЧА отбрасывался — localOnly из
+        // score-board не доходил до persistMatch, и каждый клик очков
+        // дублировался снапшот-пушем поверх point-команды (лишние 409 и
+        // гонки двух писателей).
+        await persistMatch(updatedMatch, opts)
       } catch (err) {
         console.error("Ошибка обновления матча:", err)
         // Storage-quota fallback: упрощаем объект матча и пробуем снова.
@@ -166,7 +170,7 @@ export function useMatch(matchId: string): UseMatchResult {
               winner: set.winner,
             }))
           }
-          await persistMatch(minimalMatch)
+          await persistMatch(minimalMatch, opts)
           setMatch(minimalMatch)
           setNotice(t.matchPage.matchDataSimplified)
           // Авто-сброс, чтобы повторная ошибка снова поднимала уведомление.

@@ -7,7 +7,7 @@ import { getMatchByCourtNumber } from "@/lib/court-utils"
 import { isMatchOnCourt } from "@/lib/court-match-guard"
 import { logEvent } from "@/lib/error-logger"
 import { subscribeToMatchUpdates } from "@/lib/match-storage"
-import { getMatchSyncState } from "@/lib/match-sync"
+import { getMatchSyncState, syncMatchToServer } from "@/lib/match-sync"
 import { applyScoreIncrement } from "@/lib/scoring-logic"
 import { sendMatchCommand } from "@/lib/match-command-client"
 import { Maximize2, Minimize2, ArrowLeft, Clock } from "lucide-react"
@@ -146,6 +146,12 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
             latestMatchRef.current = res.match;
             setMatch(res.match);
             void updateMatch(res.match, { localOnly: true });
+          } else if (res.status === "failed") {
+            // Самолечение (фикс 2026-09-04 №2): очко осталось только в
+            // оптимистике — пушим снапшот через sync-очередь, чтобы сервер
+            // сошёлся с тем, что видит оператор (иначе на других экранах
+            // счёт «не всегда меняется»).
+            syncMatchToServer(resultMatch);
           }
         });
       }

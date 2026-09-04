@@ -65,7 +65,7 @@ describe("sendMatchCommand: 409-retry", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it("сетевая ошибка не ретраится (оффлайн-очередь — зона ответственности вызывающего)", async () => {
+  it("сетевая ошибка ретраится (офлайн-клик не теряется), после 3 попыток — failed", async () => {
     const fetchMock = vi.fn(async () => {
       throw new TypeError("network down")
     })
@@ -74,6 +74,19 @@ describe("sendMatchCommand: 409-retry", () => {
     const res = await sendMatchCommand("m1", "point", { team: "teamA" })
 
     expect(res).toEqual({ status: "failed", error: "network" })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it("5xx ретраится, успех на второй попытке", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(502, { error: "bad gateway" }))
+      .mockResolvedValueOnce(jsonResponse(200, { status: "ok", revision: 8 }))
+    vi.stubGlobal("fetch", fetchMock as any)
+
+    const res = await sendMatchCommand("m1", "point", { team: "teamB" })
+
+    expect(res).toEqual({ status: "ok", revision: 8 })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 })

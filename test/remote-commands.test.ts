@@ -163,7 +163,11 @@ describe("applyRemoteCommand — end / unlock", () => {
     const unlocked = applyRemoteCommand(ended, "unlock-match")
     expect(unlocked.isCompleted).toBe(false)
     expect(unlocked.winner).toBe(null)
-    expect(err(() => applyRemoteCommand(unlocked, "unlock-match")).code).toBe("not_completed")
+    // Идемпотентность (фикс 2026-09-04): unlock активного матча — no-op, а
+    // не 400 — иначе «Продолжить» гонится с финальной point-командой.
+    const again = applyRemoteCommand(unlocked, "unlock-match")
+    expect(again.isCompleted).toBe(false)
+    expect(again).toBe(unlocked) // тот же снапшот без изменений
   })
 
   it("validates the end reason", () => {

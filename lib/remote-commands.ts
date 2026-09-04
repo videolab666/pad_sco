@@ -226,9 +226,12 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
     }
 
     case "unlock-match": {
-      if (!match.isCompleted) {
-        throw new RemoteCommandError("not_completed", "The match is not completed — nothing to unlock")
-      }
+      // Идемпотентен (фикс 2026-09-04): «Продолжить» после финального очка
+      // гонится с point-командой, которая завершает матч на сервере. Если
+      // unlock пришёл ПЕРВЫМ — раньше это было 400 not_completed, отмена
+      // молча проваливалась, point следом завершал матч, и все дальнейшие
+      // очки оператора отвергались 400-м. Теперь повторный unlock — no-op.
+      if (!match.isCompleted) return match
       return unlockMatchForPlay(match)
     }
 

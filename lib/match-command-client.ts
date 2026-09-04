@@ -30,7 +30,7 @@ export type SendCommandResult =
   | { status: "conflict"; match: any }
   | { status: "failed"; error: string }
 
-/** Попыток на команду: 1 основная + 2 повтора при 409 (гонка параллельных писателей). */
+/** Попыток на команду: 1 основная + 2 повтора при 409/сети/5xx (гонки и транзиенты). */
 const MAX_CONFLICT_ATTEMPTS = 3
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -47,7 +47,8 @@ export async function sendMatchCommand(
 ): Promise<SendCommandResult> {
   const operationId = options.operationId ?? uuidv4()
   for (let attempt = 1; ; attempt++) {
-    let result: SendCommandResult
+    let result: SendCommandResult | null = null
+    let retryable = false
     try {
       const res = await fetch(`/api/match/${matchId}/command`, {
         method: "POST",
@@ -59,7 +60,14 @@ export async function sendMatchCommand(
         const serverMatch = data.match ?? null
         noteCommandApplied(matchId, serverMatch?.revision, serverMatch)
         result = { status: "conflict", match: serverMatch }
+        retryable = true // команда НЕ применена — повторяем поверх свежего состояния
+      } else if (res.status >= 500) {
+        // 5xx — транзиентно (cold start, прокси): очко не должно теряться.
+        result = { status: "failed", error: `http_${res.status}` }
+        retryable = true
       } else if (!res.ok) {
+        // 400/401/404 — постоянные (match_completed, инвалидные аргументы):
+        // ретрай бессмыслен и опасен (повторно завершать/менять нельзя).
         return { status: "failed", error: `http_${res.status}` }
       } else {
         const data = await res.json().catch(() => ({}))
@@ -68,13 +76,12 @@ export async function sendMatchCommand(
         return { status: "ok", revision }
       }
     } catch {
-      return { status: "failed", error: "network" }
+      // Сеть — транзиентно: повторяем (офлайн-клик не должен теряться).
+      result = { status: "failed", error: "network" }
+      retryable = true
     }
 
-    // 409: команда не применена (проиграла гонку) — повторяем с тем же
-    // operationId поверх свежего серверного состояния. Пауза растёт, чтобы
-    // разнести конкурирующие запросы.
-    if (attempt >= MAX_CONFLICT_ATTEMPTS) return result
+    if (!retryable || attempt >= MAX_CONFLICT_ATTEMPTS) return result as SendCommandResult
     await sleep(80 * attempt)
   }
 }

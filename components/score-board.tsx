@@ -23,6 +23,7 @@ import { CircleDot } from "lucide-react"
 import { switchServer, swapCourtSides } from "@/lib/scoring-logic"
 import { applyPointWithExtras } from "@/lib/apply-point"
 import { sendMatchCommand, type SendCommandResult } from "@/lib/match-command-client"
+import { syncMatchToServer } from "@/lib/match-sync"
 import { postResultIfConfigured } from "@/lib/result-poster"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,6 +76,12 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
 
   // Track absolutely latest state perfectly for rapid clicks
   const latestMatchRef = useRef<any>(null)
+
+  // Промис финальной point-команды (диалог завершения): «Продолжить» обязан
+  // дождаться её, прежде чем слать unlock-match — иначе гонка порядков
+  // завершает матч на сервере ПОСЛЕ анлока, и все дальнейшие очки
+  // оператора отвергаются 400-м (фикс 2026-09-04 №2).
+  const finalPointInFlightRef = useRef<Promise<SendCommandResult> | null>(null)
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -231,24 +238,33 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     // applies handicap to the next game, consumes Power Play and stages
     // a pending tiebreak choice when needed.
     const resultMatch = applyPointWithExtras(updatedMatch, team)
-    // Оптимистичная ревизия = база + 1 (фикс отката счёта 2026-09-04): без
-    // бампа задержавшийся realtime-эхо этой же команды (rev N+1) проходит
-    // гард «incoming <= local» (N+1 > N) и затирает локальный счёт, где уже
-    // есть СЛЕДУЮЩЕЕ очко от быстрого клика — счёт «прыгал назад».
-    resultMatch.revision = (typeof updatedMatch.revision === "number" ? updatedMatch.revision : 0) + 1
+    // Ревизию бампит ЕДИНСТВЕННО useMatch.updateMatch (см. ниже) — двойной
+    // бамп (здесь + там) уходил на +2 за клик вперёд сервера НАВСЕГДА, и
+    // ревизионный гард потом отвергал ЛЮБЫЕ серверные обновления (чужие
+    // очки, анлоки) — страница замирала в своей оптимистике (фикс
+    // 2026-09-04 №2: «нажимаю, а счёт не всегда меняется»).
 
     // If the engine completed the match, show confirmation dialog
     if (resultMatch.isCompleted && !activeMatchState.isCompleted) {
+      // Здесь updateMatch НЕ вызывается — ревизию бампим сами.
+      resultMatch.revision = (typeof updatedMatch.revision === "number" ? updatedMatch.revision : 0) + 1
       setPendingMatchUpdate(resultMatch)
       setPreviousMatchState(previousState)
       setLocalMatchState(resultMatch)
       latestMatchRef.current = resultMatch
       setShowMatchEndDialog(true)
       // Финальное очко уходит на сервер той же командой — матч завершится
-      // и там; подтверждение оператора — чисто UI-действие (§99).
-      void sendMatchCommand(activeMatchState.id, "point", { team }, { clientId: "score-board" }).then(
-        reconcileOnConflict,
-      )
+      // и там; подтверждение оператора — чисто UI-действие (§99). Промис
+      // храним: «Продолжить» должен дождаться его перед unlock-match.
+      finalPointInFlightRef.current = sendMatchCommand(
+        activeMatchState.id,
+        "point",
+        { team },
+        { clientId: "score-board" },
+      ).then((res) => {
+        selfHealOnFailure(res)
+        return res
+      })
       return
     }
 
@@ -257,8 +273,22 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     // Шаг 3 (§99): снапшот — только локально; на сервер ушла КОМАНДА.
     updateMatch(resultMatch, { localOnly: true })
     void sendMatchCommand(activeMatchState.id, "point", { team }, { clientId: "score-board" }).then(
-      reconcileOnConflict,
+      selfHealOnFailure,
     )
+  }
+
+  /**
+   * Самолечение потерянной команды (фикс 2026-09-04 №2): если point-команда
+   * упала (сеть/5xx/400), очко существует только в оптимистике — сервер
+   * никогда его не узнает, а на других экранах счёт «не всегда меняется».
+   * Пушим текущий локальный снапшот через sync-очередь: revision-guard на
+   * PUT сам разрулит конкуренцию, сервер сойдётся с тем, что видит оператор.
+   */
+  const selfHealOnFailure = (res: SendCommandResult) => {
+    if (res.status === "failed" && latestMatchRef.current && !latestMatchRef.current.isCompleted) {
+      syncMatchToServer(latestMatchRef.current)
+    }
+    reconcileOnConflict(res)
   }
 
   /**
@@ -335,9 +365,8 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
     if (scoreDecreased) {
       // Journal the manual correction so replay-undo stays in sync.
       const journaled = appendStateOverrideEvent(updatedMatch, "score-decrease", scoreStateOf(activeMatchState))
-      // Оптимистичная ревизия +1 — тот же фикс отката счёта, что и в
-      // handleScoreClick: realtime-эхо не должно затирать коррекцию.
-      journaled.revision = (typeof activeMatchState.revision === "number" ? activeMatchState.revision : 0) + 1
+      // Ревизию бампит useMatch.updateMatch — без ручного бампа (иначе
+      // двойной +1 за клик уводит страницу впереди сервера навсегда).
       latestMatchRef.current = journaled
       setLocalMatchState(journaled)
 
@@ -375,10 +404,13 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
   // refresh the optimistic layer so the scoreboard updates immediately.
   const applyUndoneMatch = (undone: any, viaCommand = false) => {
     // База — самый свежий оптимистичный стейт (ref), а не опоздавший prop:
-    // иначе бамп считается от устаревшей ревизии и realtime-эхо затирает undo.
+    // replay-снапшот несёт ревизию Сида (ниже live) — выравниваем на live,
+    // единственный +1 добавит useMatch.updateMatch. Ручной +1 сверх того
+    // (как раньше) накапливал отставание сервера и навсегда закрывал
+    // ревизионный гард для чужих обновлений (фикс 2026-09-04 №2).
     const base = latestMatchRef.current ?? match
     const liveRev = typeof base?.revision === "number" ? base.revision : 0
-    undone.revision = liveRev + 1
+    undone.revision = liveRev
     latestMatchRef.current = undone
     setLocalMatchState(undone)
     // Шаг 3 (§99): undo с рабочим журналом уходит командой (localOnly);
@@ -450,7 +482,25 @@ export function ScoreBoard({ match, updateMatch }: { match: any; updateMatch: an
       latestMatchRef.current = restored
       setLocalMatchState(restored)
       updateMatch(restored, { localOnly: true })
-      void sendMatchCommand(restored.id, "unlock-match", {}, { clientId: "score-board" }).then(reconcileOnConflict)
+
+      // Сначала ждём финальную point-команду (она завершает матч на
+      // сервере), затем unlock; после ACK — контрольный unlock: если point
+      // прилетел ПОСЛЕ первого unlock, он завершил матч повторно, и второй
+      // unlock это чинит. unlock-match идемпотентен (no-op на активном).
+      const finalPoint = finalPointInFlightRef.current
+      const unlock = () =>
+        sendMatchCommand(restored.id, "unlock-match", {}, { clientId: "score-board" })
+      void (finalPoint ? finalPoint.catch(() => {}) : Promise.resolve())
+        .then(unlock)
+        .then(async (res) => {
+          if (res.status === "ok") {
+            await unlock().then(reconcileOnConflict)
+          } else {
+            reconcileOnConflict(res)
+          }
+        })
+        .catch(() => {})
+      finalPointInFlightRef.current = null
     }
 
     // Reset the pending state

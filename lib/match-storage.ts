@@ -113,22 +113,43 @@ export const invalidateMatchCache = (idOrCode?: string) => {
 const transformMatchFromSupabase = (match: any) => matchFromRow(match)
 
 // Изменим функцию getMatches, чтобы она гарантированно возвращала все матчи, включая незавершенные
-export const getMatches = async () => {
+// probe=false — быстрый путь для realtime-колбэков (фикс 2026-09-04):
+// пропускаме сетевые пробы isSupabaseAvailable/checkTablesExist — realtime-
+// канал уже подключён, значит база доступна; каждое очко больше не порождает
+// 2 служебных запроса + SELECT 50 матчей с пробами.
+export const getMatches = async (opts?: { probe?: boolean }) => {
   if (typeof window === "undefined") return []
+  const probe = opts?.probe !== false
 
   try {
-    logEvent("info", tSync("logMessages.gettingMatches"), "getMatches")
+    if (probe) {
+      logEvent("info", tSync("logMessages.gettingMatches"), "getMatches")
+    }
 
-    // Проверяем доступность Supabase
-    const supabaseAvailable = await isSupabaseAvailable()
+    let canUseSupabase = true
+    if (probe) {
+      // Проверяем доступность Supabase
+      const supabaseAvailable = await isSupabaseAvailable()
 
-    if (supabaseAvailable) {
-      // Проверяем существование таблиц
-      const tablesStatus = await checkTablesExist()
+      if (supabaseAvailable) {
+        // Проверяем существование таблиц
+        const tablesStatus = await checkTablesExist()
+        if (!tablesStatus.exists) {
+          logEvent("warn", tSync("logMessages.tablesNotExistUseLocal"), "getMatches")
+          canUseSupabase = false
+        }
+      } else {
+        logEvent("warn", tSync("logMessages.supabaseUnavailableUseLocal"), "getMatches")
+        canUseSupabase = false
+      }
+    }
 
-      if (tablesStatus.exists) {
-        logEvent("debug", tSync("logMessages.supabaseAvailableGetting"), "getMatches")
-        const supabase = createClientSupabaseClient()
+    if (canUseSupabase) {
+      const supabase = createClientSupabaseClient()
+      if (supabase) {
+        if (probe) {
+          logEvent("debug", tSync("logMessages.supabaseAvailableGetting"), "getMatches")
+        }
 
         // Оптимизация: выбираем только нужные поля и увеличиваем лимит до 50 матчей
         // Важно: НЕ фильтруем по is_completed, чтобы получить ВСЕ матчи
@@ -144,7 +165,9 @@ export const getMatches = async () => {
             status,
           })
         } else if (data && data.length > 0) {
-          logEvent("info", tSync("logMessages.restoredFromLocal", { count: data.length }), "getMatches")
+          if (probe) {
+            logEvent("info", tSync("logMessages.restoredFromLocal", { count: data.length }), "getMatches")
+          }
 
           // Преобразуем данные из Supabase в нужный формат с проверкой на undefined
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -182,15 +205,11 @@ export const getMatches = async () => {
           })
 
           return matches
-        } else {
-          logEvent("info", tSync("logMessages.matchesNotFoundInSupabase"), "getMatches")
+            } else if (probe) {
+              logEvent("info", tSync("logMessages.matchesNotFoundInSupabase"), "getMatches")
+            }
+          }
         }
-      } else {
-        logEvent("warn", tSync("logMessages.tablesNotExistUseLocal"), "getMatches")
-      }
-    } else {
-      logEvent("warn", tSync("logMessages.supabaseUnavailableUseLocal"), "getMatches")
-    }
 
     // Если Supabase недоступен или нет матчей, используем локальное хранилище
     const matches = safeGetItem("tennis_padel_matches", [])
@@ -1201,6 +1220,21 @@ export const subscribeToMatchesListUpdates = (callback: any) => {
         // Ушли со страницы, пока шла асинхронная настройка — не подписываемся.
         if (disposed) return
 
+        // Схлопываем пачки событий в один перезапрос (фикс 2026-09-04):
+        // каждое очко — это UPDATE, и старый колбэк на КАЖДОЕ событие гонял
+        // getMatches с сетевыми пробами + SELECT 50 матчей. Теперь не чаще
+        // раза в 500 мс, без проб (realtime уже подключён), и подписчику
+        // передаётся payload события (колбэк может фильтровать по нему).
+        let lastPayload: any = null
+        let emitTimer: ReturnType<typeof setTimeout> | null = null
+        const emit = () => {
+          if (emitTimer !== null) return
+          emitTimer = setTimeout(() => {
+            emitTimer = null
+            void getMatches({ probe: false }).then((matches) => callback(matches, lastPayload))
+          }, 500)
+        }
+
         // Подписываемся на изменения списка матчей в Supabase
         const subscription = supabase
           .channel(uniqueChannelName("matches-list"))
@@ -1211,15 +1245,18 @@ export const subscribeToMatchesListUpdates = (callback: any) => {
               schema: "public",
               table: "matches",
             },
-            async () => {
-              // При любом изменении в таблице матчей, получаем обновленный список
-              const matches = await getMatches()
-              callback(matches)
+            (payload: any) => {
+              lastPayload = payload
+              emit()
             },
           )
           .subscribe()
 
         unsubscribe = () => {
+          if (emitTimer !== null) {
+            clearTimeout(emitTimer)
+            emitTimer = null
+          }
           supabase.removeChannel(subscription)
         }
         if (disposed) teardown()

@@ -32,9 +32,11 @@ export function MatchList({ limit }: { limit?: number }) {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         })
         setMatches(sortedMatches)
-        // Добавьте этот код после строки, где вы устанавливаете matches в state
-        // В функции loadMatches после setMatches(sortedMatches)
-        console.log("Загруженные матчи:", sortedMatches)
+        // Полный список в консоль — только в dev: на проде логировался на
+        // каждое realtime-событие (каждое очко) и грузил браузер.
+        if (process.env.NODE_ENV !== "production") {
+          console.log("Загруженные матчи:", sortedMatches)
+        }
       } catch (error) {
         console.error("Ошибка при загрузке матчей:", error)
         if (error instanceof Error) {

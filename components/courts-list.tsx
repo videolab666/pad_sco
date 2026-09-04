@@ -21,6 +21,9 @@ export function CourtsList() {
   // новым событием — пачка realtime-событий (очко, завершение, несколько
   // PUT) схлопывается в один перезапрос максимум раз в 500 мс.
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Зеркало occupiedCourts для синхронного доступа из realtime-колбэка
+  // (стейт в замыкании эффекта устаревает).
+  const occupiedRef = useRef<number[]>([])
 
   // Загрузка списка занятых кортов. silent=true — фоновой перезагрузкой без
   // спиннера на весь блок (иначе каждое realtime-событие мигает UI).
@@ -28,6 +31,7 @@ export function CourtsList() {
     try {
       if (!silent) setLoading(true)
       const courts = await getOccupiedCourts()
+      occupiedRef.current = courts
       setOccupiedCourts(courts)
       logEvent("info", "Список занятых кортов загружен", "courts-list", { courts, silent })
     } catch (error) {
@@ -64,9 +68,21 @@ export function CourtsList() {
   useEffect(() => {
     loadOccupiedCourts()
 
-    const unsubscribe = subscribeToMatchesListUpdates(() => {
-      // Список матчей из колбэка не используем — занятость кортов считается
-      // отдельным запросом (is_completed + court_number/court_id).
+    const unsubscribe = subscribeToMatchesListUpdates((_matches: unknown, payload?: any) => {
+      // Занятость корта меняют только: завершение (is_completed=true),
+      // появление/удаление матча, ЗАНИМАНИЕ ранее свободного корта (анлок
+      // или назначение court_number). Очко в матче на УЖЕ занятом корте
+      // занятость не меняет — на нём не перезапрашиваем (фикс 2026-09-04:
+      // главная грузила браузер запросом на каждый счёт). REPLICA IDENTITY
+      // дефолтный (old = только id), поэтому диф по old невозможен.
+      const evt = payload?.eventType ?? payload?.event
+      if (evt === "UPDATE") {
+        const row = payload?.new
+        const court = typeof row?.court_number === "number" ? row.court_number : null
+        // isActive-UPDATE интересна только если её корт сейчас СВОБОДЕН:
+        // занят → это очко (пропуск), null → QR-корт, числовую занятость не меняет.
+        if (row?.is_completed === false && (court === null || occupiedRef.current.includes(court))) return
+      }
       scheduleReload()
     })
 

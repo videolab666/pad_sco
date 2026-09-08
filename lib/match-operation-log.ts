@@ -16,6 +16,51 @@ import {
 } from "./types"
 
 const OPLOG_PREFIX = "match_oplog_"
+const COMMAND_PREFIX = "match_pending_command_"
+const volatileCommands = new Set<string>()
+let commandOrder = 0
+
+function persistCommand(op: MatchOperation): void {
+  if (!isStorageAvailable()) return
+  try {
+    commandOrder = Math.max(commandOrder + 1, Date.now() * 1000)
+    localStorage.setItem(COMMAND_PREFIX + op.operationId, JSON.stringify({ operation: op, order: commandOrder }))
+  } catch {
+    volatileCommands.add(op.operationId)
+  }
+}
+
+function removeCommand(id: string): void {
+  volatileCommands.delete(id)
+  if (isStorageAvailable()) localStorage.removeItem(COMMAND_PREFIX + id)
+}
+
+/** One key per command prevents two tabs overwriting each other's outbox. */
+function mergeCommandIndex(record: MatchSyncRecord): MatchSyncRecord {
+  if (!isStorageAvailable()) return record
+  if (record.commandIndexVersion !== 1) {
+    for (const op of record.queue) if (op.kind === "command") persistCommand(op)
+    record.commandIndexVersion = 1
+  }
+  const pending: Array<{ operation: MatchOperation; order: number }> = []
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key?.startsWith(COMMAND_PREFIX)) continue
+      const entry = JSON.parse(localStorage.getItem(key) || "null")
+      if (entry?.operation?.matchId === record.matchId && entry.operation.kind === "command") pending.push(entry)
+    }
+    pending.sort((a, b) => a.order - b.order || a.operation.operationId.localeCompare(b.operation.operationId))
+    const existing = new Map(record.queue.map(op => [op.operationId, op]))
+    record.queue = [
+      ...record.queue.filter(op => op.kind !== "command" || volatileCommands.has(op.operationId)),
+      ...pending.map(entry => existing.get(entry.operation.operationId) ?? entry.operation),
+    ]
+  } catch {
+    // Keep in-memory intent if storage becomes unavailable mid-session.
+  }
+  return record
+}
 const CLIENT_ID_KEY = "padel_sync_client_id"
 
 /** Hard cap on the live queue length — guards against unbounded growth. */
@@ -100,18 +145,18 @@ function isValidRecord(value: any): value is MatchSyncRecord {
  * exists or the stored payload is corrupt / from an incompatible schema.
  */
 export function loadSyncRecord(matchId: string, fallbackSnapshot: any = null): MatchSyncRecord {
-  if (memoryRecords.has(matchId)) return memoryRecords.get(matchId)!
+  if (memoryRecords.has(matchId)) return mergeCommandIndex(memoryRecords.get(matchId)!)
   if (!isStorageAvailable()) return freshRecord(matchId, fallbackSnapshot)
 
   try {
     const raw = localStorage.getItem(OPLOG_PREFIX + matchId)
-    if (!raw) return freshRecord(matchId, fallbackSnapshot)
+    if (!raw) return mergeCommandIndex(freshRecord(matchId, fallbackSnapshot))
     const parsed = JSON.parse(raw)
     if (!isValidRecord(parsed)) {
       logEvent("warn", tSync("logMessages.operationLogCorrupted", { id: matchId }), "match-operation-log")
       return freshRecord(matchId, fallbackSnapshot)
     }
-    return parsed
+    return mergeCommandIndex(parsed)
   } catch (error) {
     logEvent("warn", tSync("logMessages.operationLogReadError", { id: matchId }), "match-operation-log", error)
     return freshRecord(matchId, fallbackSnapshot)
@@ -155,13 +200,14 @@ export function enqueueOperation(
     lastError: null,
   }
   record.queue.push(operation)
+  if (kind === "command") persistCommand(operation)
   record.revision += 1
   record.snapshot = snapshot ?? record.snapshot
   record.syncStatus = "pending"
   record.lastError = null
 
   // Compaction guardrail: never let the live queue grow without bound.
-  if (record.queue.length > MAX_QUEUE_LENGTH) {
+  if (record.queue.length > MAX_QUEUE_LENGTH && record.queue.every(op => op.kind !== "command")) {
     record.queue = record.queue.slice(-MAX_QUEUE_LENGTH)
   }
 
@@ -178,10 +224,11 @@ export function markOperationsSynced(
 ): MatchSyncRecord {
   const record = loadSyncRecord(matchId)
   const done = new Set(operationIds)
+  for (const op of record.queue) if (op.kind === "command" && done.has(op.operationId)) removeCommand(op.operationId)
   record.queue = record.queue.filter((op) => !done.has(op.operationId))
   record.lastSyncedRevision = Math.max(record.lastSyncedRevision, serverRevision)
   record.revision = Math.max(record.revision, record.lastSyncedRevision)
-  if (serverSnapshot) record.snapshot = serverSnapshot
+  if (serverSnapshot && serverRevision >= record.lastSyncedRevision) record.snapshot = serverSnapshot
   record.lastSyncedAt = new Date().toISOString()
   record.lastError = null
   record.conflictReason = null
@@ -207,6 +254,7 @@ export function markOperationFailed(
     op.retryCount += 1
     op.lastError = error
     if (op.retryCount >= maxRetries) {
+      if (op.kind === "command") removeCommand(operationId)
       record.queue = record.queue.filter((o) => o.operationId !== operationId)
       record.deadLetter.push(op)
       record.syncStatus = "dead-letter"
@@ -264,6 +312,11 @@ export function listMatchesWithPendingOperations(): string[] {
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
+        if (key?.startsWith(COMMAND_PREFIX)) {
+          const entry = JSON.parse(localStorage.getItem(key) || "null")
+          if (entry?.operation?.matchId) ids.add(entry.operation.matchId)
+          continue
+        }
         if (!key || !key.startsWith(OPLOG_PREFIX)) continue
         const matchId = key.slice(OPLOG_PREFIX.length)
         const rec = loadSyncRecord(matchId)
@@ -278,6 +331,8 @@ export function listMatchesWithPendingOperations(): string[] {
 
 /** Drops the persisted record entirely (used when a match is deleted). */
 export function clearSyncRecord(matchId: string): void {
+  const record = loadSyncRecord(matchId)
+  for (const op of record.queue) if (op.kind === "command") removeCommand(op.operationId)
   memoryRecords.delete(matchId)
   if (!isStorageAvailable()) return
   try {

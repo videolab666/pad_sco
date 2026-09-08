@@ -51,7 +51,11 @@ export function ResultPosterSettings({ match, updateMatch }: Props) {
     const next = JSON.parse(JSON.stringify(match))
     next.settings = next.settings ?? {}
     next.settings.resultPoster = buildConfig()
-    updateMatch(next)
+    updateMatch(next, {
+      command: "set-result-poster",
+      args: { config: next.settings.resultPoster },
+      clientId: "result-poster",
+    })
   }
 
   const postNow = async () => {
@@ -67,7 +71,14 @@ export function ResultPosterSettings({ match, updateMatch }: Props) {
       // Replay the audit trail through the completed-match path too if the
       // match is finished.
       const withAudit = await postResultIfConfigured(match)
-      if (withAudit !== match) updateMatch(withAudit)
+      if (withAudit !== match) {
+        const event = withAudit.events?.[withAudit.events.length - 1]
+        updateMatch(withAudit, {
+          command: "result-poster-audit",
+          args: event?.payload ?? {},
+          clientId: "result-poster",
+        })
+      }
     } finally {
       setBusy(false)
     }

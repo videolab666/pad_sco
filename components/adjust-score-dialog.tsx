@@ -16,7 +16,6 @@ import { Pencil, RotateCcw, Undo2 } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 import { adjustCurrentGame, adjustCurrentSet, adjustCurrentServer } from "@/lib/match-adjust"
 import { reseedJournal, undoBackOneGame, undoBackOneSet, verifyJournal } from "@/lib/match-undo"
-import { sendMatchCommand } from "@/lib/match-command-client"
 import type { TeamKey } from "@/lib/types"
 
 interface Props {
@@ -62,10 +61,7 @@ export function AdjustScoreDialog({ match, updateMatch }: Props) {
   // Шаг 3 (§99): коррекции уходят командами; снапшот — локально (один раз
   // на пачку правок, команды — по одной на каждую).
   const sendCommands = (commands: Array<{ command: string; args: Record<string, unknown> }>, next: any) => {
-    updateMatch(next, { localOnly: true })
-    for (const { command, args } of commands) {
-      void sendMatchCommand(match.id, command, args, { clientId: "adjust-dialog" })
-    }
+    updateMatch(next, { command: "batch", args: { commands }, clientId: "adjust-dialog" })
   }
 
   const apply = () => {
@@ -89,14 +85,10 @@ export function AdjustScoreDialog({ match, updateMatch }: Props) {
 
   // Undo game/set: the replayed snapshot carries the SEED's revision, so bump
   // it above the live one — otherwise the optimistic-state guard rejects it.
-  const undoWithRevision = (undone: any, command?: string) => {
+  const undoWithRevision = (undone: any, command: string) => {
     if (!undone || undone === match) return
-    undone.revision = (typeof match?.revision === "number" ? match.revision : 0) + 1
-    if (command) {
-      sendCommands([{ command, args: {} }], undone)
-    } else {
-      updateMatch(undone)
-    }
+    undone.revision = typeof match?.revision === "number" ? match.revision : 0
+    sendCommands([{ command, args: {} }], undone)
     setOpen(false)
   }
 
@@ -161,7 +153,7 @@ export function AdjustScoreDialog({ match, updateMatch }: Props) {
               </Button>
             </div>
             {!canUndo && !match?.isCompleted && (
-              <Button variant="outline" size="sm" className="w-full" onClick={() => undoWithRevision(reseedJournal(match))}>
+              <Button variant="outline" size="sm" className="w-full" onClick={() => undoWithRevision(reseedJournal(match), "repair-journal")}>
                 <Undo2 className="h-3 w-3 mr-1" />
                 {t("extras.undoRepair")}
               </Button>

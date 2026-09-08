@@ -68,11 +68,23 @@ export function OfficialCallDialog({ match, updateMatch }: Props) {
   const apply = () => {
     if (!type || !team || !updateMatch) return
     if (type === "conduct" && conduct) {
-      updateMatch(applyConductPenalty(match, team, conduct))
+      updateMatch(applyConductPenalty(match, team, conduct), {
+        command: "official-call",
+        args: { type, team, penalty: conduct },
+        clientId: "official-call",
+      })
     } else if (type === "appeal") {
-      updateMatch(recordOfficialCall(match, { type: "appeal", team, decision: decision ?? undefined }))
+      updateMatch(recordOfficialCall(match, { type: "appeal", team, decision: decision ?? undefined }), {
+        command: "official-call",
+        args: { type, team, decision: decision ?? undefined },
+        clientId: "official-call",
+      })
     } else if (type === "broken-equipment") {
-      updateMatch(recordOfficialCall(match, { type: "broken-equipment", team, equipment: equipment ?? undefined }))
+      updateMatch(recordOfficialCall(match, { type: "broken-equipment", team, equipment: equipment ?? undefined }), {
+        command: "official-call",
+        args: { type, team, equipment: equipment ?? undefined },
+        clientId: "official-call",
+      })
     }
     setOpen(false)
     reset()

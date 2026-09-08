@@ -410,6 +410,12 @@ export function swapCourtSides(sides: CourtSides): CourtSides {
   };
 }
 
+/** Complete the automatic side transition once, in both live scoring and replay. */
+export function applyPendingCourtSideChange<T extends { shouldChangeSides?: boolean; courtSides?: CourtSides }>(match: T): T {
+  if (!match.shouldChangeSides || !match.courtSides) return match;
+  return { ...match, courtSides: swapCourtSides(match.courtSides), shouldChangeSides: false };
+}
+
 // ─── Exported indicator helpers ───────────────────────────────────────────────
 
 export function getPointIndex(point: unknown): number {

@@ -55,6 +55,56 @@ const err = (fn: () => unknown): RemoteCommandError => {
 }
 
 describe("applyRemoteCommand — point", () => {
+  it("changes ends atomically when a conduct stroke wins a game", () => {
+    const before = score(freshMatch(), "teamA", 3)
+    const penalized = applyRemoteCommand(before, "official-call", { type: "conduct", team: "teamB", penalty: "stroke" })
+    expect(penalized.score.currentSet.teamA).toBe(1)
+    expect(penalized.courtSides).toEqual({ teamA: "right", teamB: "left" })
+    expect(penalized.shouldChangeSides).toBe(false)
+    const nextPoint = score(penalized, "teamB")
+    const undone = applyRemoteCommand(nextPoint, "undo-point")
+    expect(undone.courtSides).toEqual(penalized.courtSides)
+    expect(undone.shouldChangeSides).toBe(false)
+  })
+  it("undo keeps concurrent court, roster and poster edits while replaying side changes", () => {
+    let m = score(freshMatch(), "teamA", 5)
+    m = applyRemoteCommand(m, "assign-court", { court: 2 })
+    m = applyRemoteCommand(m, "set-rosters", { teamA: { name: "New", players: [{ id: "new", name: "New Player" }] } })
+    m.settings.resultPoster = { url: "https://example.invalid/poster" }
+    m.futureMetadata = { keep: true }
+    const undone = applyRemoteCommand(m, "undo-point")
+    expect(undone.score.currentSet.currentGame.teamA).toBe(0)
+    expect(undone.score.currentSet.teamA).toBe(1)
+    expect(undone.courtNumber).toBe(2)
+    expect(undone.teamA).toEqual(m.teamA)
+    expect(undone.settings.resultPoster).toEqual(m.settings.resultPoster)
+    expect(undone.futureMetadata).toEqual(m.futureMetadata)
+    expect(undone.courtSides).toEqual({ teamA: "right", teamB: "left" })
+    expect(undone.shouldChangeSides).toBe(false)
+    const beforeGame = applyRemoteCommand(undone, "undo-point")
+    expect(beforeGame.courtSides).toEqual({ teamA: "left", teamB: "right" })
+    expect(beforeGame.courtNumber).toBe(2)
+  })
+  it("preserves a manual side change when undoing a later point", () => {
+    let m = score(freshMatch(), "teamA", 4)
+    m = applyRemoteCommand(m, "switch-sides")
+    m = score(m, "teamA")
+    const undone = applyRemoteCommand(m, "undo-point")
+    expect(undone.courtSides).toEqual({ teamA: "left", teamB: "right" })
+    expect(undone.shouldChangeSides).toBe(false)
+  })
+  it("decrements only the selected team's latest point without overwriting the other referee", () => {
+    let m = score(freshMatch(), "teamA", 2)
+    m = score(m, "teamB", 2)
+    const corrected = applyRemoteCommand(m, "decrease-point", { team: "teamA" })
+    expect(corrected.score.currentSet.currentGame).toEqual({ teamA: 15, teamB: 30 })
+  })
+
+  it("changes ends once inside the point transition, independent of referee count", () => {
+    const m = score(freshMatch(), "teamA", 4)
+    expect(m.shouldChangeSides).toBe(false)
+    expect(m.courtSides).toEqual({ teamA: "right", teamB: "left" })
+  })
   it("scores a point through the shared engine", () => {
     const m = applyRemoteCommand(freshMatch(), "point", { team: "teamA" })
     expect(m.score.currentSet.currentGame).toEqual({ teamA: 15, teamB: 0 })
@@ -291,10 +341,11 @@ describe("applyRemoteCommand — toss / assign-court", () => {
     const cleared = applyRemoteCommand(m, "assign-court", { court: null, courtId: null })
     expect(cleared.courtId).toBe(null)
 
-    // без поля courtId прежняя привязка сохраняется (совместимость)
+    // Numeric reassignment must clear the previous UUID binding; the database
+    // resolves the new canonical court instead of restoring the old court.
     const kept = applyRemoteCommand({ ...freshMatch(), courtId: courtUuid }, "assign-court", { court: 3 })
     expect(kept.courtNumber).toBe(3)
-    expect(kept.courtId).toBe(courtUuid)
+    expect(kept.courtId).toBe(null)
 
     // тип courtId валидируется
     expect(err(() => applyRemoteCommand(freshMatch(), "assign-court", { courtId: 42 })).code).toBe("invalid_args")
@@ -355,11 +406,10 @@ describe("finish (фикс 2026-09-04: завершение через конв�
     expect(m.winner).toBe("teamA")
   })
 
-  it("дважды завершать нельзя и мусорный winner отвергается", async () => {
+  it("повторное завершение идемпотентно, а мусорный winner отвергается", async () => {
     const { applyRemoteCommand } = await import("../lib/remote-commands")
     const done = applyRemoteCommand(freshMatch(), "finish")
-    const e1 = err(() => applyRemoteCommand(done, "finish"))
-    expect(e1.code).toBe("match_completed")
+    expect(applyRemoteCommand(done, "finish")).toBe(done)
     const e2 = err(() => applyRemoteCommand(freshMatch(), "finish", { winner: "teamZ" }))
     expect(e2.code).toBe("invalid_args")
   })
@@ -369,5 +419,115 @@ describe("finish (фикс 2026-09-04: завершение через конв�
     const base = freshMatch()
     applyRemoteCommand(base, "finish")
     expect(base.isCompleted).toBe(false)
+  })
+})
+
+describe("completed match is terminal", () => {
+  it("refuses a rule change that would silently resurrect a completed match", () => {
+    const done = applyRemoteCommand(freshMatch(), "finish", { winner: "teamA" })
+    const e = err(() => applyRemoteCommand(done, "set-rules", { rules: { sets: 5 } }))
+    expect(e.code).toBe("match_completed")
+    expect(done.isCompleted).toBe(true)
+  })
+})
+
+describe("semantic commands for every match control", () => {
+  it("starts and ends a tiebreak through the server reducer", () => {
+    let m = freshMatch()
+    m.score.currentSet.teamA = 6
+    m.score.currentSet.teamB = 6
+    m = applyRemoteCommand(m, "start-tiebreak")
+    expect(m.score.currentSet.isTiebreak).toBe(true)
+    m.score.currentSet.currentGame = { teamA: 7, teamB: 5 }
+    m = applyRemoteCommand(m, "end-tiebreak", { winner: "teamA" })
+    expect(m.score.sets).toHaveLength(1)
+    expect(m.score.sets[0].tiebreak).toEqual({ teamA: 7, teamB: 5 })
+  })
+
+  it("adjusts arbitrary tiebreak points without a full snapshot", () => {
+    const m = freshMatch()
+    m.score.currentSet.isTiebreak = true
+    m.score.currentSet.currentGame = { teamA: 10, teamB: 9 }
+    const adjusted = applyRemoteCommand(m, "adjust-tiebreak", { teamA: 9, teamB: 9 })
+    expect(adjusted.score.currentSet.currentGame).toEqual({ teamA: 9, teamB: 9 })
+  })
+
+  it("applies handicap, power play and new-ball changes", () => {
+    let m = applyRemoteCommand(freshMatch(), "set-handicap", { teamA: 1, teamB: 2 })
+    expect(m.handicap.sameForAllGames).toEqual({ teamA: 1, teamB: 2 })
+    m = applyRemoteCommand(m, "toggle-power-play", { team: "teamA" })
+    expect(m.powerPlay.activeFor).toContain("teamA")
+    m.newBalls = { mode: "after-first-7-then-each-9", lastChangeAtStartOfGame: 0, pendingInGames: null }
+    m = applyRemoteCommand(m, "new-balls-changed")
+    expect(m.events.at(-1).type).toBe("new-balls")
+  })
+
+  it("runs timers and records a timeout on authoritative state", () => {
+    let m = applyRemoteCommand(freshMatch(), "start-timer", { type: "warmup" })
+    expect(m.timing.activeTimer.type).toBe("warmup")
+    m = applyRemoteCommand(m, "pause-timer")
+    expect(m.timing.activeTimer.pausedAt).toBeTruthy()
+    m = applyRemoteCommand(m, "resume-timer")
+    expect(m.timing.activeTimer.pausedAt).toBeUndefined()
+    m = applyRemoteCommand(m, "stop-timer")
+    expect(m.timing.activeTimer).toBeUndefined()
+    m = applyRemoteCommand(m, "record-timeout", { team: "teamB" })
+    expect(m.timeouts.teamB).toHaveLength(1)
+  })
+
+  it("records rally stats, official calls and a receiver tiebreak choice", () => {
+    let m = freshMatch()
+    m = applyRemoteCommand(m, "record-rally-stat", {
+      scoringTeam: "teamA",
+      creditedTeam: "teamA",
+      kind: "winner",
+      racketSide: "forehand",
+    })
+    expect(m.rallyStats).toHaveLength(1)
+    m = applyRemoteCommand(m, "official-call", {
+      type: "appeal",
+      team: "teamB",
+      decision: "let",
+    })
+    expect(m.officialCalls).toHaveLength(1)
+    m.pendingTiebreakChoice = { baseTarget: 7, options: [1, 2], receiverTeam: "teamB" }
+    m = applyRemoteCommand(m, "tiebreak-choice", { offset: 2 })
+    expect(m.pendingTiebreakChoice).toBeUndefined()
+  })
+
+  it("repairs the journal and updates result-poster metadata without snapshots", () => {
+    let m = freshMatch()
+    m.events = []
+    m.seedSnapshot = undefined
+    m = applyRemoteCommand(m, "repair-journal")
+    expect(m.seedSnapshot).toBeTruthy()
+    m = applyRemoteCommand(m, "set-result-poster", {
+      config: { url: "https://example.test/result", autoOnComplete: true },
+    })
+    expect(m.settings.resultPoster.autoOnComplete).toBe(true)
+    m = applyRemoteCommand(m, "finish")
+    m = applyRemoteCommand(m, "result-poster-audit", { outcome: "posted", attempts: 1 })
+    expect(m.events.at(-1).type).toBe("result-poster")
+  })
+
+  it("replaces rich rosters without dropping player metadata", () => {
+    const roster = {
+      players: [{ id: "pa1", name: "Alpha", country: "UA", club: "Kyiv" }],
+      name: "Blue",
+    }
+    const m = applyRemoteCommand(freshMatch(), "set-rosters", { teamA: roster })
+    expect(m.teamA).toEqual(roster)
+    expect(m.teamB.players).toHaveLength(2)
+  })
+
+  it("can restart the current set as part of an explicit rule command", () => {
+    const base = freshMatch()
+    base.score.currentSet.teamA = 3
+    const m = applyRemoteCommand(base, "set-rules", {
+      rules: { scoringSystem: "no-ad" },
+      restartCurrentSet: true,
+    })
+    expect(m.score.currentSet.teamA).toBe(0)
+    expect(m.settings.scoringSystem).toBe("no-ad")
   })
 })

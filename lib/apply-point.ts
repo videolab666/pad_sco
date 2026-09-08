@@ -23,7 +23,7 @@ import { ensureSeedSnapshot } from "./match-undo"
 import { getGameHandicap, pointIndexToTennisScore } from "./handicap"
 import { ensureCurrentGameTiming, finalizeMatchTiming } from "./match-timing"
 import { consumePowerPlayAfterPoint } from "./power-play"
-import { applyScoreIncrement } from "./scoring-logic"
+import { applyScoreIncrement, applyPendingCourtSideChange } from "./scoring-logic"
 import {
   isPlainTiebreakFormat,
   shouldAskTiebreakTargetChoice,
@@ -67,7 +67,9 @@ export function applyPointWithExtras(match: any, team: TeamKey, now: Date = new 
   const beforeIsTiebreak = Boolean(seeded.score?.currentSet?.isTiebreak)
 
   // Engine step.
-  let next = applyScoreIncrement(seeded as any, team) as any
+  let next = applyPendingCourtSideChange(applyScoreIncrement(seeded as any, team)) as any
+  // A side change is part of the point's atomic state transition. If every
+  // referee's React effect sent a swap, two connected referees would cancel it.
 
   // Audit: record the point event with BEFORE indices (so the journal lines
   // up with the score state when the point was committed).

@@ -28,7 +28,11 @@ export function NewBallsIndicator({ match, updateMatch }: Props) {
 
   const onChanged = () => {
     if (!updateMatch) return
-    updateMatch(markNewBallsChanged(match))
+    updateMatch(markNewBallsChanged(match), {
+      command: "new-balls-changed",
+      args: {},
+      clientId: "new-balls",
+    })
   }
 
   if (dueNow) {

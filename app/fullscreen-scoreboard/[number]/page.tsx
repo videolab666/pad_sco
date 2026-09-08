@@ -3,13 +3,13 @@
 import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { getMatchByCourtNumber } from "@/lib/court-utils"
+import { getActiveMatchByCourtNumber } from "@/lib/court-utils"
 import { isMatchOnCourt } from "@/lib/court-match-guard"
 import { logEvent } from "@/lib/error-logger"
 import { subscribeToMatchUpdates } from "@/lib/match-storage"
-import { getMatchSyncState, syncMatchToServer } from "@/lib/match-sync"
-import { applyScoreIncrement } from "@/lib/scoring-logic"
-import { sendMatchCommand } from "@/lib/match-command-client"
+import { getMatchDisplaySnapshot, syncMatchCommand } from "@/lib/match-sync"
+import { applyPointWithExtras } from "@/lib/apply-point"
+import { undoLastScoringEvent, verifyJournal } from "@/lib/match-undo"
 import { Maximize2, Minimize2, ArrowLeft, Clock } from "lucide-react"
 import { translations, type Language } from "@/lib/translations"
 import { getDefaultVmixSettings } from "@/lib/vmix-settings-storage"
@@ -34,7 +34,6 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
   // --- All state hooks must be at the top ---
   // TODO: Replace 'any' with a proper Match type if available
   const [match, setMatch] = useState<any>(null);
-  const [matchHistory, setMatchHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -123,37 +122,17 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
     if (scoringRef.current) return;
     scoringRef.current = true;
     setTimeout(() => { scoringRef.current = false }, 150);
-    // Save current match state to history for undo
-    setMatchHistory(prev => [...prev, JSON.parse(JSON.stringify(base))]);
     // Deep copy to avoid mutating state directly
     const updatedMatch = JSON.parse(JSON.stringify(base));
     // Use shared scoring logic
-    const resultMatch = applyScoreIncrement(updatedMatch, team);
-    // Оптимистичная ревизия +1 (фикс отката счёта 2026-09-04): без бампа
-    // задержавшийся realtime-эхо (rev N+1, только первое очко) проходит
-    // ревизионный гард подписки и затирает локальный счёт со вторым очком.
-    resultMatch.revision = (typeof updatedMatch.revision === "number" ? updatedMatch.revision : 0) + 1;
+    const resultMatch = applyPointWithExtras(updatedMatch, team);
     latestMatchRef.current = resultMatch;
     setMatch(resultMatch);
     try {
       if (typeof window !== "undefined") {
+        syncMatchCommand(resultMatch, "point", { team }, "fullscreen");
         const { updateMatch } = await import("@/lib/match-storage");
-        // Шаг 3 (§99): снапшот — локально; на сервер уходит команда point
-        // (журнал/тайминги на сервере ставит движок в роуте команды).
         await updateMatch(resultMatch, { localOnly: true });
-        void sendMatchCommand(base.id, "point", { team }, { clientId: "fullscreen" }).then((res) => {
-          if (res.status === "conflict" && res.match) {
-            latestMatchRef.current = res.match;
-            setMatch(res.match);
-            void updateMatch(res.match, { localOnly: true });
-          } else if (res.status === "failed") {
-            // Самолечение (фикс 2026-09-04 №2): очко осталось только в
-            // оптимистике — пушим снапшот через sync-очередь, чтобы сервер
-            // сошёлся с тем, что видит оператор (иначе на других экранах
-            // счёт «не всегда меняется»).
-            syncMatchToServer(resultMatch);
-          }
-        });
       }
     } catch (e) {
       if (process.env.NODE_ENV !== 'production') {
@@ -165,38 +144,24 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
 
   // Undo last score change
   const handleUndoScoreChange = async () => {
-    if (!matchHistory.length || !isOnThisCourt(match)) return;
-    const prevMatch = matchHistory[matchHistory.length - 1];
-    // Оптимистичная ревизия поверх текущей (фикс 2026-09-04): undo-снапшот
-    // старше эхо-ревизии — без бампа realtime-эхо отменённого очка тут же
-    // возвращает счёт назад.
-    const liveRev = typeof latestMatchRef.current?.revision === "number" ? latestMatchRef.current.revision : 0;
-    prevMatch.revision = liveRev + 1;
-    latestMatchRef.current = prevMatch;
-    setMatch(prevMatch);
-    setMatchHistory(history => history.slice(0, -1));
+    const base = latestMatchRef.current ?? match;
+    if (!base || !isOnThisCourt(base) || !verifyJournal(base).canUndo) return;
+    const undone = undoLastScoringEvent(base);
+    undone.revision = base.revision;
+    latestMatchRef.current = undone;
+    setMatch(undone);
     try {
       if (typeof window !== "undefined") {
+        syncMatchCommand(undone, "undo-point", {}, "fullscreen");
         const { updateMatch } = await import("@/lib/match-storage");
-        // Шаг 3 (§99): undo — командой (журнальный replay на сервере);
-        // при неудаче (нет журнала/оффлайн-очередь) — fallback-снапшот.
-        const res = await sendMatchCommand(match.id, "undo-point", {}, { clientId: "fullscreen" });
-        if (res.status === "conflict" && res.match) {
-          latestMatchRef.current = res.match;
-          setMatch(res.match);
-          await updateMatch(res.match, { localOnly: true });
-        } else if (res.status === "failed") {
-          await updateMatch(prevMatch);
-        } else {
-          await updateMatch(prevMatch, { localOnly: true });
-        }
+        await updateMatch(undone, { localOnly: true });
       }
     } catch (e) {
       if (process.env.NODE_ENV !== 'production') {
         console.error("Failed to update match after undo:", e);
       }
     }
-    logEvent("info", `Undo last score change`, "fullscreen-scoreboard", { matchId: prevMatch?.id });
+    logEvent("info", `Undo last score change`, "fullscreen-scoreboard", { matchId: base.id });
   };
 
   // Handler to finish the match
@@ -204,26 +169,15 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
     const base = latestMatchRef.current ?? match;
     if (!base || base.isCompleted || !isOnThisCourt(base)) return;
     const updatedMatch = { ...base, isCompleted: true, winner: null };
-    // Оптимистичная ревизия +1 — realtime-эхо не должно «оживлять» матч.
-    updatedMatch.revision = (typeof base.revision === "number" ? base.revision : 0) + 1;
     latestMatchRef.current = updatedMatch;
     setMatch(updatedMatch);
     setIsCompletedMatch(true);
 
-    // Фикс 2026-09-04: завершение — КОМАНДА конвейера (RLS Шага 3 закрыл
-    // прямой anon-UPDATE на matches — снапшот-пуш молча не сохранялся).
-    // Локально — как раньше; на сервер — sendMatchCommand('finish').
     try {
       if (typeof window !== "undefined") {
+        syncMatchCommand(updatedMatch, "finish", {}, "fullscreen");
         const { updateMatch } = await import("@/lib/match-storage");
         await updateMatch(updatedMatch, { localOnly: true });
-        void sendMatchCommand(base.id, "finish", {}, { clientId: "fullscreen" }).then((res) => {
-          if (res.status === "conflict" && res.match) {
-            latestMatchRef.current = res.match;
-            setMatch(res.match);
-            void updateMatch(res.match, { localOnly: true });
-          }
-        });
       }
     } catch (e) {
       // Ignore backend errors but log for debug
@@ -260,7 +214,7 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [match, matchHistory]);
+  }, [match]);
 
   // Функция для загрузки настроек из базы данных
   const loadSettingsFromDatabase = async () => {
@@ -519,7 +473,7 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
         }
 
         logEvent("info", `Fullscreen Scoreboard: начало загрузки матча на корте ${courtNumber}`, "fullscreen-scoreboard")
-        matchData = await getMatchByCourtNumber(courtNumber)
+        matchData = await getActiveMatchByCourtNumber(courtNumber)
       }
 
       if (matchData) {
@@ -529,6 +483,7 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
         }
 
         setMatch(matchData)
+        latestMatchRef.current = matchData
         setError("")
 
         // Отмечаем, если это завершенный матч
@@ -565,6 +520,7 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
   useEffect(() => {
     let unsubscribe: any = null
     let checkInterval: NodeJS.Timeout | null = null
+    let disposed = false
 
     // Единый обработчик realtime-обновлений (фикс 2026-09-04 №3): раньше
     // ветка «preserve local completed» принудительно возвращала
@@ -574,14 +530,17 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
     // ревизионный гард: снапшот СТАРЕЕ локального (эхо до finish) —
     // игнор, completed сохраняется сам собой; НОВЕЕ — авторитет сервера,
     // включая isCompleted=false после unlock-match.
-    const applyRealtimeUpdate = (updatedMatch: any) => {
+    const applyRealtimeUpdate = (updatedMatch: any, authoritative = false) => {
+      if (disposed) return
       if (!updatedMatch) {
         // Если матч не найден, пробуем загрузить новый матч
-        loadMatch()
+        latestMatchRef.current = null
+        setMatch(null)
         return
       }
 
       if (!isOnThisCourt(updatedMatch)) {
+        latestMatchRef.current = null
         setMatch(null)
         setIsCompletedMatch(false)
         setError(
@@ -591,15 +550,7 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
         return
       }
 
-      let hasPendingOperations = false
-      try {
-        const syncState = getMatchSyncState(updatedMatch.id)
-        hasPendingOperations = syncState && syncState.pendingCount > 0
-      } catch (e) {
-        console.error("Ошибка при получении состояния синхронизации:", e)
-      }
-
-      if (hasPendingOperations) return
+      if (!authoritative) updatedMatch = getMatchDisplaySnapshot(updatedMatch)
 
       // Синхронный стейл-гард по ref (не по state — setMatch-апдейтер
       // выполняется асинхронно и не может вернуть решение наружу).
@@ -608,7 +559,7 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
         local &&
         typeof local.revision === "number" &&
         typeof updatedMatch.revision === "number" &&
-        updatedMatch.revision <= local.revision
+        updatedMatch.revision < local.revision
       ) {
         return // устаревшее эхо: локальная оптимистика свежее
       }
@@ -630,7 +581,7 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
       // Загружаем матч
       const matchData = await loadMatch()
 
-      if (!matchData) return
+      if (disposed || !matchData) return
 
       // Настраиваем подписку на обновления матча.
       // ВАЖНО: колбэк должен быть СИНХРОННЫМ. На медленном интернете `await
@@ -641,6 +592,15 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
       unsubscribe = subscribeToMatchUpdates(matchData.id, applyRealtimeUpdate)
     }
 
+    const handleAuthoritativeUpdate = (event: Event) => {
+      const updatedMatch = (event as CustomEvent)?.detail?.match
+      if (updatedMatch?.id === latestMatchRef.current?.id) {
+        applyRealtimeUpdate(updatedMatch, true)
+      }
+    }
+
+    window.addEventListener("match-authoritative-update", handleAuthoritativeUpdate)
+
     // Запускаем первоначальную загрузку и подписку
     setupSubscription()
 
@@ -649,11 +609,12 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
       // §247: в режиме matchId (вечная ссылка /c/{code} нечислового корта)
       // автопереключение на «следующий матч корта» не работает — страницу
       // обновит серверный резолв; здесь только числовой режим.
-      if (isCompletedMatch && !matchId) {
-        const newMatchData = await getMatchByCourtNumber(courtNumber)
+      if ((!latestMatchRef.current || latestMatchRef.current.isCompleted) && !matchId) {
+        const newMatchData = await getActiveMatchByCourtNumber(courtNumber)
+        if (disposed) return
 
         // Если найден новый матч с другим ID
-        if (newMatchData && newMatchData.id !== lastMatchId) {
+        if (newMatchData && newMatchData.id !== latestMatchRef.current?.id) {
           // Отписываемся от старого матча
           if (unsubscribe) {
             unsubscribe()
@@ -661,6 +622,7 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
 
           // Обновляем данные и подписываемся на новый матч
           setMatch(newMatchData)
+          latestMatchRef.current = newMatchData
           setLastMatchId(newMatchData.id)
           setIsCompletedMatch(newMatchData.isCompleted === true)
           setError("")
@@ -673,6 +635,8 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
 
     // Очистка при размонтировании
     return () => {
+      disposed = true
+      window.removeEventListener("match-authoritative-update", handleAuthoritativeUpdate)
       if (unsubscribe) {
         unsubscribe()
       }
@@ -680,7 +644,7 @@ export default function FullscreenScoreboard({ params, matchId }: FullscreenScor
         clearInterval(checkInterval)
       }
     }
-  }, [courtNumber, language, lastMatchId, isCompletedMatch])
+  }, [courtNumber, language, matchId])
 
   // All states (loading / error / no match / live match) render through the
   // same container so CourtMediaLayer stays mounted across transitions — ads

@@ -3,6 +3,7 @@ import { logEvent } from "./error-logger"
 import { getMatch } from "./match-storage"
 import { getTennisPointName } from "./tennis-utils"
 import { tSync } from "./log-i18n"
+import { matchFromRow } from "./match-supabase"
 
 export const MAX_COURTS = 10
 
@@ -63,7 +64,11 @@ export const formatVmixData = (match: any) => {
 
 // Получение матча по номеру корта
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const getMatchByCourtNumber = async (courtNumber: any) => {
+export const getMatchByCourtNumber = async (
+  courtNumber: any,
+  options: { includeCompletedFallback?: boolean } = {},
+) => {
+  const includeCompletedFallback = options.includeCompletedFallback !== false
   try {
     logEvent("info", tSync("logMessages.gettingMatchByCourt", { court: courtNumber }), "getMatchByCourtNumber")
 
@@ -110,6 +115,10 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
         return null
       }
 
+      // Interactive scoreboards must never resurrect the last completed match.
+      // Read-only court/status pages can retain the historical fallback.
+      if (!data && !includeCompletedFallback) return null
+
       // Если активный матч не найден, пытаемся получить последний завершенный матч
       if (!data) {
         logEvent("info", tSync("logMessages.activeMatchNotFoundSeekCompleted", { court: courtNumber }), "getMatchByCourtNumber")
@@ -150,24 +159,7 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
         }
 
         // Преобразуем данные из Supabase
-        const completedMatch = {
-          id: completedData.id,
-          type: completedData.type,
-          format: completedData.format,
-          createdAt: completedData.created_at,
-          settings: completedData.settings,
-          teamA: completedData.team_a,
-          teamB: completedData.team_b,
-          score: completedData.score,
-          currentServer: completedData.current_server,
-          courtSides: completedData.court_sides,
-          shouldChangeSides: completedData.should_change_sides,
-          isCompleted: completedData.is_completed,
-          winner: completedData.winner,
-          courtNumber: completedData.court_number,
-          revision: typeof completedData.revision === "number" ? completedData.revision : 0,
-          history: [],
-        }
+        const completedMatch = matchFromRow(completedData)
 
         // Убедимся, что структура матча полная
         if (!completedMatch.score.sets) {
@@ -187,24 +179,7 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
       }
 
       // Преобразуем данные из Supabase для активного матча
-      const match = {
-        id: data.id,
-        type: data.type,
-        format: data.format,
-        createdAt: data.created_at,
-        settings: data.settings,
-        teamA: data.team_a,
-        teamB: data.team_b,
-        score: data.score,
-        currentServer: data.current_server,
-        courtSides: data.court_sides,
-        shouldChangeSides: data.should_change_sides,
-        isCompleted: data.is_completed,
-        winner: data.winner,
-        courtNumber: data.court_number,
-        revision: typeof data.revision === "number" ? data.revision : 0,
-        history: [],
-      }
+      const match = matchFromRow(data)
 
       // Убедимся, что структура матча полная
       if (!match.score.sets) {
@@ -249,6 +224,10 @@ export const getMatchByCourtNumber = async (courtNumber: any) => {
     return null
   }
 }
+
+/** Active-only lookup for interactive scoring surfaces. */
+export const getActiveMatchByCourtNumber = (courtNumber: any) =>
+  getMatchByCourtNumber(courtNumber, { includeCompletedFallback: false })
 
 // Получение списка занятых кортов
 export const getOccupiedCourts = async () => {
@@ -519,9 +498,11 @@ export const freeUpCourt = async (courtNumber: any) => {
       }
 
       const data = (await res.json().catch(() => ({}))) as { completed?: number; total?: number }
-      if (typeof data.completed !== "number" || data.completed < 1) {
-        // 0 завершённых: активных матчей нет (уже освобождён?) либо все
-        // строки проиграли revision-guard — второй клик добьёт остаток.
+      if (
+        typeof data.completed !== "number" ||
+        typeof data.total !== "number" ||
+        data.completed !== data.total
+      ) {
         logEvent("warn", tSync("logMessages.matchOnCourtNotFound"), "freeUpCourt", { courtNumber, ...data })
         return false
       }

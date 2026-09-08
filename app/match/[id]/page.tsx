@@ -11,6 +11,7 @@ import { MatchSettings } from "@/components/match-settings"
 import { ShareCardButton } from "@/components/share-card-button"
 import { SupabaseStatus } from "@/components/supabase-status"
 import { OfflineNotice } from "@/components/offline-notice"
+import { MatchSyncStatus } from "@/components/match-sync-status"
 import {
   getMatchShareUrl,
   exportMatchToJson,
@@ -228,6 +229,7 @@ export default function MatchPage({ params }: MatchParams) {
       )}
 
       <OfflineNotice />
+      <MatchSyncStatus matchId={match?.id ?? matchId} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">

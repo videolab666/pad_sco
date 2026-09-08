@@ -91,16 +91,24 @@ export function MatchTimerPanel({ match, updateMatch }: Props) {
   if (!timer) beepedRef.current = null
 
   const onStart = (type: MatchTimerType, team?: TeamKey) => {
-    updateMatch?.(startMatchTimer(match, type, team))
+    updateMatch?.(startMatchTimer(match, type, team), {
+      command: "start-timer",
+      args: { type, team },
+      clientId: "match-timer",
+    })
     setSubmenu("none")
   }
   const onTimeout = (team: TeamKey) => {
-    updateMatch?.(recordTimeout(match, team))
+    updateMatch?.(recordTimeout(match, team), {
+      command: "record-timeout",
+      args: { team },
+      clientId: "match-timer",
+    })
     setSubmenu("none")
   }
-  const onPause = () => updateMatch?.(pauseMatchTimer(match))
-  const onResume = () => updateMatch?.(resumeMatchTimer(match))
-  const onStop = () => updateMatch?.(stopMatchTimer(match))
+  const onPause = () => updateMatch?.(pauseMatchTimer(match), { command: "pause-timer", args: {}, clientId: "match-timer" })
+  const onResume = () => updateMatch?.(resumeMatchTimer(match), { command: "resume-timer", args: {}, clientId: "match-timer" })
+  const onStop = () => updateMatch?.(stopMatchTimer(match), { command: "stop-timer", args: {}, clientId: "match-timer" })
 
   const teamAName = match?.teamA?.players?.[0]?.name ?? t("extras.teamA")
   const teamBName = match?.teamB?.players?.[0]?.name ?? t("extras.teamB")

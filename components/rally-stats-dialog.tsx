@@ -75,17 +75,20 @@ export function RallyStatsDialog({ match, updateMatch }: Props) {
     const creditedTeam: TeamKey = kind === "winner"
       ? scoringTeam
       : scoringTeam === "teamA" ? "teamB" : "teamA"
-    updateMatch(
-      recordRallyStat(match, {
-        scoringTeam,
-        creditedTeam,
-        kind,
-        racketSide: side ?? undefined,
-        position: position ?? undefined,
-        direction: direction ?? undefined,
-        trajectory: trajectory ?? undefined,
-      }),
-    )
+    const args = {
+      scoringTeam,
+      creditedTeam,
+      kind,
+      racketSide: side ?? undefined,
+      position: position ?? undefined,
+      direction: direction ?? undefined,
+      trajectory: trajectory ?? undefined,
+    }
+    updateMatch(recordRallyStat(match, args), {
+      command: "record-rally-stat",
+      args,
+      clientId: "rally-stats",
+    })
     setOpen(false)
     reset()
   }

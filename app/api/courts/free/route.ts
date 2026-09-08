@@ -64,25 +64,52 @@ export async function POST(request: NextRequest) {
 
     const rows = stale ?? []
     if (rows.length === 0) {
-      return NextResponse.json({ status: "ok", completed: 0, matchIds: [] })
+      return NextResponse.json({ status: "ok", completed: 0, total: 0, matchIds: [] })
     }
 
     const completed: string[] = []
     for (const row of rows) {
-      // Легаси-строка без revision: усыновляем с revision=1 (как command API).
-      const update = { court_number: null, is_completed: true } as Record<string, unknown>
-      if (typeof row.revision === "number") update.revision = row.revision + 1
-      else update.revision = 1
-      let query = supabase.from("matches").update(update).eq("id", row.id).select("id")
-      query =
-        typeof row.revision === "number" ? query.eq("revision", row.revision) : query.is("revision", null)
-      const { data: updated, error } = await query
-      if (error) {
-        // Не валим весь запрос из-за одной строки — её подберёт повторный клик.
-        logEvent("error", `Free court API update failed (${row.id}): ${error.message}`, "free-court-api", error)
-        continue
+      // A referee can score while another referee frees the court. Re-read and
+      // retry revision conflicts here so a single click closes every row.
+      let current: any = row
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        if (attempt > 0) {
+          const { data: refreshed, error: refreshError } = await supabase
+            .from("matches")
+            .select("id, revision, is_completed, court_id, court_number")
+            .eq("id", row.id)
+            .maybeSingle()
+          if (refreshError || !refreshed) {
+            if (refreshError) {
+              logEvent("error", `Free court API refresh failed (${row.id}): ${refreshError.message}`, "free-court-api", refreshError)
+            }
+            break
+          }
+          if (refreshed.is_completed === true) {
+            completed.push(row.id)
+            break
+          }
+          // A concurrent reassignment changes the scope of this operation.
+          // Never follow that match to its new court and close it there.
+          if (refreshed.court_number !== courtNumber && (!courtId || refreshed.court_id !== courtId)) break
+          current = refreshed
+        }
+
+        const update = { court_number: null, is_completed: true } as Record<string, unknown>
+        update.revision = typeof current.revision === "number" ? current.revision + 1 : 1
+        let query = supabase.from("matches").update(update).eq("id", row.id).eq("is_completed", false).select("id")
+        query =
+          typeof current.revision === "number" ? query.eq("revision", current.revision) : query.is("revision", null)
+        const { data: updated, error } = await query
+        if (error) {
+          logEvent("error", `Free court API update failed (${row.id}): ${error.message}`, "free-court-api", error)
+          break
+        }
+        if (updated && updated.length > 0) {
+          completed.push(row.id)
+          break
+        }
       }
-      if (updated && updated.length > 0) completed.push(row.id)
     }
 
     logEvent(
@@ -90,7 +117,16 @@ export async function POST(request: NextRequest) {
       `Корт ${courtNumber} освобождён через API: завершено матчей — ${completed.length} из ${rows.length}`,
       "free-court-api",
     )
-    return NextResponse.json({ status: "ok", completed: completed.length, total: rows.length, matchIds: completed })
+    const complete = completed.length === rows.length
+    return NextResponse.json(
+      {
+        status: complete ? "ok" : "partial",
+        completed: completed.length,
+        total: rows.length,
+        matchIds: completed,
+      },
+      { status: complete ? 200 : 409 },
+    )
   } catch (err) {
     logEvent("error", `Free court API internal error: ${(err as Error).message}`, "free-court-api", err)
     return NextResponse.json({ error: "internal_error" }, { status: 500 })

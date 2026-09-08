@@ -339,9 +339,14 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
 
   // Persists a rule change, with the legacy storage-quota fallback. Sets the
   // saved-at timestamp so the Apply-bar flips to "✓ Saved at HH:MM".
-  const doCommit = (updatedMatch: any) => {
+  const doCommit = (updatedMatch: any, restart = false) => {
     try {
-      updateMatch(journalChange(commitRuleChange(updatedMatch), "rule-change", { includeSettings: true }))
+      const next = journalChange(commitRuleChange(updatedMatch), "rule-change", { includeSettings: true })
+      updateMatch(next, {
+        command: "set-rules",
+        args: { rules: next.settings, restartCurrentSet: restart },
+        clientId: "match-settings",
+      })
       setRulesSavedAt(Date.now())
     } catch (error) {
       console.error("Ошибка при обновлении настроек:", error)
@@ -354,7 +359,12 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           winner: set.winner,
         }))
       }
-      updateMatch(journalChange(commitRuleChange(minimalMatch), "rule-change", { includeSettings: true }))
+      const next = journalChange(commitRuleChange(minimalMatch), "rule-change", { includeSettings: true })
+      updateMatch(next, {
+        command: "set-rules",
+        args: { rules: next.settings, restartCurrentSet: restart },
+        clientId: "match-settings",
+      })
       setRulesSavedAt(Date.now())
     }
   }
@@ -390,7 +400,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   }
   const applyPendingRestart = () => {
     ruleChangeHandledRef.current = true
-    if (pendingRuleChange) doCommit(restartCurrentSet(buildPendingMatch()))
+    if (pendingRuleChange) doCommit(restartCurrentSet(buildPendingMatch()), true)
     setPendingRuleChange(null)
   }
   const cancelPendingRuleChange = () => {
@@ -404,7 +414,11 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   const applyCourt = () => {
     if (!match || !updateMatch) return
     if (!isCourtDirty) return
-    updateMatch({ ...match, courtNumber: courtDraft, history: [] })
+    updateMatch({ ...match, courtNumber: courtDraft, history: [] }, {
+      command: "assign-court",
+      args: { court: courtDraft },
+      clientId: "match-settings",
+    })
     setCourtSavedAt(Date.now())
   }
 
@@ -421,7 +435,11 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     // the remote API) — no extra wrapper here.
     const updatedMatch = applyScoreEditRows(match, scoreDraft)
     updatedMatch.history = []
-    updateMatch(updatedMatch)
+    updateMatch(updatedMatch, {
+      command: "set-set-scores",
+      args: { rows: scoreDraft },
+      clientId: "match-settings",
+    })
     setScoreSavedAt(Date.now())
   }
 
@@ -430,7 +448,11 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   const confirmReopenSet = () => {
     if (!match || !updateMatch || reopenSetIdx === null) return
     const row = scoreDraft[reopenSetIdx]
-    updateMatch(reopenSetAt(match, reopenSetIdx, row))
+    updateMatch(reopenSetAt(match, reopenSetIdx, row), {
+      command: "reopen-set",
+      args: { setIndex: reopenSetIdx, score: row },
+      clientId: "match-settings",
+    })
     setReopenSetIdx(null)
   }
 
@@ -443,7 +465,11 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     updatedMatch.score.currentSet.isTiebreak = true
     updatedMatch.score.currentSet.currentGame = { teamA: 0, teamB: 0 }
     try {
-      updateMatch(journalChange(updatedMatch, "tiebreak-start"))
+      updateMatch(journalChange(updatedMatch, "tiebreak-start"), {
+        command: "start-tiebreak",
+        args: {},
+        clientId: "match-settings",
+      })
     } catch (error) {
       console.error("Ошибка при запуске тай-брейка:", error)
       const minimalMatch = { ...updatedMatch, history: [] }
@@ -456,7 +482,11 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
           winner: set.winner,
         }))
       }
-      updateMatch(journalChange(minimalMatch, "tiebreak-start"))
+      updateMatch(journalChange(minimalMatch, "tiebreak-start"), {
+        command: "start-tiebreak",
+        args: {},
+        clientId: "match-settings",
+      })
     }
   }
 
@@ -483,7 +513,11 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       return
     }
 
-    updateMatch(journalChange(result, "tiebreak-end"))
+    updateMatch(journalChange(result, "tiebreak-end"), {
+      command: "end-tiebreak",
+      args: { winner },
+      clientId: "match-settings",
+    })
   }
 
   // Bug #6 fix: handle draw properly in endMatch
@@ -514,14 +548,22 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       }
     }
 
-    updateMatch(journalChange(updatedMatch, "end-match"))
+    updateMatch(journalChange(updatedMatch, "end-match"), {
+      command: "finish",
+      args: updatedMatch.winner ? { winner: updatedMatch.winner } : {},
+      clientId: "match-settings",
+    })
   }
 
   const unlockMatch = () => {
     if (!match || !updateMatch) return
     // unlockMatchForPlay journals the "unlock-match" event itself (shared
     // with the remote API) — no extra wrapper here.
-    updateMatch(unlockMatchForPlay(match))
+    updateMatch(unlockMatchForPlay(match), {
+      command: "unlock-match",
+      args: {},
+      clientId: "match-settings",
+    })
   }
 
   // ─── Score-editing helpers (now mutate scoreDraft instead of match) ─────────
@@ -546,13 +588,13 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
   // Откаты гейма/сета: replay-снимок несёт revision сида — поднимаем над live,
   // иначе optimistic-guard отвергнет его как устаревшее состояние.
   const canUndo = verifyJournal(match).canUndo
-  const undoWithRevision = (undone: any) => {
+  const undoWithRevision = (undone: any, command: "undo-game" | "undo-set" | "repair-journal") => {
     if (!undone || undone === match || !updateMatch) return
-    undone.revision = (typeof match?.revision === "number" ? match.revision : 0) + 1
-    updateMatch(undone)
+    undone.revision = typeof match?.revision === "number" ? match.revision : 0
+    updateMatch(undone, { command, args: {}, clientId: "match-settings" })
   }
-  const handleUndoGame = () => undoWithRevision(undoBackOneGame(match))
-  const handleJournalRepair = () => undoWithRevision(reseedJournal(match))
+  const handleUndoGame = () => undoWithRevision(undoBackOneGame(match), "undo-game")
+  const handleJournalRepair = () => undoWithRevision(reseedJournal(match), "repair-journal")
 
   // ─── Игроки: замена из справочника / быстрая правка в матче ────────────────
   const [playerPool, setPlayerPool] = useState<any[]>([])
@@ -582,8 +624,12 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
     // Players are absent from the undo fingerprint — journal the change as an
     // audit-only state-override so the log stays complete without diverging.
     const journaled = appendStateOverrideEvent(next, "player-edit", scoreStateOf(match))
-    journaled.revision = (typeof match?.revision === "number" ? match.revision : 0) + 1
-    updateMatch(journaled)
+    journaled.revision = typeof match?.revision === "number" ? match.revision : 0
+    updateMatch(journaled, {
+      command: "set-rosters",
+      args: { teamA: journaled.teamA, teamB: journaled.teamB },
+      clientId: "match-settings",
+    })
     setReplaceSlot(null)
     setEditSlot(null)
   }
@@ -645,7 +691,7 @@ export function MatchSettings({ match, updateMatch, type, settings, onChange }: 
       }
     }
   }
-  const handleUndoSet = () => undoWithRevision(undoBackOneSet(match))
+  const handleUndoSet = () => undoWithRevision(undoBackOneSet(match), "undo-set")
 
   if (!match && settings && onChange) {
     return (

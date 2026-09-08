@@ -62,6 +62,7 @@ export function backfillExtendedMatchState(match: any): any {
   }
 
   if (!Array.isArray(match.officialCalls)) match.officialCalls = [] as OfficialCall[];
+  if (!Array.isArray(match.appliedOperationIds)) match.appliedOperationIds = [];
 
   if (!match.settings || typeof match.settings !== "object") match.settings = {};
   if (!match.settings.doublesServeSequence) match.settings.doublesServeSequence = "A1B1A2B2";
@@ -75,6 +76,7 @@ export function backfillExtendedMatchState(match: any): any {
  * the match snapshot (id / score / settings / ...).
  */
 export const EXTRAS_FIELDS = [
+  "code",
   "events",
   "timing",
   "rallyStats",
@@ -89,6 +91,7 @@ export const EXTRAS_FIELDS = [
   "matchMetadata",
   "pendingTiebreakChoice",
   "seedSnapshot",
+  "appliedOperationIds",
 ] as const;
 
 export type ExtrasField = (typeof EXTRAS_FIELDS)[number];

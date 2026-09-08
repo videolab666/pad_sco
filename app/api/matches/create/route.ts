@@ -34,6 +34,34 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient()
     const row = matchToRow(match)
+
+    // Prevent the normal UI/API path from creating two live matches on one
+    // court. This check covers both legacy numeric and registry UUID bindings.
+    if (row.is_completed === false && (row.court_number != null || row.court_id != null)) {
+      const filters: string[] = []
+      if (row.court_id != null) filters.push(`court_id.eq.${row.court_id}`)
+      if (row.court_number != null) filters.push(`court_number.eq.${row.court_number}`)
+      const { data: occupied, error: occupiedError } = await supabase
+        .from("matches")
+        .select("id")
+        .eq("is_completed", false)
+        .or(filters.join(","))
+        .limit(1)
+        .maybeSingle()
+      if (occupiedError) {
+        return NextResponse.json({ error: "court_check_failed", message: occupiedError.message }, { status: 500 })
+      }
+      if (occupied) {
+        if (occupied.id === match.id) {
+          return NextResponse.json({ status: "ok", idempotent: true, id: match.id })
+        }
+        return NextResponse.json(
+          { error: "court_occupied", matchId: occupied.id },
+          { status: 409 },
+        )
+      }
+    }
+
     const { data, error } = await supabase
       .from("matches")
       .insert({ ...row, revision: 0 })
@@ -41,9 +69,13 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
+      if (error.message?.includes("court_occupied")) {
+        return NextResponse.json({ error: "court_occupied" }, { status: 409 })
+      }
       // Дубликат — матч уже существует (повтор после таймаута)
       if (/duplicate key/i.test(error.message)) {
-        return NextResponse.json({ status: "ok", idempotent: true, id: match.id })
+        const existing = await supabase.from("matches").select("id").eq("id", match.id).maybeSingle()
+        if (existing.data) return NextResponse.json({ status: "ok", idempotent: true, id: match.id })
       }
       logEvent("error", `Create match: ${error.message}`, "create-match-api", error)
       return NextResponse.json({ error: "create_failed", message: error.message }, { status: 500 })

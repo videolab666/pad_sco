@@ -4,7 +4,7 @@
 // Supabase backend and a localStorage polyfill — no browser, no live database:
 //   A. score clicks while offline, then reconnect (+ collapsed batch)
 //   B. the same operation delivered twice (lost-ack idempotency)
-//   C. two devices producing a conflict, resolved both ways
+//   C. two devices producing a conflict; the server always wins for snapshots
 //   D. a permanent error landing in the dead-letter list
 //   E. a transient failure mid-replay, then recovery
 //   F. a database missing the `revision` column (graceful fallback)
@@ -231,7 +231,8 @@ async function scenarioIdempotency() {
 
 // ─── Scenario C: cross-device conflict, resolved both ways ─────────────────────
 async function scenarioConflict() {
-  // C1 — resolve by adopting the server state.
+  // Automatic conflict handling adopts the server state and discards the stale
+  // whole snapshot. A client must use a semantic command to express new intent.
   __resetSyncTestState()
   const id = "m-C"
   seedServerMatch(id, 1)
@@ -241,35 +242,33 @@ async function scenarioConflict() {
 
   await drainMatch(id)
   let state = getMatchSyncState(id)
-  assert.equal(state.syncStatus, "conflict", "C1: server divergence is detected as a conflict")
+  assert.equal(state.syncStatus, "idle", "C1: stale snapshot is resolved automatically")
+  assert.equal(state.pendingCount, 0, "C1: stale local snapshot is discarded")
+  const { loadSyncRecord, saveSyncRecord } = await import("../lib/match-operation-log")
+  assert.equal(loadSyncRecord(id).snapshot.revision, 5, "C1: server revision is adopted")
+  assert.deepEqual(db.matches.get(id).score, { teamA: 9, teamB: 9 }, "C1: server score is not overwritten")
 
-  const adopted = await resolveConflict(id, "server")
-  assert.equal(adopted.revision, 5, "C1: resolving to server adopts the server revision")
-  state = getMatchSyncState(id)
-  assert.equal(state.syncStatus, "idle", "C1: conflict cleared after resolution")
-  assert.equal(state.pendingCount, 0, "C1: local queue discarded on server resolution")
-
-  // C2 — resolve by keeping local: the queue is re-based and re-applied.
+  // Legacy UI may still call resolveConflict(..., "local") for an already
+  // recorded conflict. It must still adopt the authoritative server snapshot.
   __resetSyncTestState()
   const id2 = "m-C2"
   seedServerMatch(id2, 5)
   enqueueOperation(id2, "snapshot", makeMatch(id2), makeMatch(id2))
-  // Local record believes it was synced at revision 1; server is ahead at 5.
-  // Dynamic import (not require) so the script runs under Vitest's ESM loader.
-  const { loadSyncRecord, saveSyncRecord } = await import("../lib/match-operation-log")
   const rec = loadSyncRecord(id2)
   rec.lastSyncedRevision = 1
+  rec.syncStatus = "conflict"
+  rec.conflictSnapshot = { ...makeMatch(id2), revision: 5, score: { teamA: 7, teamB: 6 } }
+  rec.conflictReason = "server_ahead"
   saveSyncRecord(rec)
 
-  await drainMatch(id2)
-  assert.equal(getMatchSyncState(id2).syncStatus, "conflict", "C2: conflict detected")
-
-  await resolveConflict(id2, "local")
+  const adopted = await resolveConflict(id2, "local")
   state = getMatchSyncState(id2)
-  assert.equal(state.syncStatus, "idle", "C2: keep-local resolution drains cleanly")
-  assert.equal(state.pendingCount, 0, "C2: re-based queue is fully applied")
-  assert.equal(db.matches.get(id2).revision, 6, "C2: local change applied on top of server revision")
-  console.log("  C. cross-device conflict (resolve server / resolve local) — OK")
+  assert.equal(state.syncStatus, "idle", "C2: legacy conflict resolution clears state")
+  assert.equal(state.pendingCount, 0, "C2: legacy local queue is discarded")
+  assert.equal(adopted.revision, 5, "C2: server snapshot is returned")
+  assert.deepEqual(adopted.score, { teamA: 7, teamB: 6 }, "C2: server score is authoritative")
+  assert.equal(db.matches.get(id2).revision, 5, "C2: server row is not rewritten")
+  console.log("  C. stale snapshot conflicts always adopt server — OK")
 }
 
 // ─── Scenario D: permanent error → dead-letter ─────────────────────────────────

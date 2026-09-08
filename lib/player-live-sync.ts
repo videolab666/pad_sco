@@ -11,6 +11,7 @@
 // stays consistent across the sync.
 
 import type { Player } from "./types"
+import { syncMatchCommand } from "./match-sync"
 
 /** Fields a pool edit may overwrite on a live match's copy of the player. */
 const SYNC_FIELDS = [
@@ -59,7 +60,7 @@ export type PlayerDisplayFields = Partial<Record<(typeof SYNC_FIELDS)[number], u
  */
 export async function syncPlayerFields(
   getPlayerMatches: () => Promise<any[]>,
-  saveMatch: (m: any) => Promise<unknown>,
+  saveMatch: (m: any, opts?: { localOnly?: boolean }) => Promise<unknown>,
   playerId: string,
   fields: PlayerDisplayFields,
   skipMatchId?: string,
@@ -71,8 +72,9 @@ export async function syncPlayerFields(
     if (m?.isCompleted || m?.id === skipMatchId) continue
     const next = applyPlayerToMatch(m, player)
     if (next !== m) {
-      next.revision = (typeof m.revision === "number" ? m.revision : 0) + 1
-      await saveMatch(next)
+      next.revision = typeof m.revision === "number" ? m.revision : 0
+      syncMatchCommand(next, "set-rosters", { teamA: next.teamA, teamB: next.teamB }, "player-live-sync")
+      await saveMatch(next, { localOnly: true })
       synced++
     }
   }

@@ -5,7 +5,7 @@
 // via applyScoreIncrement (the engine's only legal way to add a point).
 
 import { appendMatchEvent } from "./match-events"
-import { applyScoreIncrement } from "./scoring-logic"
+import { applyScoreIncrement, applyPendingCourtSideChange } from "./scoring-logic"
 import type {
   AppealDecision,
   ConductPenalty,
@@ -54,7 +54,7 @@ export function applyConductPenalty(match: any, team: TeamKey, penalty: ConductP
   const recorded = recordOfficialCall(match, { type: "conduct", team, penalty }, now)
   if (penalty === "stroke") {
     const other: TeamKey = team === "teamA" ? "teamB" : "teamA"
-    return applyScoreIncrement(recorded as any, other)
+    return applyPendingCourtSideChange(applyScoreIncrement(recorded as any, other))
   }
   return recorded
 }

@@ -16,7 +16,8 @@ export const getMatchFromServer = async (id: string) => {
     const supabase = createServerSupabaseClient()
 
     // Получаем матч из Supabase
-    const { data, error, status } = await supabase.from("matches").select("*").eq("id", id).single()
+    const lookupKey = /^\d{11}$/.test(id) ? "extras->>code" : "id"
+    const { data, error, status } = await supabase.from("matches").select("*").eq(lookupKey, id).single()
 
     if (error) {
       logEvent("error", tSync("logMessages.errorMatchFromSupabase", { error: error.message }), "getMatchFromServer", {

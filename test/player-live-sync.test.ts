@@ -64,7 +64,7 @@ describe("syncPlayerFields", () => {
     for (const m of saved) {
       expect(m.teamA.players[0].name).toBe("Fixed")
       expect(m.teamA.players[0].country).toBe("UA")
-      expect(m.revision).toBe(1) // bumped for realtime
+      expect(m.revision).toBe(0) // server revision advances only after command ACK
     }
   })
 })

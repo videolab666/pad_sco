@@ -58,7 +58,11 @@ export function TossDialog({ match, updateMatch }: Props) {
 
   const confirmSide = (teamOnLeft: TeamKey) => {
     if (!winner || !choice || !updateMatch) return
-    updateMatch(commitToss(match, { winner, choice, teamOnLeft }))
+    updateMatch(commitToss(match, { winner, choice, teamOnLeft }), {
+      command: "toss",
+      args: { winner, choice, teamOnLeft },
+      clientId: "toss-dialog",
+    })
     setOpen(false)
     reset()
   }

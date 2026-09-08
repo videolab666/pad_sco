@@ -40,7 +40,11 @@ export function TiebreakChoiceDialog({ match, updateMatch }: Props) {
 
   const onPick = (offset: number) => {
     if (!updateMatch) return
-    updateMatch(applyTiebreakChoice(match, offset))
+    updateMatch(applyTiebreakChoice(match, offset), {
+      command: "tiebreak-choice",
+      args: { offset },
+      clientId: "tiebreak-choice",
+    })
   }
 
   return (

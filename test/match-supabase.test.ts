@@ -62,6 +62,8 @@ describe("match-supabase: matchToRow", () => {
   it("omits the code column and coerces a missing winner to null", () => {
     const row = matchToRow(sampleMatch({ winner: undefined }))
     expect("code" in row).toBe(false)
+    expect(row.extras.code).toBe("12345")
+    expect(matchFromRow(row).code).toBe("12345")
     expect(row.winner).toBeNull()
   })
 })
@@ -86,5 +88,15 @@ describe("match-supabase: matchFromRow", () => {
   it("defaults a missing/invalid revision to 0", () => {
     expect(matchFromRow(sampleRow({ revision: undefined })).revision).toBe(0)
     expect(matchFromRow(sampleRow({ revision: "x" })).revision).toBe(0)
+  })
+
+  it("round-trips applied operation ids inside extras", () => {
+    const source = sampleMatch({
+      appliedOperationIds: ["11111111-1111-4111-8111-111111111111"],
+    })
+
+    const restored = matchFromRow(matchToRow(source))
+
+    expect(restored.appliedOperationIds).toEqual((source as any).appliedOperationIds)
   })
 })

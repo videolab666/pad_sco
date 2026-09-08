@@ -15,7 +15,7 @@
 // schema.
 
 import { appendMatchEvent } from "./match-events"
-import { applyScoreIncrement } from "./scoring-logic"
+import { applyScoreIncrement, applyPendingCourtSideChange } from "./scoring-logic"
 import { commitToss } from "./toss"
 import type { MatchEvent, MatchEventType, TeamKey } from "./types"
 
@@ -43,7 +43,7 @@ const UNDOABLE_TYPES = new Set<MatchEventType>([
 /** Index of the last undoable event in `events`. -1 if none. */
 function findLastUndoableIndex(events: MatchEvent[]): number {
   for (let i = events.length - 1; i >= 0; i--) {
-    if (UNDOABLE_TYPES.has(events[i].type)) return i
+    if (UNDOABLE_TYPES.has(events[i].type) && !(events[i].type === "manual-score-edit" && events[i].payload?.action === "player-edit")) return i
   }
   return -1
 }
@@ -55,6 +55,9 @@ function findLastUndoableIndex(events: MatchEvent[]): number {
  */
 function applyManualEdit(m: any, ev: MatchEvent): void {
   const p: any = ev.payload || {}
+  // Older clients journaled a roster change as an absolute score override.
+  // It is metadata: replay must not reapply the score it happened to observe.
+  if (p.action === "player-edit") return
   const after = p.after
   // New-style state-override events carry the full post-change state.
   if (after && typeof after === "object" && after.score) {
@@ -94,13 +97,13 @@ export function replayEvents(seed: any, events: MatchEvent[], skipIndex: number)
     const ev = events[i]
     if (i >= startIdx) {
       if (ev.type === "point" && (ev.actor === "teamA" || ev.actor === "teamB")) {
-        m = applyScoreIncrement(m, ev.actor as TeamKey)
+        m = applyPendingCourtSideChange(applyScoreIncrement(m, ev.actor as TeamKey))
       } else if (ev.type === "conduct" && (ev.payload as any)?.penalty === "stroke") {
         // Conduct stroke awards a point to the OPPOSITE of the penalized team
         // (applyConductPenalty) — replay it or the journal diverges and undo
         // gets disabled for the whole match.
         const penalized = ev.actor as TeamKey
-        m = applyScoreIncrement(m, penalized === "teamA" ? "teamB" : "teamA")
+        m = applyPendingCourtSideChange(applyScoreIncrement(m, penalized === "teamA" ? "teamB" : "teamA"))
       } else if (ev.type === "toss") {
         const p: any = ev.payload || {}
         if (p.winner && p.choice && p.teamOnLeft) {
@@ -110,6 +113,9 @@ export function replayEvents(seed: any, events: MatchEvent[], skipIndex: number)
         }
       } else if (ev.type === "manual-score-edit") {
         applyManualEdit(m, ev)
+      } else if (ev.type === "side-change" && ev.payload?.courtSides) {
+        m.courtSides = JSON.parse(JSON.stringify(ev.payload.courtSides))
+        m.shouldChangeSides = false
       }
     }
     if (ev.type === "undo") {
@@ -149,7 +155,19 @@ export function undoLastScoringEvent(match: any, now: Date = new Date()): any {
   const idx = findLastUndoableIndex(events)
   if (idx < 0) return match
 
-  const replayed = replayEvents(seed, events, idx)
+  const rebuilt = replayEvents(seed, events, idx)
+  // Undo owns scoring state only. Current metadata from another referee must
+  // not be replaced with the seed's old court, roster or extension settings.
+  const replayed = JSON.parse(JSON.stringify(match))
+  for (const key of ["score", "isCompleted", "winner", "currentServer", "courtSides", "shouldChangeSides", "toss", "events"]) {
+    if (key in rebuilt) replayed[key] = rebuilt[key]
+    else delete replayed[key]
+  }
+  replayed.settings ??= {}
+  for (const key of SCORING_SETTINGS_KEYS) {
+    if (key in (rebuilt.settings ?? {})) replayed.settings[key] = rebuilt.settings[key]
+    else delete replayed.settings[key]
+  }
   replayed.seedSnapshot = seed
   // Preserve non-scoring extras that the engine doesn't touch.
   replayed.rallyStats = (match.rallyStats ?? []).slice()

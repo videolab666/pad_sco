@@ -24,6 +24,7 @@ import {
 } from "./match-operation-log"
 import type { MatchOperationKind, SyncState } from "./types"
 import { matchToRow, matchFromRow } from "./match-supabase"
+import { projectPendingCommands } from "./match-pending-view"
 
 /** Maximum transient retries before an operation is dead-lettered. */
 const MAX_RETRIES = 6
@@ -152,16 +153,20 @@ export function noteCommandApplied(matchId: string, revision: number | null | un
  *
  * Called whenever a match is loaded from Supabase or arrives via realtime, so a
  * client opening an already-advanced match starts its log at the correct
- * revision instead of triggering a false conflict on its first write. When the
- * queue still holds unsynced local operations the baseline is left untouched —
- * the drain / conflict path handles divergence deterministically.
+ * revision instead of triggering a false conflict on its first write. Pending
+ * commands are replayed over that baseline, never used as server truth.
  */
 export function reconcileServerSnapshot(match: any): void {
   if (typeof window === "undefined" || !match?.id || typeof match.revision !== "number") return
   const record = loadSyncRecord(match.id, match)
-  if (record.queue.length > 0) return // local pending work — do not clobber
   if (match.revision < record.lastSyncedRevision) return // ignore stale snapshots
   record.lastSyncedRevision = match.revision
+  record.authoritativeSnapshot = match
+  record.snapshot = projectPendingCommands(match, record.queue)
+  if (record.queue.length > 0) {
+    saveSyncRecord(record)
+    return
+  }
   record.revision = match.revision
   record.snapshot = match
   if (record.syncStatus !== "conflict" && record.syncStatus !== "dead-letter") {
@@ -169,6 +174,13 @@ export function reconcileServerSnapshot(match: any): void {
   }
   saveSyncRecord(record)
   notifyState(match.id)
+}
+
+export function getMatchDisplaySnapshot(serverMatch: any): any {
+  if (!serverMatch?.id) return serverMatch
+  reconcileServerSnapshot(serverMatch)
+  const record = loadSyncRecord(serverMatch.id)
+  return projectPendingCommands(record.authoritativeSnapshot ?? serverMatch, record.queue)
 }
 
 function notifyState(matchId: string): void {
@@ -251,26 +263,19 @@ export async function drainMatch(matchId: string): Promise<void> {
     }
     return
   }
-  // Do not drain over an unresolved conflict — wait for a decision.
-  // ИСКЛЮЧЕНИЕ (фикс 2026-09-04): server_ahead-конфликт с очередью только из
-  // снапшотов — рутина командного конвейера (команды подняли ревизию на
-  // сервере, наш снапшот надстроен поверх той же правды). Авто-ребаза на
-  // серверную ревизию и повторная отправка — иначе «Завершить» висит вечно.
+  // A whole snapshot has no safe semantic rebase. Re-sending its old payload
+  // with a newer base revision can resurrect a completed match or erase points.
   if (record.syncStatus === "conflict") {
-    const rebaseable =
-      record.conflictReason?.startsWith("server_ahead") &&
-      record.queue.length > 0 &&
-      record.queue.every((o) => o.kind === "snapshot") &&
-      typeof record.conflictSnapshot?.revision === "number"
-    if (!rebaseable) return
-    const serverRevision = record.conflictSnapshot.revision as number
-    record.lastSyncedRevision = serverRevision
-    record.revision = Math.max(record.revision, serverRevision + 1)
+    if (record.queue[0]?.kind !== "command") return
+    const serverRevision = record.conflictSnapshot?.revision
+    if (typeof serverRevision === "number") {
+      record.lastSyncedRevision = serverRevision
+      record.revision = Math.max(record.revision, serverRevision)
+    }
     record.syncStatus = "pending"
     record.conflictReason = null
     record.conflictSnapshot = null
     saveSyncRecord(record)
-    notifyState(matchId)
   }
 
   // Offline: keep the queue, mark offline, retry on recovery.
@@ -282,7 +287,9 @@ export async function drainMatch(matchId: string): Promise<void> {
 
   draining.add(matchId)
   try {
-    const env = await checkEnv()
+    const env = record.queue.some(op => op.kind === "command")
+      ? { ok: true, tablesExist: true }
+      : await checkEnv()
     if (!env.ok) {
       setSyncStatus(matchId, "offline")
       notifyState(matchId)
@@ -290,6 +297,12 @@ export async function drainMatch(matchId: string): Promise<void> {
       return
     }
     if (!env.tablesExist) {
+      if (record.queue.some((op) => op.kind === "command")) {
+        setSyncStatus(matchId, "error")
+        notifyState(matchId)
+        scheduleRetry(matchId, 0)
+        return
+      }
       // No remote tables: local storage is the only source of truth. Treat the
       // queue as confirmed locally so the UI is not stuck on "pending".
       markOperationsSynced(
@@ -304,39 +317,78 @@ export async function drainMatch(matchId: string): Promise<void> {
     setSyncStatus(matchId, "syncing")
     notifyState(matchId)
 
-    // Collapse: the last snapshot already contains every earlier change.
-    const effective = record.queue[record.queue.length - 1]
-    const allIds = record.queue.map((o) => o.operationId)
+    // Commands are ordered events and are never collapsed. A legacy queue made
+    // only of snapshots can still collapse to its latest resulting state.
+    const snapshotsOnly = record.queue.every((o) => o.kind !== "command")
+    const effective = snapshotsOnly ? record.queue[record.queue.length - 1] : record.queue[0]
+    if (!effective) return // another tab may have acknowledged the shared outbox
+    const allIds = snapshotsOnly ? record.queue.map((o) => o.operationId) : [effective.operationId]
     const baseRevision = record.lastSyncedRevision
     const targetRevision = record.revision
 
     // Шаг 3: прод-транспорт — HTTP PUT (service-роль сервера): прямой
     // anon-UPDATE на matches мёртв под RLS (тихий no-op). Легаси-клиент
     // остаётся только для инжектированных регрессионных тестов.
-    const result = _useClientTransport
-      ? await applyRevisionedViaClient(effective.payload, baseRevision, targetRevision)
-      : await applyRevisionedViaApi(effective.payload, baseRevision, targetRevision, {
-          operationId: effective.operationId,
-          kind: effective.kind,
-        })
+    const result =
+      effective.kind === "command"
+        ? await applyCommandViaApi(matchId, effective)
+        : _useClientTransport
+          ? await applyRevisionedViaClient(effective.payload, baseRevision, targetRevision)
+          : await applyRevisionedViaApi(effective.payload, baseRevision, targetRevision, {
+              operationId: effective.operationId,
+              kind: effective.kind,
+            })
 
     if (result.status === "ok") {
       markOperationsSynced(matchId, allIds, result.revision, result.snapshot)
+      publishAuthoritativeSnapshot(result.snapshot)
       logEvent("info", tSync("logMessages.matchSynced", { id: matchId, revision: result.revision }), "match-sync")
       notifyState(matchId)
     } else if (result.status === "conflict") {
-      markConflict(matchId, result.reason, result.serverSnapshot)
+      // Legacy snapshot writes lose to the authoritative server. Drop the
+      // stale queue instead of auto-rebasing its contents over newer data.
+      const serverRevision =
+        typeof result.serverSnapshot?.revision === "number"
+          ? result.serverSnapshot.revision
+          : record.lastSyncedRevision
+      if (effective.kind === "command") {
+        record.lastSyncedRevision = serverRevision
+        record.revision = Math.max(record.revision, serverRevision)
+        effective.retryCount += 1
+        effective.lastError = result.reason
+        record.snapshot = result.serverSnapshot ?? record.snapshot
+        record.syncStatus = "pending"
+        saveSyncRecord(record)
+        scheduleRetry(matchId, Math.min(effective.retryCount, 3))
+      } else {
+        markOperationsSynced(matchId, allIds, serverRevision, result.serverSnapshot)
+      }
+      publishAuthoritativeSnapshot(result.serverSnapshot)
       logEvent("warn", tSync("logMessages.syncConflict", { id: matchId, reason: result.reason }), "match-sync")
       notifyState(matchId)
     } else {
       // Failure: dead-letter permanent errors, back off transient ones.
       if (result.permanent) {
         for (const id of allIds) markOperationFailed(matchId, id, result.error, 1)
+        if (result.snapshot) publishAuthoritativeSnapshot(result.snapshot)
+        const rejected = loadSyncRecord(matchId)
+        if (rejected.queue.length > 0) {
+          rejected.syncStatus = "pending"
+          saveSyncRecord(rejected)
+        }
         logEvent("error", tSync("logMessages.operationDeadLetter", { id: matchId, error: result.error }), "match-sync")
       } else {
         // A transient failure may mean we went offline — re-probe next time.
         envCache = null
-        markOperationFailed(matchId, effective.operationId, result.error, MAX_RETRIES)
+        if (effective.kind === "command") {
+          effective.retryCount += 1
+          effective.lastError = result.error
+          record.syncStatus = "error"
+          record.lastError = result.error
+          saveSyncRecord(record)
+        } else {
+          markOperationFailed(matchId, effective.operationId, result.error, MAX_RETRIES)
+        }
         scheduleRetry(matchId, effective.retryCount)
       }
       notifyState(matchId)
@@ -349,13 +401,90 @@ export async function drainMatch(matchId: string): Promise<void> {
     scheduleRetry(matchId, 0)
   } finally {
     draining.delete(matchId)
+    const remaining = loadSyncRecord(matchId)
+    if (remaining.queue.length > 0 && remaining.syncStatus === "pending" && !retryTimers.has(matchId)) {
+      queueMicrotask(() => void drainMatch(matchId))
+    }
   }
+}
+
+/** Persist a semantic mutation before attempting network delivery. */
+export function syncMatchCommand(
+  optimisticMatch: any,
+  command: string,
+  args: Record<string, unknown> = {},
+  clientId = "ui",
+): string | null {
+  if (typeof window === "undefined" || !optimisticMatch?.id) return null
+  try {
+    const { operation } = enqueueOperation(
+      optimisticMatch.id,
+      "command",
+      { command, args, clientId },
+      optimisticMatch,
+    )
+    notifyState(optimisticMatch.id)
+    void drainMatch(optimisticMatch.id)
+    return operation.operationId
+  } catch (error) {
+    logEvent("error", tSync("logMessages.flushQueueError", { id: optimisticMatch.id }), "match-sync", error)
+    return null
+  }
+}
+
+function publishAuthoritativeSnapshot(snapshot: any): void {
+  if (typeof window === "undefined" || !snapshot?.id || typeof CustomEvent === "undefined") return
+  const view = getMatchDisplaySnapshot(snapshot)
+  window.dispatchEvent(new CustomEvent("match-authoritative-update", { detail: { match: view } }))
 }
 
 type ApplyResult =
   | { status: "ok"; revision: number; snapshot: any }
   | { status: "conflict"; reason: string; serverSnapshot: any }
-  | { status: "error"; error: string; permanent: boolean }
+  | { status: "error"; error: string; permanent: boolean; snapshot?: any }
+
+async function applyCommandViaApi(matchId: string, operation: any): Promise<ApplyResult> {
+  const payload = operation.payload ?? {}
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
+  try {
+    const res = await fetch(`/api/match/${matchId}/command`, {
+      signal: controller.signal,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        operationId: operation.operationId,
+        command: payload.command,
+        args: payload.args ?? {},
+        clientId: payload.clientId ?? operation.clientId,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) {
+      return {
+        status: "ok",
+        revision: typeof data.revision === "number" ? data.revision : 0,
+        snapshot: data.match ?? null,
+      }
+    }
+    if (res.status === 409) {
+      if (!data.match || data.reason === "match_deleted" || data.code === "court_occupied") {
+        return { status: "error", error: data.code ?? data.reason ?? "conflict", permanent: true, snapshot: data.match }
+      }
+      return {
+        status: "conflict",
+        reason: data.reason ?? "server_ahead",
+        serverSnapshot: data.match ?? null,
+      }
+    }
+    const permanent = res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404
+    return { status: "error", error: data.code ?? data.error ?? `http_${res.status}`, permanent, snapshot: data.match }
+  } catch {
+    return { status: "error", error: "network", permanent: false }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 
 /**
  * Прод-транспорт (Шаг 3, фикс 2026-09-04): снапшот уходит на сервер HTTP PUT
@@ -373,8 +502,11 @@ async function applyRevisionedViaApi(
   targetRevision: number,
   op: { operationId: string; kind?: string },
 ): Promise<ApplyResult> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
   try {
     const res = await fetch(`/api/match/${snapshot.id}`, {
+      signal: controller.signal,
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -412,6 +544,8 @@ async function applyRevisionedViaApi(
     return { status: "error", error: `http_${res.status}`, permanent: false }
   } catch {
     return { status: "error", error: "network", permanent: false }
+  } finally {
+    clearTimeout(timeout)
   }
 }
 
@@ -532,39 +666,27 @@ function scheduleRetry(matchId: string, attempt: number): void {
 
 /**
  * Resolves a recorded conflict.
- *  - "local"  → re-base the queue on the server revision and push local state.
- *  - "server" → discard the local queue and adopt the server snapshot.
+ * Both legacy choices now discard the stale whole-snapshot queue and adopt the
+ * server snapshot. Re-basing a snapshot can resurrect a completed match or
+ * overwrite points entered by another referee; new intent must be a command.
  * Returns the snapshot the UI should now render, or null when unresolved.
  */
 export async function resolveConflict(matchId: string, choice: "local" | "server"): Promise<any | null> {
   const record = loadSyncRecord(matchId)
   if (record.syncStatus !== "conflict") return record.snapshot
 
-  if (choice === "server") {
-    const server = record.conflictSnapshot
-    record.queue = []
-    record.snapshot = server
-    record.revision = server?.revision ?? record.revision
-    record.lastSyncedRevision = record.revision
-    record.syncStatus = "idle"
-    record.conflictReason = null
-    record.conflictSnapshot = null
-    saveSyncRecord(record)
-    notifyState(matchId)
-    return server
-  }
-
-  // Keep local: re-base queued operations onto the server revision, then drain.
-  const serverRevision = record.conflictSnapshot?.revision ?? record.lastSyncedRevision
-  record.lastSyncedRevision = serverRevision
-  record.revision = Math.max(record.revision, serverRevision + record.queue.length)
-  record.syncStatus = "pending"
+  void choice // retained for API compatibility with existing conflict dialogs
+  const server = record.conflictSnapshot
+  record.queue = []
+  record.snapshot = server
+  record.revision = server?.revision ?? record.revision
+  record.lastSyncedRevision = record.revision
+  record.syncStatus = "idle"
   record.conflictReason = null
   record.conflictSnapshot = null
   saveSyncRecord(record)
   notifyState(matchId)
-  await drainMatch(matchId)
-  return loadSyncRecord(matchId).snapshot
+  return server
 }
 
 // ─── Automatic drain and recovery (Task 2, Step 4) ─────────────────────────────
@@ -595,6 +717,9 @@ export function initSyncRecovery(): void {
   }
 
   window.addEventListener("online", recover)
+  window.addEventListener("storage", (event) => {
+    if (event.key?.startsWith("match_pending_command_")) void drainAllPending()
+  })
   window.addEventListener("focus", recover)
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") recover()

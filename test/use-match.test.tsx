@@ -4,16 +4,23 @@ import { renderHook, waitFor, act } from "@testing-library/react"
 
 // vi.hoisted: the mock factory is hoisted above imports, so the spies it
 // references must be created in a hoisted block too.
-const { getMatch, subscribeToMatchUpdates, persistMatch } = vi.hoisted(() => ({
+const { getMatch, subscribeToMatchUpdates, persistMatch, syncMatchCommand } = vi.hoisted(() => ({
   getMatch: vi.fn(),
   subscribeToMatchUpdates: vi.fn(() => () => {}),
   persistMatch: vi.fn(),
+  syncMatchCommand: vi.fn(),
 }))
 
 vi.mock("@/lib/match-storage", () => ({
   getMatch,
   subscribeToMatchUpdates,
   updateMatch: persistMatch,
+}))
+
+vi.mock("@/lib/match-sync", () => ({
+  getMatchSyncState: () => ({ pendingCount: 0 }),
+  getMatchDisplaySnapshot: (m: any) => m,
+  syncMatchCommand,
 }))
 
 import { useMatch } from "../hooks/use-match"
@@ -38,6 +45,7 @@ beforeEach(() => {
   getMatch.mockReset()
   subscribeToMatchUpdates.mockReset().mockReturnValue(() => {})
   persistMatch.mockReset()
+  syncMatchCommand.mockReset()
 })
 
 describe("useMatch hook", () => {
@@ -76,19 +84,17 @@ describe("useMatch hook", () => {
     expect(persistMatch).toHaveBeenCalledTimes(1)
   })
 
-  it("bumps revision locally on optimistic update so stale realtime echoes are ignored", async () => {
+  it("does not invent a server revision for a local-only optimistic update", async () => {
     getMatch.mockResolvedValue(sampleMatch({ revision: 5 }))
     persistMatch.mockResolvedValue(undefined)
     const { result } = renderHook(() => useMatch("m1"))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    // The scoring engine does not touch revision — caller passes the previous
-    // revision through. The hook must bump it locally.
     await act(async () => {
-      await result.current.updateMatch(sampleMatch({ revision: 5 }))
+      await result.current.updateMatch(sampleMatch({ revision: 5 }), { localOnly: true })
     })
 
-    expect(result.current.match.revision).toBeGreaterThan(5)
+    expect(result.current.match.revision).toBe(5)
   })
 
   it("subscribes to realtime updates for the match id", async () => {
@@ -96,5 +102,54 @@ describe("useMatch hook", () => {
     renderHook(() => useMatch("m1"))
     await waitFor(() => expect(subscribeToMatchUpdates).toHaveBeenCalled())
     expect((subscribeToMatchUpdates.mock.calls[0] as any[])[0]).toBe("m1")
+  })
+
+  it("persists command optimism locally and enqueues the semantic command", async () => {
+    getMatch.mockResolvedValue(sampleMatch({ revision: 5 }))
+    persistMatch.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useMatch("m1"))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const optimistic = sampleMatch({ revision: 5 })
+
+    await act(async () => {
+      await result.current.updateMatch(optimistic, {
+        command: "point",
+        args: { team: "teamA" },
+        clientId: "judge-a",
+      } as any)
+    })
+
+    expect(result.current.match.revision).toBe(5)
+    expect(persistMatch).toHaveBeenCalledWith(optimistic, { localOnly: true })
+    expect(syncMatchCommand).toHaveBeenCalledWith(optimistic, "point", { team: "teamA" }, "judge-a")
+  })
+
+  it("adopts an authoritative command acknowledgement", async () => {
+    getMatch.mockResolvedValue(sampleMatch({ revision: 5 }))
+    const { result } = renderHook(() => useMatch("m1"))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("match-authoritative-update", {
+          detail: { match: sampleMatch({ revision: 6, score: { ...sampleMatch().score, teamA: 1 } }) },
+        }),
+      )
+    })
+
+    await waitFor(() => expect(result.current.match.revision).toBe(6))
+    expect(result.current.match.score.teamA).toBe(1)
+  })
+
+  it("enqueues a command exactly once even when both local snapshot writes fail", async () => {
+    getMatch.mockResolvedValue(sampleMatch())
+    persistMatch.mockRejectedValue(new Error("QuotaExceededError"))
+    const { result } = renderHook(() => useMatch("m1"))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => {
+      await result.current.updateMatch(sampleMatch(), { command: "point", args: { team: "teamA" } })
+    })
+    expect(syncMatchCommand).toHaveBeenCalledTimes(1)
+    expect(syncMatchCommand.mock.invocationCallOrder[0]).toBeLessThan(persistMatch.mock.invocationCallOrder[0])
   })
 })

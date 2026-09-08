@@ -28,7 +28,7 @@ export default function JoinMatchPage() {
       const match = await getMatch(matchId.trim())
 
       if (match) {
-        router.push(`/match/${matchId.trim()}`)
+        router.push(`/match/${match.id}`)
       } else {
         setError("Матч не найден")
       }

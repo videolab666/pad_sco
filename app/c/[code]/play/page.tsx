@@ -195,7 +195,8 @@ export default function QuickPlayPage() {
         created_via_quick_play: true,
       }
 
-      await createMatch(match)
+      const createdId = await createMatch(match)
+      if (!createdId) throw new Error("Матч не создан")
       router.push(`/c/${code}`)
     } catch (err) {
       setError((err as Error).message || "Не удалось создать матч")

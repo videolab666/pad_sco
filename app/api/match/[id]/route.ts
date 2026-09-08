@@ -6,6 +6,7 @@ import { parseScoreboardSettings } from "@/lib/scoreboard-settings"
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { matchToRow, matchFromRow } from "@/lib/match-supabase"
 import { isAuthorizedMatchCommandRequest } from "@/lib/api-auth"
+import { appliedOperationIdsOf, hasAppliedOperationId, recordAppliedOperationId } from "@/lib/match-operation-id"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -123,22 +124,73 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       const current = await supabase.from("matches").select("*").eq("id", matchId).maybeSingle()
       return NextResponse.json(
         // camelCase-снапшот: ответ уходит в sync-engine/UI, а не в PostgREST.
-        { status: "ok", idempotent: true, revision: existing.data.result_revision, match: current.data ? matchFromRow(current.data) : null },
+        { status: "ok", idempotent: true, revision: current.data?.revision ?? existing.data.result_revision, match: current.data ? matchFromRow(current.data) : null },
         { status: 200 },
       )
     }
 
+    // Whole-snapshot compatibility writes are allowed only against the exact
+    // authoritative revision. A completed match is terminal unless it is
+    // reopened through the explicit unlock-match command endpoint.
+    const before = await supabase.from("matches").select("*").eq("id", matchId).maybeSingle()
+    if (before.error) return NextResponse.json({ error: "match_load_failed" }, { status: 503 })
+    if (!before.data) {
+      return NextResponse.json({ status: "conflict", reason: "match_deleted", match: null }, { status: 409 })
+    }
+    const currentMatch = matchFromRow(before.data)
+    if (hasAppliedOperationId(currentMatch, operation.operationId)) {
+      return NextResponse.json({
+        status: "ok",
+        idempotent: true,
+        revision: currentMatch.revision,
+        match: currentMatch,
+      })
+    }
+    if (currentMatch.isCompleted && (
+      !match.isCompleted ||
+      JSON.stringify(currentMatch.score) !== JSON.stringify(match.score) ||
+      currentMatch.winner !== (match.winner ?? null)
+    )) {
+      return NextResponse.json(
+        {
+          status: "conflict",
+          reason: "completed_match_terminal",
+          revision: currentMatch.revision,
+          match: currentMatch,
+        },
+        { status: 409 },
+      )
+    }
+    if (currentMatch.revision !== operation.baseRevision) {
+      return NextResponse.json(
+        {
+          status: "conflict",
+          reason: `server_ahead (server=${currentMatch.revision}, base=${operation.baseRevision})`,
+          revision: currentMatch.revision,
+          match: currentMatch,
+        },
+        { status: 409 },
+      )
+    }
+
     const resultRevision = operation.baseRevision + 1
+    match.appliedOperationIds = appliedOperationIdsOf(currentMatch)
+    recordAppliedOperationId(match, operation.operationId)
     const row = toMatchRow(match)
+    // Preserve future/unknown extras written by newer clients.
+    row.extras = { ...(before.data.extras ?? {}), ...(row.extras ?? {}) }
 
     // Optimistic-concurrency write: only succeeds when the server is still at
     // the revision the client based this operation on.
-    const updated = await supabase
+    let updateQuery = supabase
       .from("matches")
       .update({ ...row, revision: resultRevision })
       .eq("id", matchId)
-      .eq("revision", operation.baseRevision)
       .select()
+    updateQuery = before.data.revision == null
+      ? updateQuery.is("revision", null)
+      : updateQuery.eq("revision", operation.baseRevision)
+    const updated = await updateQuery
 
     if (updated.error) {
       logEvent("error", `Ошибка revisioned update: ${updated.error.message}`, "match-api")
@@ -159,31 +211,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     // 0 rows updated — inspect the current row to classify the outcome.
     const current = await supabase.from("matches").select("*").eq("id", matchId).maybeSingle()
-    if (current.error || !current.data) {
+    if (current.error) return NextResponse.json({ error: "match_load_failed" }, { status: 503 })
+    if (!current.data) {
       return NextResponse.json({ status: "conflict", reason: "match_deleted", match: null }, { status: 409 })
     }
 
     const serverRevision = current.data.revision
-    if (serverRevision === null || serverRevision === undefined) {
-      // Legacy row without a revision — adopt it.
-      const adopt = await supabase
-        .from("matches")
-        .update({ ...row, revision: resultRevision })
-        .eq("id", matchId)
-        .select()
-      await supabase.from("match_operations").insert({
-        operation_id: operation.operationId,
-        match_id: matchId,
-        base_revision: operation.baseRevision,
-        result_revision: resultRevision,
-        kind: operation.kind || "snapshot",
-        client_id: operation.clientId || null,
-      })
-      return NextResponse.json(
-        { status: "ok", revision: resultRevision, match: adopt.data?.[0] ? matchFromRow(adopt.data[0]) : current.data ? matchFromRow(current.data) : null },
-        { status: 200 },
-      )
-    }
 
     // Genuine conflict — return the authoritative snapshot, never overwrite it.
     return NextResponse.json(

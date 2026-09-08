@@ -14,7 +14,6 @@ import {
 import { AlertOctagon, Flag, HeartPulse, Timer } from "lucide-react"
 import { useLanguage } from "@/contexts/language-context"
 import { endMatchManually } from "@/lib/match-end-reason"
-import { sendMatchCommand } from "@/lib/match-command-client"
 import type { EndMatchReason, TeamKey } from "@/lib/types"
 
 interface Props {
@@ -51,8 +50,11 @@ export function EndMatchDialog({ match, updateMatch }: Props) {
     // Шаг 3 (§99): досрочное завершение — командой end-match {reason, winner};
     // снапшот пишем локально (сервер применит ту же endMatchManually).
     const next = endMatchManually(match, reason, winner)
-    updateMatch(next, { localOnly: true })
-    void sendMatchCommand(match.id, "end-match", { reason, winner }, { clientId: "end-match-dialog" })
+    updateMatch(next, {
+      command: "end-match",
+      args: { reason, winner },
+      clientId: "end-match-dialog",
+    })
     setOpen(false)
     setReason(null)
   }

@@ -23,11 +23,19 @@ import {
   type AdjustCurrentGameInput,
   type ScoreEditRow,
 } from "./match-adjust"
-import { undoBackOneGame, undoBackOneSet, undoLastScoringEvent, verifyJournal } from "./match-undo"
+import { reseedJournal, undoBackOneGame, undoBackOneSet, undoLastScoringEvent, verifyJournal } from "./match-undo"
 import { endMatchManually } from "./match-end-reason"
 import { commitToss } from "./toss"
-import { normalizeMatchState, recomputeMatchCompletion, swapCourtSides } from "./scoring-logic"
-import { appendStateOverrideEvent, scoreStateOf } from "./match-events"
+import { commitSetWin, normalizeMatchState, recomputeMatchCompletion, restartCurrentSet, swapCourtSides } from "./scoring-logic"
+import { appendMatchEvent, appendStateOverrideEvent, scoreStateOf } from "./match-events"
+import { clearHandicap, setSameHandicap } from "./handicap"
+import { toggleNextRallyPowerPlay } from "./power-play"
+import { markNewBallsChanged } from "./new-balls"
+import { pauseMatchTimer, resumeMatchTimer, startMatchTimer, stopMatchTimer, DEFAULT_TIMER_SECONDS } from "./match-timers"
+import { recordTimeout } from "./timeouts"
+import { recordRallyStat } from "./rally-stats"
+import { applyConductPenalty, recordOfficialCall } from "./match-official-calls"
+import { applyTiebreakChoice } from "./tiebreak-format"
 import { safeUuid } from "./utils/safe-uuid"
 import { v5 as uuidv5 } from "uuid"
 import type { EndMatchReason, Player, Team, TeamKey, TossChoice } from "./types"
@@ -60,11 +68,14 @@ export class RemoteCommandError extends Error {
 }
 
 export const REMOTE_COMMANDS = [
+  "batch",
   "point",
+  "decrease-point",
   "undo-point",
   "undo-game",
   "undo-set",
   "adjust-game",
+  "adjust-tiebreak",
   "adjust-set",
   "set-server",
   "set-set-scores",
@@ -73,10 +84,28 @@ export const REMOTE_COMMANDS = [
   "finish",
   "unlock-match",
   "set-players",
+  "set-rosters",
   "set-rules",
   "toss",
   "assign-court",
   "switch-sides",
+  "start-tiebreak",
+  "end-tiebreak",
+  "set-handicap",
+  "clear-handicap",
+  "toggle-power-play",
+  "new-balls-changed",
+  "start-timer",
+  "pause-timer",
+  "resume-timer",
+  "stop-timer",
+  "record-timeout",
+  "record-rally-stat",
+  "official-call",
+  "tiebreak-choice",
+  "repair-journal",
+  "set-result-poster",
+  "result-poster-audit",
 ] as const
 
 export type RemoteCommandName = (typeof REMOTE_COMMANDS)[number]
@@ -123,7 +152,31 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
     throw new RemoteCommandError("invalid_match", "Match snapshot is missing required fields")
   }
 
+  // Completion is a terminal state. A stale referee may still have controls
+  // enabled locally, but no ordinary command is allowed to turn the match
+  // active again. Reopening is always an explicit, auditable unlock command.
+  const allowedAfterCompletion =
+    command === "batch" ||
+    command === "unlock-match" ||
+    command === "finish" ||
+    command === "set-players" ||
+    command === "set-rosters" ||
+    command === "assign-court" ||
+    command === "set-result-poster" ||
+    command === "result-poster-audit"
+  if (match.isCompleted && !allowedAfterCompletion) {
+    throw new RemoteCommandError("match_completed", "The match is already completed")
+  }
+
   switch (command) {
+    case "batch": {
+      const commands = args?.commands
+      if (!Array.isArray(commands) || !commands.length || commands.length > 100 ||
+          commands.some(c => !c || typeof c.command !== "string" || c.command === "batch")) {
+        throw new RemoteCommandError("invalid_args", "Expected 1..100 non-nested commands")
+      }
+      return applyRemoteBatch(match, commands)
+    }
     case "point": {
       if (match.isCompleted) {
         throw new RemoteCommandError("match_completed", "Cannot score a point on a completed match")
@@ -149,6 +202,16 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
       return undoBackOneSet(match)
     }
 
+    case "decrease-point": {
+      const team = assertTeam(args?.team)
+      const next = JSON.parse(JSON.stringify(match))
+      const cs = requireCurrentSet(next)
+      const value = cs.currentGame[team]
+      if (cs.isTiebreak) cs.currentGame[team] = Math.max(0, Number(value) - 1)
+      else cs.currentGame[team] = value === "Ad" ? 40 : value === 40 ? 30 : value === 30 ? 15 : 0
+      return appendStateOverrideEvent(next, "score-decrease", scoreStateOf(match))
+    }
+
     case "adjust-game": {
       requireCurrentSet(match)
       if (!isGamePoint(args?.teamA) || !isGamePoint(args?.teamB)) {
@@ -159,6 +222,17 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
       }
       const input: AdjustCurrentGameInput = { teamA: args.teamA, teamB: args.teamB }
       return adjustCurrentGame(match, input)
+    }
+
+    case "adjust-tiebreak": {
+      const cs = requireCurrentSet(match)
+      if (!cs.isTiebreak) throw new RemoteCommandError("not_in_tiebreak", "The current set is not a tiebreak")
+      if (!isNonNegativeInt(args?.teamA) || !isNonNegativeInt(args?.teamB)) {
+        throw new RemoteCommandError("invalid_args", "args.teamA / args.teamB must be non-negative integers")
+      }
+      const next = JSON.parse(JSON.stringify(match))
+      next.score.currentSet.currentGame = { teamA: args.teamA, teamB: args.teamB }
+      return appendStateOverrideEvent(next, "adjust-tiebreak", scoreStateOf(match))
     }
 
     case "adjust-set": {
@@ -241,7 +315,7 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
     // завершение — команда конвейера: сервер пишет сам (service-ключ).
     case "finish": {
       if (match.isCompleted) {
-        throw new RemoteCommandError("match_completed", "The match is already completed")
+        return match
       }
       const next = JSON.parse(JSON.stringify(match))
       next.isCompleted = true
@@ -280,6 +354,31 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
       return next
     }
 
+    case "set-rosters": {
+      const next = JSON.parse(JSON.stringify(match))
+      let changed = false
+      for (const team of TEAMS) {
+        const roster = args?.[team]
+        if (roster === undefined) continue
+        if (
+          !roster ||
+          typeof roster !== "object" ||
+          !Array.isArray(roster.players) ||
+          roster.players.length === 0 ||
+          !roster.players.every((p: any) => p && typeof p.name === "string" && p.name.trim().length > 0)
+        ) {
+          throw new RemoteCommandError("invalid_args", `args.${team} must contain non-empty players`)
+        }
+        next[team] = JSON.parse(JSON.stringify(roster))
+        changed = true
+      }
+      if (!changed) throw new RemoteCommandError("invalid_args", "Provide at least args.teamA or args.teamB")
+      return appendMatchEvent(next, {
+        type: "roster-edit", setIndex: next.score?.sets?.length ?? 0,
+        gameIndex: next.score?.currentSet?.games?.length ?? 0, payload: {},
+      })
+    }
+
     case "set-rules": {
       const patch = args?.rules ?? args?.settings ?? args
       if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
@@ -289,19 +388,26 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
         )
       }
       const unknown = Object.keys(patch).filter((k) => !(REMOTE_RULES_KEYS as readonly string[]).includes(k))
-      if (unknown.length > 0) {
+      const changedUnknown = unknown.filter(
+        (k) => JSON.stringify(patch[k]) !== JSON.stringify(match.settings?.[k]),
+      )
+      if (changedUnknown.length > 0) {
         throw new RemoteCommandError(
           "invalid_args",
-          `Unknown rule keys: ${unknown.join(", ")}. Allowed: ${REMOTE_RULES_KEYS.join(", ")}`,
+          `Unknown rule keys: ${changedUnknown.join(", ")}. Allowed: ${REMOTE_RULES_KEYS.join(", ")}`,
         )
       }
       // Same commit path as the UI rules card: shallow-merge, normalize the
       // live score for the new rules, recompute completion, bump the rule
       // revision, journal with settings (replay depends on them).
       const next = JSON.parse(JSON.stringify(match))
-      next.settings = { ...next.settings, ...patch }
+      const allowedPatch = Object.fromEntries(
+        Object.entries(patch).filter(([k]) => (REMOTE_RULES_KEYS as readonly string[]).includes(k)),
+      )
+      next.settings = { ...next.settings, ...allowedPatch }
       next.history = []
-      let result = normalizeMatchState(next)
+      let result = args?.restartCurrentSet ? restartCurrentSet(next) : next
+      result = normalizeMatchState(result)
       result = recomputeMatchCompletion(result)
       result.ruleRevision = (typeof match.ruleRevision === "number" ? match.ruleRevision : 0) + 1
       result.lastRuleChangeAt = new Date().toISOString()
@@ -319,16 +425,21 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
     }
 
     case "switch-sides": {
-      // Смена сторон (§99): display-only — журнальное событие не нужно
-      // (как assign-court). Единая реализация swapCourtSides из движка.
+      // Keep display-only swaps in replay without making them scoring undo targets.
       if (!match?.courtSides) {
         throw new RemoteCommandError("invalid_args", "The match has no courtSides to swap")
       }
-      return {
+      const next = {
         ...JSON.parse(JSON.stringify(match)),
         courtSides: swapCourtSides(match.courtSides),
+        shouldChangeSides: false,
         history: [],
       }
+      return appendMatchEvent(next, {
+        type: "side-change", setIndex: next.score?.sets?.length ?? 0,
+        gameIndex: next.score?.currentSet?.games?.length ?? 0,
+        payload: { courtSides: next.courtSides },
+      })
     }
 
     case "assign-court": {
@@ -348,10 +459,114 @@ export function applyRemoteCommand(match: any, command: string, args: any = {}):
       return {
         ...JSON.parse(JSON.stringify(match)),
         courtNumber: court,
-        ...(hasCourtIdArg ? { courtId } : {}),
+        ...(hasCourtIdArg ? { courtId } : { courtId: court === match.courtNumber ? match.courtId : null }),
         history: [],
       }
     }
+
+    case "start-tiebreak": {
+      const next = JSON.parse(JSON.stringify(match))
+      const cs = requireCurrentSet(next)
+      cs.isTiebreak = true
+      cs.currentGame = { teamA: 0, teamB: 0 }
+      return appendStateOverrideEvent(next, "tiebreak-start", scoreStateOf(match))
+    }
+
+    case "end-tiebreak": {
+      const winner = assertTeam(args?.winner, "args.winner")
+      const next = JSON.parse(JSON.stringify(match))
+      const cs = requireCurrentSet(next)
+      if (!cs.isTiebreak) throw new RemoteCommandError("not_in_tiebreak", "The current set is not a tiebreak")
+      cs.tiebreak = { teamA: cs.currentGame.teamA, teamB: cs.currentGame.teamB }
+      cs[winner]++
+      cs.isTiebreak = false
+      return appendStateOverrideEvent(commitSetWin(next, winner), "tiebreak-end", scoreStateOf(match))
+    }
+
+    case "set-handicap": {
+      if (!isNonNegativeInt(args?.teamA) || !isNonNegativeInt(args?.teamB)) {
+        throw new RemoteCommandError("invalid_args", "args.teamA / args.teamB must be non-negative integers")
+      }
+      return setSameHandicap(match, args.teamA, args.teamB)
+    }
+
+    case "clear-handicap":
+      return clearHandicap(match)
+
+    case "toggle-power-play": {
+      const result = toggleNextRallyPowerPlay(match, assertTeam(args?.team))
+      if (result.refused) throw new RemoteCommandError("command_refused", result.refused)
+      return result.match
+    }
+
+    case "new-balls-changed":
+      return markNewBallsChanged(match)
+
+    case "start-timer": {
+      const type = args?.type
+      if (typeof type !== "string" || !(type in DEFAULT_TIMER_SECONDS)) {
+        throw new RemoteCommandError("invalid_args", "args.type must be a supported timer type")
+      }
+      const team = args?.team === undefined ? undefined : assertTeam(args.team)
+      return startMatchTimer(match, type as keyof typeof DEFAULT_TIMER_SECONDS, team)
+    }
+
+    case "pause-timer":
+      return pauseMatchTimer(match)
+    case "resume-timer":
+      return resumeMatchTimer(match)
+    case "stop-timer":
+      return stopMatchTimer(match)
+    case "record-timeout":
+      return recordTimeout(match, assertTeam(args?.team))
+
+    case "record-rally-stat": {
+      const scoringTeam = assertTeam(args?.scoringTeam, "args.scoringTeam")
+      const creditedTeam = assertTeam(args?.creditedTeam, "args.creditedTeam")
+      if (args?.kind !== "winner" && args?.kind !== "error") {
+        throw new RemoteCommandError("invalid_args", 'args.kind must be "winner" or "error"')
+      }
+      return recordRallyStat(match, { ...args, scoringTeam, creditedTeam })
+    }
+
+    case "official-call": {
+      const team = assertTeam(args?.team)
+      if (args?.type === "conduct") {
+        return applyConductPenalty(match, team, args?.penalty)
+      }
+      if (args?.type !== "appeal" && args?.type !== "broken-equipment") {
+        throw new RemoteCommandError("invalid_args", "args.type must be conduct, appeal or broken-equipment")
+      }
+      return recordOfficialCall(match, { ...args, team })
+    }
+
+    case "tiebreak-choice": {
+      if (!isNonNegativeInt(args?.offset)) {
+        throw new RemoteCommandError("invalid_args", "args.offset must be a non-negative integer")
+      }
+      return applyTiebreakChoice(match, args.offset)
+    }
+
+    case "repair-journal":
+      return reseedJournal(match)
+
+    case "set-result-poster": {
+      if (!args?.config || typeof args.config !== "object" || Array.isArray(args.config)) {
+        throw new RemoteCommandError("invalid_args", "args.config must be an object")
+      }
+      const next = JSON.parse(JSON.stringify(match))
+      next.settings = next.settings ?? {}
+      next.settings.resultPoster = args.config
+      return next
+    }
+
+    case "result-poster-audit":
+      return appendMatchEvent(match, {
+        type: "result-poster",
+        setIndex: match.score?.sets?.length ?? 0,
+        gameIndex: match.score?.currentSet?.games?.length ?? 0,
+        payload: { ...args },
+      })
 
     default:
       throw new RemoteCommandError(

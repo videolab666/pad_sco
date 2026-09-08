@@ -31,7 +31,13 @@ export function PowerPlayControls({ match, updateMatch }: Props) {
   const onToggle = (team: TeamKey) => {
     if (!updateMatch) return
     const r = toggleNextRallyPowerPlay(match, team)
-    if (!r.refused) updateMatch(r.match)
+    if (!r.refused) {
+      updateMatch(r.match, {
+        command: "toggle-power-play",
+        args: { team },
+        clientId: "power-play",
+      })
+    }
   }
 
   const renderTeam = (team: TeamKey, active: boolean) => {

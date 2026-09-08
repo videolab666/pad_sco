@@ -1,10 +1,10 @@
 // Функции для работы с хранилищем матчей
 import { compressToUTF16, decompressFromUTF16 } from "lz-string"
-import { createClientSupabaseClient, checkAndEnableRealtime } from "./supabase"
+import { createClientSupabaseClient } from "./supabase"
 import { logEvent } from "./error-logger"
 import { tSync } from "./log-i18n"
 import { v4 as uuidv4 } from "uuid"
-import { syncMatchToServer, initSyncRecovery, reconcileServerSnapshot } from "./match-sync"
+import { syncMatchToServer, initSyncRecovery, reconcileServerSnapshot, getMatchDisplaySnapshot } from "./match-sync"
 import { clearSyncRecord } from "./match-operation-log"
 import { backfillRuleMetadata } from "./match-rule-change"
 import { matchToRow, matchFromRow } from "./match-supabase"
@@ -158,13 +158,14 @@ export const getMatches = async (opts?: { probe?: boolean }) => {
           .select("*")
           .order("created_at", { ascending: false })
           .limit(50) // Увеличиваем лимит с 20 до 50
+          .abortSignal(AbortSignal.timeout(5000))
 
         if (error) {
           logEvent("error", tSync("logMessages.errorMatchFromSupabase", { error: error.message }), "getMatches", {
             error,
             status,
           })
-        } else if (data && data.length > 0) {
+        } else if (data) {
           if (probe) {
             logEvent("info", tSync("logMessages.restoredFromLocal", { count: data.length }), "getMatches")
           }
@@ -353,8 +354,9 @@ export const getMatch = async (idOrCode: string) => {
         const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
         // Если это UUID, ищем по ID в Supabase
-        if (uuidPattern.test(idOrCode)) {
-          const { data, error, status } = await supabase.from("matches").select("*").eq("id", idOrCode).single()
+        if (uuidPattern.test(idOrCode) || /^\d{11}$/.test(idOrCode)) {
+          const key = uuidPattern.test(idOrCode) ? "id" : "extras->>code"
+          const { data, error, status } = await supabase.from("matches").select("*").eq(key, idOrCode).single()
 
           if (error) {
             logEvent("error", tSync("logMessages.errorMatchFromSupabase", { error: error.message }), "getMatch", {
@@ -468,8 +470,7 @@ export const getMatch = async (idOrCode: string) => {
             logEvent("warn", tSync("logMessages.matchNotFoundSupabase"), "getMatch", { matchIdOrCode: idOrCode })
           }
         }
-        // Если это не UUID, то это цифровой код, и мы не можем искать по нему в Supabase
-        // Продолжаем поиск в локальном хранилище
+        // Old local-only codes still fall back to this browser's saved match.
       } else {
         logEvent("warn", tSync("logMessages.tablesNotExistUseLocal"), "getMatch")
       }
@@ -627,6 +628,8 @@ export const createMatch = async (match: any) => {
 
     // Создаем новый матч с UUID для Supabase и цифровым кодом для пользователей
     const newMatch = {
+      ...backfillExtendedMatchState(match),
+      revision: 0,
       id: uuidv4(), // UUID для Supabase
       code: generateNumericCode(), // 11-значный цифровой код для пользователей
       type: match.type,
@@ -645,50 +648,39 @@ export const createMatch = async (match: any) => {
       created_via_court_link: match.created_via_court_link,
     }
 
-    // Проверяем доступность Supabase
-    const supabaseAvailable = await isSupabaseAvailable()
-
-    if (supabaseAvailable) {
-      // Проверяем существование таблиц
-      const tablesStatus = await checkTablesExist()
-
-      if (tablesStatus.exists) {
-        // Проверяем и включаем Realtime
-        await checkAndEnableRealtime()
-
-        logEvent("debug", tSync("logMessages.supabaseAvailableSaving"), "createMatch")
-
-        // Шаг 3 (§99): создание через серверный роут — после снятия
-        // pre-step3 RLS-политик прямой INSERT с anon-ключа не работает.
-        // Браузер проходит по Origin; офлайн — фолбэк на локальное хранилище.
-        try {
-          const res = await fetch("/api/matches/create", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ match: newMatch }),
-          })
-          if (!res.ok && res.status !== 409) {
-            // 409 = дубликат (идемпотентный повтор) — это OK
-            logEvent("error", `Create match via API failed: ${res.status}`, "createMatch")
-          } else {
-            logEvent("info", tSync("logMessages.matchSavedSupabase"), "createMatch", {
-              matchId: newMatch.id,
-              matchCode: newMatch.code,
-            })
-            matchCache.set(newMatch.id, { data: newMatch, timestamp: Date.now() })
-            matchCache.set(newMatch.code, { data: newMatch, timestamp: Date.now() })
-          }
-        } catch (fetchErr) {
-          // Оффлайн или сервер недоступен — матч останется в localStorage,
-          // sync-движок дольёт его позже при первом updateMatch.
-          logEvent("warn", "Create match API unreachable — saved locally only", "createMatch", fetchErr)
+    // Shared matches exist only after server acknowledgement. Retrying keeps
+    // the same UUID, so a lost response cannot create another match.
+    let created = false
+    let failure: unknown = null
+    for (let attempt = 0; attempt < 3 && !created; attempt += 1) {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10000)
+      let permanent = false
+      try {
+        const response = await fetch("/api/matches/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ match: newMatch }),
+          signal: controller.signal,
+        })
+        const result = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          permanent = response.status >= 400 && response.status < 500
+          throw new Error(result.error === "court_occupied"
+            ? "Корт уже занят другим матчем. Обновите список кортов."
+            : "Не удалось создать общий матч. Проверьте соединение и повторите.")
         }
-      } else {
-        logEvent("warn", tSync("logMessages.tablesNotExistSaveLocal"), "createMatch")
+        created = true
+      } catch (error) {
+        failure = error
+        if (permanent) throw error
+      } finally {
+        clearTimeout(timeout)
       }
-    } else {
-      logEvent("warn", tSync("logMessages.supabaseUnavailableSaveLocal"), "createMatch")
     }
+    if (!created) throw failure ?? new Error("Не удалось создать матч на сервере")
+    matchCache.set(newMatch.id, { data: newMatch, timestamp: Date.now() })
+    matchCache.set(newMatch.code, { data: newMatch, timestamp: Date.now() })
 
     // Всегда сохраняем в локальное хранилище как резервную копию
     // Очищаем локальное хранилище перед добавлением нового матча
@@ -735,8 +727,8 @@ export const createMatch = async (match: any) => {
       matchCode: newMatch.code,
     })
 
-    // Возвращаем код матча для пользовательского интерфейса
-    return newMatch.code
+    // Shared links use the canonical UUID on every device.
+    return newMatch.id
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err))
     logEvent("error", tSync("logMessages.errorCreatingMatch", { error: error.message }), "createMatch", {
@@ -1053,247 +1045,121 @@ function uniqueChannelName(base: string): string {
 }
 
 export const subscribeToMatchUpdates = (idOrCode: string, callback: any) => {
-  if (typeof window === "undefined") return () => { }
-
-  let unsubscribe: (() => void) | null = null
-  // Компонент может размонтироваться ДО того, как асинхронная настройка
-  // подписки завершится (быстрый уход со страницы). Без флага cleanup
-  // отработал бы вхолостую, а канал/интервал утекли бы навсегда.
+  if (typeof window === "undefined") return () => {}
   let disposed = false
-  const teardown = () => {
-    if (unsubscribe) unsubscribe()
-    unsubscribe = null
-  }
-
-  // Проверяем доступность Supabase
-  isSupabaseAvailable().then(async (supabaseAvailable) => {
-    if (disposed) return
-    if (supabaseAvailable) {
-      // Проверяем существование таблиц
-      const tablesStatus = await checkTablesExist()
-
-      if (tablesStatus.exists) {
-        // Проверяем и включаем Realtime
-        await checkAndEnableRealtime()
-
-        // Сначала получаем полную информацию о матче, чтобы иметь ID для подписки
-        const match = await getMatch(idOrCode)
-        if (!match) {
-          logEvent("warn", tSync("logMessages.matchNotFoundForSubscribe", { id: idOrCode }), "subscribeToMatchUpdates")
-          setupLocalSubscription()
-          return
-        }
-
-        const matchId = match.id // Используем UUID для подписки в Supabase
-
-        const supabase = createClientSupabaseClient()
-
-        // Ушли со страницы, пока шла асинхронная настройка — не подписываемся.
-        if (disposed) return
-
-        // Подписываемся на изменения матча в Supabase
-        const channel = supabase
-          .channel(uniqueChannelName(`match-${matchId}`))
-          .on(
-            "postgres_changes",
-            {
-              event: "*", // Слушаем все события (INSERT, UPDATE, DELETE)
-              schema: "public",
-              table: "matches",
-              filter: `id=eq.${matchId}`,
-            },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            async (payload: any) => {
-              logEvent("debug", tSync("logMessages.supabaseEventReceived", { id: matchId }), "subscribeToMatchUpdates", payload)
-
-              if (payload.eventType === "DELETE") {
-                // Если матч был удален
-                matchCache.delete(matchId)
-                if (match.code) {
-                  matchCache.delete(match.code)
-                }
-                callback(null)
-              } else {
-                // Для INSERT или UPDATE получаем обновленные данные
-                // Преобразуем данные из Supabase
-                const updatedMatch = transformMatchFromSupabase(payload.new)
-
-                // Держим журнал операций в актуальном состоянии по ревизии сервера.
-                reconcileServerSnapshot(updatedMatch)
-
-                // Обновляем кэш
-                matchCache.set(matchId, { data: updatedMatch, timestamp: Date.now() })
-                if (updatedMatch.code) {
-                  matchCache.set(updatedMatch.code, { data: updatedMatch, timestamp: Date.now() })
-                }
-
-                callback(updatedMatch)
-              }
-            },
-          )
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .subscribe((status: any) => {
-            logEvent("info", tSync("logMessages.subscribeStatus", { id: matchId, status }), "subscribeToMatchUpdates")
-          })
-
-        // Сохраняем функцию отписки
-        unsubscribe = () => {
-          logEvent("info", tSync("logMessages.unsubscribeMatch", { id: matchId }), "subscribeToMatchUpdates")
-          supabase.removeChannel(channel)
-        }
-        if (disposed) teardown() // размонтировались, пока канал настраивался
-      } else {
-        logEvent("warn", tSync("logMessages.tablesNotExistLocalSubscribe"), "subscribeToMatchUpdates")
-        setupLocalSubscription()
+  let cleanup = () => {}
+  void (async () => {
+    const initial = await getMatch(idOrCode)
+    if (disposed || !initial?.id) return
+    const matchId = initial.id
+    const supabase = createClientSupabaseClient()
+    if (!supabase) return
+    let polling = false
+    let controller: AbortController | null = null
+    let lastRevision = -1
+    const receive = (row: any) => {
+      if (disposed) return
+      if (!row) {
+        matchCache.delete(matchId)
+        callback(null)
+        return
       }
-    } else {
-      logEvent("warn", tSync("logMessages.supabaseUnavailableLocalSubscribe"), "subscribeToMatchUpdates")
-      setupLocalSubscription()
+      const server = transformMatchFromSupabase(row)
+      if (server.revision < lastRevision) return
+      lastRevision = server.revision
+      reconcileServerSnapshot(server)
+      const view = getMatchDisplaySnapshot(server)
+      matchCache.set(matchId, { data: view, timestamp: Date.now() })
+      if (initial.code) matchCache.set(initial.code, { data: view, timestamp: Date.now() })
+      callback(server)
     }
-  })
-
-  // Функция для настройки локальной подписки
-  const setupLocalSubscription = () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleStorageChange = async (event: any) => {
-      if (event.key === `match_${idOrCode}` || event.key === "tennis_padel_matches" || !event.key) {
-        const match = await getMatch(idOrCode)
-        if (match) {
-          callback(match)
-        }
+    const poll = async () => {
+      if (disposed || polling || (typeof navigator !== "undefined" && !navigator.onLine)) return
+      polling = true
+      controller = new AbortController()
+      const timer = setTimeout(() => controller?.abort(), 5000)
+      try {
+        const result = await supabase.from("matches").select("*").eq("id", matchId)
+          .maybeSingle().abortSignal(controller.signal)
+        if (!result.error) receive(result.data)
+      } catch {
+        // Keep the last confirmed state while connectivity recovers.
+      } finally {
+        clearTimeout(timer)
+        polling = false
       }
     }
-
-    window.addEventListener("storage", handleStorageChange)
-
-    // Также настраиваем периодическую проверку обновлений
-    const interval = setInterval(async () => {
-      const match = await getMatch(idOrCode)
-      if (match) {
-        callback(match)
-      }
-    }, 3000) // Уменьшаем интервал до 3 секунд для более частых проверок
-
-    // Обновляем функцию отписки
-    unsubscribe = () => {
-      window.removeEventListener("storage", handleStorageChange)
+    const channel = supabase.channel(uniqueChannelName("match-" + matchId))
+      .on("postgres_changes", { event: "*", schema: "public", table: "matches", filter: "id=eq." + matchId },
+        (payload: any) => receive(payload.eventType === "DELETE" ? null : payload.new))
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") void poll() // close the load/subscribe gap, including reconnects
+      })
+    const interval = setInterval(() => void poll(), 3000)
+    const recover = () => void poll()
+    window.addEventListener("online", recover)
+    window.addEventListener("focus", recover)
+    cleanup = () => {
       clearInterval(interval)
+      controller?.abort()
+      window.removeEventListener("online", recover)
+      window.removeEventListener("focus", recover)
+      void supabase.removeChannel(channel)
     }
-    if (disposed) teardown() // размонтировались, пока шла настройка
-  }
-
-  // Возвращаем функцию отписки
-  return () => {
-    disposed = true
-    teardown()
-  }
+    if (disposed) cleanup()
+    else void poll()
+  })().catch(error => {
+    logEvent("warn", "Match subscription setup failed", "subscribeToMatchUpdates", error)
+  })
+  return () => { disposed = true; cleanup() }
 }
 
 // Подписка на обновления списка матчей в реальном времени
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const subscribeToMatchesListUpdates = (callback: any) => {
-  if (typeof window === "undefined") return () => { }
-
-  // Асинхронная настройка возвращала cleanup из промиса «в никуда» — никто
-  // его не вызывал, и каждый монтированный список матчей навсегда оставлял
-  // realtime-канал либо интервал+storage-listener. Ведём teardown явно.
-  let unsubscribe: (() => void) | null = null
+  if (typeof window === "undefined") return () => {}
   let disposed = false
-  const teardown = () => {
-    if (unsubscribe) unsubscribe()
-    unsubscribe = null
+  let inFlight = false
+  let emitTimer: ReturnType<typeof setTimeout> | null = null
+  let lastPayload: any = null
+  const refresh = async () => {
+    if (disposed || inFlight) return
+    inFlight = true
+    const payload = lastPayload
+    lastPayload = null
+    try {
+      const matches = await getMatches({ probe: false })
+      if (!disposed) callback(matches, payload)
+    } finally {
+      inFlight = false
+    }
   }
-
-  // Проверяем доступность Supabase
-  isSupabaseAvailable().then(async (supabaseAvailable) => {
-    if (disposed) return
-    if (supabaseAvailable) {
-      // Проверяем существование таблиц
-      const tablesStatus = await checkTablesExist()
-
-      if (tablesStatus.exists) {
-        // Проверяем и включаем Realtime
-        await checkAndEnableRealtime()
-
-        const supabase = createClientSupabaseClient()
-
-        // Ушли со страницы, пока шла асинхронная настройка — не подписываемся.
-        if (disposed) return
-
-        // Схлопываем пачки событий в один перезапрос (фикс 2026-09-04):
-        // каждое очко — это UPDATE, и старый колбэк на КАЖДОЕ событие гонял
-        // getMatches с сетевыми пробами + SELECT 50 матчей. Теперь не чаще
-        // раза в 500 мс, без проб (realtime уже подключён), и подписчику
-        // передаётся payload события (колбэк может фильтровать по нему).
-        let lastPayload: any = null
-        let emitTimer: ReturnType<typeof setTimeout> | null = null
-        const emit = () => {
-          if (emitTimer !== null) return
-          emitTimer = setTimeout(() => {
-            emitTimer = null
-            void getMatches({ probe: false }).then((matches) => callback(matches, lastPayload))
-          }, 500)
-        }
-
-        // Подписываемся на изменения списка матчей в Supabase
-        const subscription = supabase
-          .channel(uniqueChannelName("matches-list"))
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "matches",
-            },
-            (payload: any) => {
-              lastPayload = payload
-              emit()
-            },
-          )
-          .subscribe()
-
-        unsubscribe = () => {
-          if (emitTimer !== null) {
-            clearTimeout(emitTimer)
-            emitTimer = null
-          }
-          supabase.removeChannel(subscription)
-        }
-        if (disposed) teardown()
-        return
-      } else {
-        logEvent(
-          "warn",
-          tSync("logMessages.tablesNotExistLocalSubscribe"),
-          "subscribeToMatchesListUpdates",
-        )
-      }
-    } else {
-      logEvent("warn", tSync("logMessages.supabaseUnavailableLocalSubscribe"), "subscribeToMatchesListUpdates")
-    }
-
-    // Если Supabase недоступен или таблицы не существуют, настраиваем локальную подписку через событие storage
-    const handleStorageChange = async () => {
-      const matches = await getMatches()
-      callback(matches)
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-
-    // Также настраиваем периодическую проверку обновлений
-    const interval = setInterval(handleStorageChange, 5000)
-
-    unsubscribe = () => {
-      window.removeEventListener("storage", handleStorageChange)
-      clearInterval(interval)
-    }
-    if (disposed) teardown()
-  })
-
-  // Возвращаем функцию отписки
+  const emit = () => {
+    if (disposed || emitTimer !== null) return
+    emitTimer = setTimeout(() => { emitTimer = null; void refresh() }, 500)
+  }
+  // Realtime is the fast path; polling and foreground/reconnect close any
+  // missed-event gap, including an initially offline subscription.
+  const supabase = createClientSupabaseClient()
+  const subscription = supabase?.channel(uniqueChannelName("matches-list"))
+    .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, (payload: any) => {
+      lastPayload = payload
+      emit()
+    })
+    .subscribe((status: string) => { if (status === "SUBSCRIBED") emit() })
+  const interval = setInterval(emit, 5000)
+  window.addEventListener("online", emit)
+  window.addEventListener("focus", emit)
+  window.addEventListener("storage", emit)
+  emit()
   return () => {
     disposed = true
-    teardown()
+    if (emitTimer !== null) clearTimeout(emitTimer)
+    clearInterval(interval)
+    window.removeEventListener("online", emit)
+    window.removeEventListener("focus", emit)
+    window.removeEventListener("storage", emit)
+    if (subscription) supabase?.removeChannel(subscription)
   }
 }
 

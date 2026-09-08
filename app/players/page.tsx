@@ -15,6 +15,7 @@ import { OfflineNotice } from "@/components/offline-notice"
 import { getPlayers, addPlayer, deletePlayers, subscribeToPlayersUpdates, updatePlayer } from "@/lib/player-storage"
 import { getMatches, updateMatch } from "@/lib/match-storage"
 import { applyPlayerToMatch } from "@/lib/player-live-sync"
+import { syncMatchCommand } from "@/lib/match-sync"
 import { CountryCombobox } from "@/components/country-combobox"
 import {
   AlertDialog,
@@ -274,8 +275,9 @@ export default function PlayersPage() {
               if (m?.isCompleted) continue
               const next = applyPlayerToMatch(m, livePlayer as any)
               if (next !== m) {
-                next.revision = (typeof m.revision === "number" ? m.revision : 0) + 1
-                await updateMatch(next)
+                next.revision = typeof m.revision === "number" ? m.revision : 0
+                syncMatchCommand(next, "set-rosters", { teamA: next.teamA, teamB: next.teamB }, "players-page")
+                await updateMatch(next, { localOnly: true })
                 synced++
               }
             }

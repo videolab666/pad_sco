@@ -550,6 +550,7 @@ function NewMatchPageContent() {
     // на ошибке сбрасываем, чтобы можно было повторить.
     try {
       const matchId = await createMatch(match)
+      if (!matchId) throw new Error("Матч не создан")
       router.push(`/match/${matchId}`)
     } catch (err) {
       console.error("Ошибка создания матча:", err)

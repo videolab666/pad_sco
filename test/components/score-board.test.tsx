@@ -78,6 +78,7 @@ describe("ScoreBoard component", () => {
     render(<ScoreBoard match={makeMatch({ isCompleted: true, winner: "teamA" })} updateMatch={updateMatch} />)
 
     const zeros = screen.getAllByRole("button", { name: "0" })
+    expect(zeros[0].hasAttribute("disabled")).toBe(true)
     fireEvent.click(zeros[0])
     expect(updateMatch).not.toHaveBeenCalled()
   })
@@ -98,7 +99,7 @@ describe("ScoreBoard component", () => {
     expect(updated.score.currentSet.currentGame.teamB).toBe(15) // teamB untouched
   })
 
-  it("ignores a stale match prop whose revision is not newer than the local optimistic state", () => {
+  it("ignores a match prop older than the server revision", () => {
     const updateMatch = vi.fn()
     // First paint at revision = 10 — latestMatchRef captures this.
     const initial = makeMatch({ revision: 10 })
@@ -110,11 +111,11 @@ describe("ScoreBoard component", () => {
     fireEvent.click(zeros[0])
     expect(updateMatch).toHaveBeenCalledTimes(1)
 
-    // Simulate a late stale snapshot: parent re-renders with the same revision.
+    // Simulate a late stale snapshot: parent re-renders with an older revision.
     // Without the revision guard in
     // the useEffect this would clobber the optimistic 15 — slow-network
     // flicker — and the next click would start from a stale base.
-    rerender(<ScoreBoard match={makeMatch({ revision: 10 })} updateMatch={updateMatch} />)
+    rerender(<ScoreBoard match={makeMatch({ revision: 9 })} updateMatch={updateMatch} />)
 
     // Optimistic "15" must remain; stale "0" must not have come back.
     const fifteen = screen.queryAllByRole("button", { name: "15" })
@@ -122,5 +123,14 @@ describe("ScoreBoard component", () => {
     const zerosAfter = screen.queryAllByRole("button", { name: "0" })
     // Initially two 0 buttons; after the click only teamB's 0 remains.
     expect(zerosAfter.length).toBeLessThan(2)
+  })
+
+  it("accepts a rejection snapshot at the same authoritative revision", () => {
+    const updateMatch = vi.fn()
+    const { rerender } = render(<ScoreBoard match={makeMatch({ revision: 10 })} updateMatch={updateMatch} />)
+    fireEvent.click(screen.getAllByRole("button", { name: "0" })[0])
+    expect(screen.queryAllByRole("button", { name: "15" }).length).toBeGreaterThan(0)
+    rerender(<ScoreBoard match={makeMatch({ revision: 10 })} updateMatch={updateMatch} />)
+    expect(screen.queryAllByRole("button", { name: "15" })).toHaveLength(0)
   })
 })

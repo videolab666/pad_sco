@@ -128,6 +128,8 @@ export interface Match {
   pendingTiebreakChoice?: PendingTiebreakChoice;
   /** Original snapshot used as the replay seed for richer undo. */
   seedSnapshot?: any;
+  /** Recent idempotency keys committed atomically with the match row. */
+  appliedOperationIds?: string[];
 }
 
 // ─── Extended state (Task 1) ──────────────────────────────────────────────────
@@ -179,6 +181,8 @@ export type MatchEventType =
   | "point"
   | "undo"
   | "manual-score-edit"
+  | "roster-edit"
+  | "side-change"
   | "timer"
   | "timeout"
   | "new-balls"
@@ -363,6 +367,7 @@ export const SYNC_SCHEMA_VERSION = 1;
 /** Classifies what a queued mutation represents. */
 export type MatchOperationKind =
   | "snapshot" // full match snapshot write (current default path)
+  | "command" // semantic command replayed against the latest server state
   | "score" // a single scored point
   | "rule-change" // a settings / rule edit
   | "metadata" // roster / court / round edit
@@ -414,6 +419,9 @@ export interface SyncState {
  * the append-only pending operation queue and sync bookkeeping.
  */
 export interface MatchSyncRecord {
+  commandIndexVersion?: number;
+  /** Latest confirmed server state, separate from the projected local display. */
+  authoritativeSnapshot?: any;
   schemaVersion: number;
   matchId: string;
   clientId: string;

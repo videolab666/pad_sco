@@ -33,11 +33,6 @@ export function ScoreControls({ match, updateMatch }: { match: any; updateMatch:
     return true
   })
 
-  useEffect(() => {
-    if (match?.shouldChangeSides) {
-      changeSides()
-    }
-  }, [match?.shouldChangeSides])
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -62,16 +57,6 @@ export function ScoreControls({ match, updateMatch }: { match: any; updateMatch:
 
   const currentSet = match.score.currentSet
 
-  const changeSides = () => {
-    const updatedMatch = { ...match, history: [] }
-
-    updatedMatch.courtSides = swapCourtSides(updatedMatch.courtSides)
-
-    updatedMatch.shouldChangeSides = false
-
-    updateMatch(updatedMatch)
-  }
-
   const manualSwitchSides = () => {
     const updatedMatch = { ...match, history: [] }
 
@@ -79,7 +64,7 @@ export function ScoreControls({ match, updateMatch }: { match: any; updateMatch:
 
     updatedMatch.shouldChangeSides = false
 
-    updateMatch(updatedMatch)
+    updateMatch(updatedMatch, { command: "switch-sides", args: {}, clientId: "score-controls" })
   }
 
   // Stage 3 / B4: switchServer теперь единый — импортируется из движка.
@@ -91,7 +76,11 @@ export function ScoreControls({ match, updateMatch }: { match: any; updateMatch:
 
     switchServer(updatedMatch)
 
-    updateMatch(updatedMatch)
+    updateMatch(updatedMatch, {
+      command: "set-server",
+      args: { team: updatedMatch.currentServer.team, playerIndex: updatedMatch.currentServer.playerIndex },
+      clientId: "score-controls",
+    })
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

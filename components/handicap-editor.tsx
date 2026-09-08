@@ -44,12 +44,16 @@ export function HandicapEditor({ match, updateMatch }: Props) {
 
   const applySame = () => {
     if (!updateMatch) return
-    updateMatch(setSameHandicap(match, teamA, teamB))
+    updateMatch(setSameHandicap(match, teamA, teamB), {
+      command: "set-handicap",
+      args: { teamA, teamB },
+      clientId: "handicap-editor",
+    })
   }
 
   const clear = () => {
     if (!updateMatch) return
-    updateMatch(clearHandicap(match))
+    updateMatch(clearHandicap(match), { command: "clear-handicap", args: {}, clientId: "handicap-editor" })
   }
 
   const formatLabel = h?.format ?? "none"
